@@ -22,7 +22,8 @@ from app.llm.mock_layer import MockLLMLayer
 from app.workflows.engine import WorkflowEngine
 from app.api.v1.agents import set_registry as set_agents_registry
 from app.api.v1.direct_query import set_registry as set_dq_registry
-from app.api.v1.workflows import set_dependencies as set_workflow_deps, _instances
+from app.api.v1.workflows import set_dependencies as set_workflow_deps
+from app.db.database import create_db_and_tables
 
 
 # === Setup ===
@@ -30,6 +31,7 @@ from app.api.v1.workflows import set_dependencies as set_workflow_deps, _instanc
 
 def _setup():
     """Wire up all dependencies with mock LLM and return TestClient."""
+    create_db_and_tables()
     classification = QueryClassification(
         type="simple_query",
         reasoning="Test classification",
@@ -42,7 +44,6 @@ def _setup():
     set_agents_registry(registry)
     set_dq_registry(registry)
     set_workflow_deps(registry, engine)
-    _instances.clear()
 
     return TestClient(app)
 

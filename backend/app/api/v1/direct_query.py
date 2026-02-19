@@ -36,8 +36,12 @@ def set_registry(registry: AgentRegistry) -> None:
 class DirectQueryRequest(BaseModel):
     """Incoming direct query from the dashboard."""
 
-    query: str = Field(min_length=1, description="Research question")
-    seed_papers: list[str] = Field(default_factory=list, description="Optional DOIs to include")
+    query: str = Field(min_length=1, max_length=2000, description="Research question")
+    seed_papers: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description="Optional DOIs to include",
+    )
 
 
 class DirectQueryResponse(BaseModel):

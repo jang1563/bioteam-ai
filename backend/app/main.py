@@ -10,8 +10,9 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
 from app.api.v1.direct_query import router as dq_router
@@ -20,6 +21,8 @@ from app.api.v1.agents import router as agents_router
 from app.api.v1.workflows import router as workflows_router
 from app.api.v1.backup import router as backup_router
 from app.db.database import create_db_and_tables
+from app.middleware.auth import APIKeyAuthMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.workflows.engine import WorkflowEngine
 
 # Import all SQL models so SQLModel metadata registers them
@@ -87,7 +90,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS for local frontend
+# Middleware (order matters: first added = outermost)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -95,6 +98,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(APIKeyAuthMiddleware)
+app.add_middleware(RateLimitMiddleware, global_rpm=60, expensive_rpm=10)
+
+# Global exception handler — prevent internal details from leaking
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Let FastAPI handle HTTPExceptions normally (preserves status codes like 404, 503)
+    if isinstance(exc, HTTPException):
+        raise exc
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error."},
+    )
+
 
 # Routes
 app.include_router(health_router)

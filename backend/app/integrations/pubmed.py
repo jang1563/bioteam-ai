@@ -83,8 +83,10 @@ class PubMedClient:
             retmax=max_results,
             sort=sort,
         )
-        search_results = Entrez.read(handle)
-        handle.close()
+        try:
+            search_results = Entrez.read(handle)
+        finally:
+            handle.close()
 
         pmids = search_results.get("IdList", [])
         if not pmids:
@@ -110,7 +112,10 @@ class PubMedClient:
             rettype="medline",
             retmode="text",
         )
-        records = Medline.parse(handle)
+        try:
+            records = list(Medline.parse(handle))
+        finally:
+            handle.close()
 
         papers = []
         for record in records:
@@ -126,7 +131,6 @@ class PubMedClient:
             )
             papers.append(paper)
 
-        handle.close()
         return papers
 
     @staticmethod

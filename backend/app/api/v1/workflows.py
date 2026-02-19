@@ -4,16 +4,22 @@ GET /api/v1/workflows/{id} — full WorkflowInstance
 GET /api/v1/workflows/{id}/steps/{step_id} — step checkpoint result
 POST /api/v1/workflows — create + start a workflow
 POST /api/v1/workflows/{id}/intervene — pause/resume/cancel/inject_note
+
+v5.1: SQLite persistence for workflow state (survives server restarts).
 """
 
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException
+from sqlmodel import Session, select
 
 from app.agents.registry import AgentRegistry
+from app.db.database import engine as db_engine
 from app.models.workflow import WorkflowInstance, DirectorNote
 from app.workflows.engine import WorkflowEngine, IllegalTransitionError
 
@@ -22,7 +28,7 @@ router = APIRouter(prefix="/api/v1", tags=["workflows"])
 # Module-level references, set by main.py at startup
 _registry: AgentRegistry | None = None
 _engine: WorkflowEngine | None = None
-_instances: dict[str, WorkflowInstance] = {}  # In-memory store (Phase 1)
+_lock = asyncio.Lock()  # Protects DB writes from concurrent access
 
 
 def set_dependencies(registry: AgentRegistry, engine: WorkflowEngine) -> None:
@@ -38,16 +44,34 @@ def _get_engine() -> WorkflowEngine:
     return _engine
 
 
+def _get_instance(workflow_id: str) -> WorkflowInstance:
+    """Load a WorkflowInstance from SQLite by ID."""
+    with Session(db_engine) as session:
+        instance = session.get(WorkflowInstance, workflow_id)
+        if instance is None:
+            raise HTTPException(status_code=404, detail=f"Workflow not found: {workflow_id}")
+        session.expunge(instance)
+        return instance
+
+
+def _save_instance(instance: WorkflowInstance) -> None:
+    """Persist a WorkflowInstance to SQLite."""
+    instance.updated_at = datetime.now(timezone.utc)
+    with Session(db_engine) as session:
+        session.merge(instance)
+        session.commit()
+
+
 # === Request / Response Models ===
 
 
 class CreateWorkflowRequest(BaseModel):
     """Request to create a new workflow."""
 
-    template: str  # "W1", "W2", etc.
-    query: str
-    budget: float = 5.0
-    seed_papers: list[str] = Field(default_factory=list)
+    template: str = Field(pattern=r"^W[1-6]$")  # "W1" through "W6"
+    query: str = Field(min_length=1, max_length=2000)
+    budget: float = Field(default=5.0, ge=0.1, le=100.0)
+    seed_papers: list[str] = Field(default_factory=list, max_length=50)
 
 
 class CreateWorkflowResponse(BaseModel):
@@ -84,8 +108,11 @@ class InterveneRequest(BaseModel):
     """Request to intervene in a running workflow."""
 
     action: Literal["pause", "resume", "cancel", "inject_note"]
-    note: str | None = None
-    note_action: str | None = None  # DirectorNoteAction
+    note: str | None = Field(default=None, max_length=2000)
+    note_action: str | None = Field(
+        default=None,
+        pattern=r"^(ADD_PAPER|EXCLUDE_PAPER|MODIFY_QUERY|EDIT_TEXT|FREE_TEXT)$",
+    )
 
 
 class InterveneResponse(BaseModel):
@@ -112,8 +139,8 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
         seed_papers=request.seed_papers,
     )
 
-    # Store in-memory
-    _instances[instance.id] = instance
+    async with _lock:
+        _save_instance(instance)
 
     return CreateWorkflowResponse(
         workflow_id=instance.id,
@@ -126,9 +153,7 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
 @router.get("/workflows/{workflow_id}", response_model=WorkflowStatusResponse)
 async def get_workflow(workflow_id: str) -> WorkflowStatusResponse:
     """Get full workflow status."""
-    instance = _instances.get(workflow_id)
-    if instance is None:
-        raise HTTPException(status_code=404, detail=f"Workflow not found: {workflow_id}")
+    instance = _get_instance(workflow_id)
 
     return WorkflowStatusResponse(
         id=instance.id,
@@ -145,9 +170,7 @@ async def get_workflow(workflow_id: str) -> WorkflowStatusResponse:
 @router.get("/workflows/{workflow_id}/steps/{step_id}", response_model=StepCheckpointResponse)
 async def get_step(workflow_id: str, step_id: str) -> StepCheckpointResponse:
     """Get checkpoint data for a specific workflow step."""
-    instance = _instances.get(workflow_id)
-    if instance is None:
-        raise HTTPException(status_code=404, detail=f"Workflow not found: {workflow_id}")
+    instance = _get_instance(workflow_id)
 
     # Find step in history
     for entry in instance.step_history:
@@ -169,35 +192,38 @@ async def get_step(workflow_id: str, step_id: str) -> StepCheckpointResponse:
 async def intervene(workflow_id: str, request: InterveneRequest) -> InterveneResponse:
     """Pause, resume, cancel, or inject a note into a workflow."""
     engine = _get_engine()
-    instance = _instances.get(workflow_id)
-    if instance is None:
-        raise HTTPException(status_code=404, detail=f"Workflow not found: {workflow_id}")
 
-    try:
-        if request.action == "pause":
-            engine.pause(instance)
-            detail = "Workflow paused"
-        elif request.action == "resume":
-            engine.resume(instance)
-            detail = "Workflow resumed"
-        elif request.action == "cancel":
-            engine.cancel(instance)
-            detail = "Workflow cancelled"
-        elif request.action == "inject_note":
-            if not request.note:
-                raise HTTPException(status_code=400, detail="Note text required for inject_note")
-            note = DirectorNote(
-                text=request.note,
-                action=request.note_action or "FREE_TEXT",
-            )
-            notes = list(instance.injected_notes)
-            notes.append(note.model_dump())
-            instance.injected_notes = notes
-            detail = f"Note injected: {request.note[:80]}"
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown action: {request.action}")
-    except IllegalTransitionError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    async with _lock:
+        instance = _get_instance(workflow_id)
+
+        try:
+            if request.action == "pause":
+                engine.pause(instance)
+                detail = "Workflow paused"
+            elif request.action == "resume":
+                engine.resume(instance)
+                detail = "Workflow resumed"
+            elif request.action == "cancel":
+                engine.cancel(instance)
+                detail = "Workflow cancelled"
+            elif request.action == "inject_note":
+                if not request.note:
+                    raise HTTPException(status_code=400, detail="Note text required for inject_note")
+                note = DirectorNote(
+                    text=request.note,
+                    action=request.note_action or "FREE_TEXT",
+                )
+                notes = list(instance.injected_notes)
+                notes.append(note.model_dump(mode="json"))
+                instance.injected_notes = notes
+                detail = f"Note injected: {request.note[:80]}"
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown action: {request.action}")
+
+            _save_instance(instance)
+
+        except IllegalTransitionError as e:
+            raise HTTPException(status_code=409, detail=str(e))
 
     return InterveneResponse(
         workflow_id=workflow_id,

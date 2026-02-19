@@ -13,16 +13,17 @@ from app.main import app
 from app.agents.registry import create_registry
 from app.llm.mock_layer import MockLLMLayer
 from app.workflows.engine import WorkflowEngine
-from app.api.v1.workflows import set_dependencies, _instances
+from app.api.v1.workflows import set_dependencies
+from app.db.database import create_db_and_tables
 
 
 def _setup():
     """Wire up dependencies for testing."""
+    create_db_and_tables()
     mock = MockLLMLayer()
     registry = create_registry(mock)
     engine = WorkflowEngine()
     set_dependencies(registry, engine)
-    _instances.clear()
     return TestClient(app)
 
 

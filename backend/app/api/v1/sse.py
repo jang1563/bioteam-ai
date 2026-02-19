@@ -43,6 +43,8 @@ class SSEHub:
             return hub.create_response()
     """
 
+    MAX_SUBSCRIBERS = 50  # Safety cap to prevent unbounded growth
+
     def __init__(self) -> None:
         self._subscribers: list[asyncio.Queue[SSEEvent | None]] = []
 
@@ -55,7 +57,18 @@ class SSEHub:
 
         Returns:
             Queue that receives SSEEvent objects. None signals disconnect.
+
+        Raises:
+            RuntimeError: If MAX_SUBSCRIBERS limit is reached.
         """
+        if len(self._subscribers) >= self.MAX_SUBSCRIBERS:
+            # Evict oldest subscriber before adding new one
+            oldest = self._subscribers.pop(0)
+            try:
+                oldest.put_nowait(None)
+            except asyncio.QueueFull:
+                pass
+
         queue: asyncio.Queue[SSEEvent | None] = asyncio.Queue(maxsize=100)
         self._subscribers.append(queue)
         return queue
@@ -110,18 +123,25 @@ class SSEHub:
     async def event_generator(
         self,
         queue: asyncio.Queue[SSEEvent | None],
+        heartbeat_interval: float = 30.0,
     ) -> AsyncGenerator[str, None]:
         """Generate SSE-formatted strings from a subscriber queue.
+
+        Sends periodic heartbeat comments to detect disconnected clients.
 
         Yields:
             SSE-formatted event strings (event: type\\ndata: json\\n\\n)
         """
         try:
             while True:
-                event = await queue.get()
-                if event is None:
-                    break
-                yield _format_sse(event)
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=heartbeat_interval)
+                    if event is None:
+                        break
+                    yield _format_sse(event)
+                except asyncio.TimeoutError:
+                    # SSE heartbeat comment — keeps connection alive and detects dead clients
+                    yield ": heartbeat\n\n"
         finally:
             self.unsubscribe(queue)
 

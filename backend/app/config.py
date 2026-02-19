@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     ncbi_api_key: str = ""
     ncbi_email: str = ""
     s2_api_key: str = ""
+    bioteam_api_key: str = ""  # Empty = auth disabled (dev mode)
 
     # Database
     database_url: str = "sqlite:///data/bioteam.db"

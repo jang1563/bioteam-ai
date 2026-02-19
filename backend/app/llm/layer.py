@@ -11,6 +11,9 @@ v4.2 changes:
 
 from __future__ import annotations
 
+import asyncio
+import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -20,6 +23,8 @@ from pydantic import BaseModel
 from typing import Any, Literal
 
 from app.config import MODEL_MAP, ModelTier, settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,6 +44,104 @@ class LLMResponse:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class CircuitBreaker:
+    """Simple circuit breaker for external API calls.
+
+    States: CLOSED (normal) → OPEN (fail-fast) → HALF_OPEN (probe).
+    Opens after `failure_threshold` consecutive failures.
+    Auto-resets to HALF_OPEN after `reset_timeout` seconds.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(self, failure_threshold: int = 5, reset_timeout: float = 60.0) -> None:
+        self.failure_threshold = failure_threshold
+        self.reset_timeout = reset_timeout
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._last_failure_time: float = 0.0
+
+    @property
+    def state(self) -> str:
+        if self._state == self.OPEN:
+            if time.monotonic() - self._last_failure_time >= self.reset_timeout:
+                self._state = self.HALF_OPEN
+        return self._state
+
+    def record_success(self) -> None:
+        self._failure_count = 0
+        self._state = self.CLOSED
+
+    def record_failure(self) -> None:
+        self._failure_count += 1
+        self._last_failure_time = time.monotonic()
+        if self._failure_count >= self.failure_threshold:
+            self._state = self.OPEN
+            logger.warning("Circuit breaker OPEN after %d consecutive failures", self._failure_count)
+
+    def allow_request(self) -> bool:
+        state = self.state
+        if state == self.CLOSED:
+            return True
+        if state == self.HALF_OPEN:
+            return True  # Allow one probe request
+        return False
+
+
+class CircuitBreakerOpenError(Exception):
+    """Raised when the circuit breaker is open and rejecting requests."""
+
+
+async def _retry_with_backoff(
+    coro_factory,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 30.0,
+    circuit_breaker: CircuitBreaker | None = None,
+):
+    """Retry an async call with exponential backoff.
+
+    Args:
+        coro_factory: Callable that returns a new coroutine each time.
+        max_retries: Maximum number of retries (0 = no retry).
+        base_delay: Initial delay in seconds.
+        max_delay: Maximum delay cap.
+        circuit_breaker: Optional circuit breaker instance.
+
+    Returns:
+        The result of the successful call.
+    """
+    if circuit_breaker and not circuit_breaker.allow_request():
+        raise CircuitBreakerOpenError("Circuit breaker is open. Anthropic API calls temporarily disabled.")
+
+    last_exception = None
+    for attempt in range(max_retries + 1):
+        try:
+            result = await coro_factory()
+            if circuit_breaker:
+                circuit_breaker.record_success()
+            return result
+        except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError) as e:
+            last_exception = e
+            if circuit_breaker:
+                circuit_breaker.record_failure()
+            if attempt < max_retries:
+                delay = min(base_delay * (2 ** attempt), max_delay)
+                logger.warning("LLM call attempt %d/%d failed (%s), retrying in %.1fs", attempt + 1, max_retries + 1, type(e).__name__, delay)
+                await asyncio.sleep(delay)
+            else:
+                raise
+        except Exception as e:
+            # Non-retryable errors (auth, bad request, etc.)
+            if circuit_breaker:
+                circuit_breaker.record_failure()
+            raise
+
+    raise last_exception  # type: ignore[misc]
+
+
 class LLMLayer:
     """Centralized LLM access for all agents.
 
@@ -47,14 +150,13 @@ class LLMLayer:
     - complete_raw: Free-text or tool-use (direct Anthropic SDK)
     - complete_with_tools: Agentic tool-use loop (multi-turn)
 
-    v4.2: All methods accept temperature (default 0.0 for deterministic,
-    reproducible outputs). Use temperature > 0 only for creative tasks
-    like hypothesis generation or manuscript drafting.
+    Includes circuit breaker and retry with exponential backoff for resilience.
     """
 
     def __init__(self) -> None:
         self.raw_client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self.client = instructor.from_anthropic(self.raw_client)
+        self.circuit_breaker = CircuitBreaker(failure_threshold=5, reset_timeout=60.0)
 
     async def complete_structured(
         self,
@@ -91,7 +193,11 @@ class LLMLayer:
         if system:
             kwargs["system"] = system
 
-        result, raw_response = await self.client.messages.create_with_completion(**kwargs)
+        result, raw_response = await _retry_with_backoff(
+            coro_factory=lambda: self.client.messages.create_with_completion(**kwargs),
+            max_retries=3,
+            circuit_breaker=self.circuit_breaker,
+        )
 
         meta = self._extract_metadata(raw_response, model_tier)
         return result, meta
@@ -128,7 +234,12 @@ class LLMLayer:
             kwargs["system"] = system
         if tools:
             kwargs["tools"] = tools
-        response = await self.raw_client.messages.create(**kwargs)
+
+        response = await _retry_with_backoff(
+            coro_factory=lambda: self.raw_client.messages.create(**kwargs),
+            max_retries=3,
+            circuit_breaker=self.circuit_breaker,
+        )
 
         meta = self._extract_metadata(response, model_tier)
         return response, meta

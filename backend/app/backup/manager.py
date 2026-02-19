@@ -11,6 +11,7 @@ Design:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +33,13 @@ class BackupManager:
         self.max_backups = max_backups
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _sanitize_label(label: str) -> str:
+        """Sanitize backup label to prevent path traversal and injection."""
+        # Strip path separators and dangerous chars, keep alphanumeric + hyphen/underscore
+        sanitized = re.sub(r"[^a-zA-Z0-9_\-]", "", label)
+        return sanitized[:64]  # Limit length
+
     def create_backup(self, label: str = "") -> Path:
         """Create a timestamped backup of SQLite + ChromaDB.
 
@@ -40,7 +48,9 @@ class BackupManager:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         name = f"backup_{timestamp}"
         if label:
-            name = f"backup_{timestamp}_{label}"
+            safe_label = self._sanitize_label(label)
+            if safe_label:
+                name = f"backup_{timestamp}_{safe_label}"
 
         backup_path = self.backup_dir / name
         backup_path.mkdir(parents=True, exist_ok=True)
