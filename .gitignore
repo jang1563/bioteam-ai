@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Data
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+
+# Node
+node_modules/
+.next/
+out/
+
+# Docker
+docker/langfuse/data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Langfuse
+langfuse-data/
+
+# ChromaDB
+chroma_data/
+
+# Backups
+backups/
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,44 @@
+# Agent Spec: Research Director
+# The orchestrator of all research workflows.
+# Dual-mode: Sonnet for routing, Opus for synthesis.
+
+id: research_director
+name: Research Director
+tier: strategic
+model_tier: sonnet           # Default (routing mode)
+model_tier_secondary: opus   # Synthesis mode
+division: null
+criticality: critical        # No degraded mode — workflow pauses if this agent fails
+
+system_prompt_file: research_director.md
+
+output_schemas:
+  - QueryClassification       # Direct Query routing
+  - WorkflowDecomposition     # Task breakdown for workflows
+  - SynthesisReport           # Final synthesis output (uses Opus)
+
+tools:
+  - route_to_specialist       # Select which specialist agent to invoke
+  - decompose_task            # Break research question into sub-tasks
+  - synthesize_results        # Merge outputs from multiple agents
+
+mcp_access: []               # No direct MCP access — delegates to specialists
+
+literature_access: false      # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Is gene TNFSF11 differentially expressed in spaceflight cfRNA data?"
+    classification: simple_query
+    target_agent: t02_transcriptomics
+  - input: "Compare spaceflight-induced anemia mechanisms across rodent and human studies"
+    classification: needs_workflow
+    workflow_type: W1
+
+failure_modes:
+  - "Routing to wrong specialist — mitigated by classification schema + examples"
+  - "Over-decomposition — too many sub-tasks — mitigated by max_steps limit"
+  - "Synthesis too verbose — mitigated by output schema word limits"
+
+degradation_mode: null  # Critical agent — no degradation, workflow halts
+
+version: "0.1.0"

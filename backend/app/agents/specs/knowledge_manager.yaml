@@ -1,0 +1,44 @@
+# Agent Spec: Knowledge Manager
+# Manages semantic + episodic memory, literature access, and novelty detection.
+
+id: knowledge_manager
+name: Knowledge Manager
+tier: strategic
+model_tier: sonnet
+model_tier_secondary: null
+division: null
+criticality: critical        # All workflows need memory access
+
+system_prompt_file: knowledge_manager.md
+
+output_schemas:
+  - LiteratureSearchResult
+  - MemoryRetrievalResult
+  - NoveltyAssessment
+
+tools:
+  - search_pubmed            # PubMed via Biopython
+  - search_semantic_scholar  # Semantic Scholar API
+  - search_biorxiv           # bioRxiv/medRxiv MCP
+  - query_chromadb           # Semantic memory search
+  - store_in_chromadb        # Store new knowledge
+  - check_novelty            # Compare against existing knowledge
+
+mcp_access:
+  - bioRxiv
+  - Hugging_Face             # For paper search
+
+literature_access: true
+
+few_shot_examples:
+  - input: "Find papers on spaceflight-induced erythrocyte destruction"
+    expected: "Search PubMed + Semantic Scholar, filter by relevance, return structured results"
+
+failure_modes:
+  - "PubMed API rate limit hit — mitigated by backoff + NCBI API key"
+  - "ChromaDB returns irrelevant results — mitigated by DOI dedup + relevance threshold"
+  - "Novelty assessment too conservative — mitigated by threshold tuning"
+
+degradation_mode: null  # Critical agent — no degradation
+
+version: "0.1.0"

@@ -1,0 +1,29 @@
+# Agent Spec: Project Manager
+# Lightweight task tracking and timeline management.
+
+id: project_manager
+name: Project Manager
+tier: strategic
+model_tier: haiku
+model_tier_secondary: null
+division: null
+criticality: optional        # Workflows run without PM
+
+system_prompt_file: project_manager.md
+
+output_schemas:
+  - TaskSummary
+  - ProjectStatus
+
+tools: []
+mcp_access: []
+literature_access: false
+
+few_shot_examples: []
+
+failure_modes:
+  - "Status reports become stale — mitigated by event-driven updates"
+
+degradation_mode: "skip"  # If PM unavailable, workflows continue without status updates
+
+version: "0.1.0"

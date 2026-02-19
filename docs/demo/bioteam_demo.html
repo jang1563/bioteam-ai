@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioTeam-AI — Output Demo</title>
+<style>
+:root {
+  --bg-deep: #0a0e1a;
+  --bg-panel: #111827;
+  --bg-card: #1a2235;
+  --bg-hover: #1e2a40;
+  --border: #2a3550;
+  --border-light: #374868;
+  --text: #e2e8f0;
+  --text-dim: #8892a8;
+  --text-muted: #5a6478;
+  --cyan: #22d3ee;
+  --cyan-dim: #0e7490;
+  --teal: #14b8a6;
+  --amber: #f59e0b;
+  --amber-dim: #92600a;
+  --red: #ef4444;
+  --red-dim: #991b1b;
+  --green: #10b981;
+  --green-dim: #065f46;
+  --purple: #a78bfa;
+  --blue: #3b82f6;
+  --pink: #ec4899;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, #0d1525 0%, #111d35 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.logo {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+}
+.logo span { color: var(--text-dim); font-weight: 400; }
+.header-status {
+  display: flex; gap: 16px; align-items: center;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px;
+}
+.status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* Navigation */
+.nav {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  padding: 0 24px;
+}
+.nav-tab {
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.2s;
+  font-family: var(--font-sans);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.nav-tab:hover { color: var(--text); background: var(--bg-hover); }
+.nav-tab.active {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+}
+
+/* Main content */
+.main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+.section { display: none; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.card-subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+/* Grid layouts */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+/* Tags */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.tag-cyan { background: rgba(34,211,238,0.15); color: var(--cyan); }
+.tag-green { background: rgba(16,185,129,0.15); color: var(--green); }
+.tag-amber { background: rgba(245,158,11,0.15); color: var(--amber); }
+.tag-red { background: rgba(239,68,68,0.15); color: var(--red); }
+.tag-purple { background: rgba(167,139,250,0.15); color: var(--purple); }
+.tag-blue { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+/* Metric boxes */
+.metric {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--cyan);
+}
+.metric-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+/* Progress bars */
+.progress-bar {
+  height: 6px;
+  background: var(--bg-deep);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(42,53,80,0.5);
+  font-size: 13px;
+}
+tr:hover td { background: var(--bg-hover); }
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  transition: all 0.2s;
+  font-family: var(--font-sans);
+}
+.btn:hover { background: var(--bg-hover); border-color: var(--border-light); }
+.btn-primary { background: var(--cyan-dim); border-color: var(--cyan); color: white; }
+.btn-primary:hover { background: var(--cyan); color: var(--bg-deep); }
+.btn-danger { border-color: var(--red-dim); color: var(--red); }
+.btn-danger:hover { background: var(--red-dim); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; }
+
+/* Expandable */
+.expandable-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+.expandable-header:hover { color: var(--cyan); }
+.expandable-arrow { transition: transform 0.2s; font-size: 10px; }
+.expandable-arrow.open { transform: rotate(90deg); }
+.expandable-content {
+  display: none;
+  padding: 8px 0 8px 20px;
+  border-left: 2px solid var(--border);
+  margin-left: 4px;
+}
+.expandable-content.open { display: block; }
+
+/* Agent grid */
+.agent-cell {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  transition: all 0.2s;
+}
+.agent-cell:hover { border-color: var(--cyan-dim); }
+.agent-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.agent-dot.active { background: var(--green); box-shadow: 0 0 4px var(--green); }
+.agent-dot.idle { background: var(--text-muted); }
+.agent-dot.busy { background: var(--amber); box-shadow: 0 0 4px var(--amber); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Pipeline visualization */
+.pipeline { display: flex; align-items: center; gap: 0; margin: 20px 0; overflow-x: auto; padding: 10px 0; }
+.pipeline-step {
+  display: flex; flex-direction: column; align-items: center; min-width: 90px; position: relative;
+}
+.pipeline-node {
+  width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; border: 2px solid var(--border); background: var(--bg-card); position: relative; z-index: 2;
+  transition: all 0.3s;
+}
+.pipeline-node.done { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.pipeline-node.current { border-color: var(--cyan); background: rgba(34,211,238,0.15); color: var(--cyan); box-shadow: 0 0 12px rgba(34,211,238,0.3); animation: pulse 2s infinite; }
+.pipeline-node.waiting { border-color: var(--amber); background: rgba(245,158,11,0.1); color: var(--amber); }
+.pipeline-node.pending { opacity: 0.4; }
+.pipeline-label { font-size: 10px; margin-top: 6px; color: var(--text-dim); text-align: center; font-family: var(--font-mono); }
+.pipeline-connector {
+  width: 30px; height: 2px; background: var(--border); margin-bottom: 20px; flex-shrink: 0;
+}
+.pipeline-connector.done { background: var(--green); }
+.pipeline-connector.active { background: var(--cyan); }
+
+/* Radar chart container */
+.radar-container { display: flex; justify-content: center; align-items: center; gap: 40px; flex-wrap: wrap; }
+.radar-wrap { text-align: center; }
+.radar-wrap canvas { display: block; margin: 0 auto; }
+.radar-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.radar-subtitle { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+
+/* Score cells */
+.score-cell { font-family: var(--font-mono); font-weight: 600; }
+.score-high { color: var(--green); }
+.score-mid { color: var(--amber); }
+.score-low { color: var(--red); }
+.score-null { color: var(--text-muted); }
+
+/* Activity feed */
+.feed-item {
+  display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(42,53,80,0.3);
+}
+.feed-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); min-width: 55px; flex-shrink: 0; }
+.feed-icon { font-size: 14px; flex-shrink: 0; width: 20px; text-align: center; }
+.feed-text { font-size: 13px; color: var(--text-dim); }
+.feed-text strong { color: var(--text); }
+
+/* Highlight spans */
+.hl-phrase {
+  background: rgba(245,158,11,0.2);
+  border-bottom: 1px dashed var(--amber);
+  padding: 0 2px;
+}
+
+/* Section headers */
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.section-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+
+/* Contradiction viz */
+.contra-vs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.contra-claim {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.contra-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--amber);
+  font-weight: 700;
+  padding-top: 30px;
+}
+
+/* Hypothesis cards */
+.hypo-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative;
+}
+.hypo-rank {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  background: var(--cyan);
+  color: var(--bg-deep);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+}
+.hypo-scores {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+}
+.hypo-score-item {
+  background: var(--bg-deep);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+/* Cost chart bars */
+.cost-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.cost-bar-label { width: 120px; font-size: 12px; color: var(--text-dim); text-align: right; }
+.cost-bar-track { flex: 1; height: 20px; background: var(--bg-deep); border-radius: 4px; position: relative; overflow: hidden; }
+.cost-bar-actual {
+  height: 100%; border-radius: 4px; position: absolute; top: 0; left: 0;
+  display: flex; align-items: center; padding-left: 8px;
+  font-size: 10px; font-family: var(--font-mono); color: white; font-weight: 600;
+}
+.cost-bar-estimated {
+  position: absolute; top: 0; height: 100%; border-right: 2px dashed var(--text-muted);
+}
+.cost-bar-value { width: 60px; font-size: 12px; font-family: var(--font-mono); text-align: right; }
+
+/* Responsive */
+/* Sheet (slide-over panel) */
+.sheet-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 200;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.sheet-overlay.open { opacity: 1; pointer-events: all; }
+.sheet-panel {
+  position: fixed; top: 0; right: -480px; width: 470px; height: 100vh;
+  background: var(--bg-panel); border-left: 1px solid var(--border);
+  z-index: 201; overflow-y: auto; transition: right 0.35s cubic-bezier(0.16,1,0.3,1);
+  box-shadow: -8px 0 30px rgba(0,0,0,0.4);
+}
+.sheet-panel.open { right: 0; }
+.sheet-header {
+  padding: 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: start;
+  position: sticky; top: 0; background: var(--bg-panel); z-index: 5;
+}
+.sheet-close {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-dim); cursor: pointer; padding: 4px 10px; font-size: 16px;
+  transition: all 0.2s;
+}
+.sheet-close:hover { color: var(--text); border-color: var(--border-light); background: var(--bg-hover); }
+.sheet-body { padding: 20px; }
+.sheet-section { margin-bottom: 20px; }
+.sheet-section-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 8px;
+}
+.sheet-kv { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(42,53,80,0.3); font-size: 13px; }
+.sheet-kv-label { color: var(--text-dim); }
+.sheet-kv-value { font-family: var(--font-mono); color: var(--text); }
+.capability-tag {
+  display: inline-block; padding: 3px 8px; margin: 2px; border-radius: 4px;
+  font-size: 11px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text-dim);
+}
+.step-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px;
+  border-radius: 6px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s;
+  border: 1px solid transparent;
+}
+.step-row:hover { background: var(--bg-hover); border-color: var(--border); }
+.step-row.expanded { background: var(--bg-card); border-color: var(--border-light); }
+.step-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.step-detail-content {
+  display: none; padding: 12px 12px 12px 48px; font-size: 12px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border); margin-bottom: 6px; line-height: 1.7;
+}
+.step-detail-content.open { display: block; }
+
+/* Clickable styling for agent cells and workflow rows */
+.agent-cell.clickable { cursor: pointer; }
+.agent-cell.clickable:hover { border-color: var(--cyan); background: var(--bg-hover); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(34,211,238,0.1); }
+.wf-row-clickable { cursor: pointer; transition: background 0.15s; }
+.wf-row-clickable:hover td { background: var(--bg-hover) !important; }
+.feed-item.clickable { cursor: pointer; border-radius: 6px; padding: 10px 8px; margin: 0 -8px; }
+.feed-item.clickable:hover { background: var(--bg-hover); }
+
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .contra-vs { grid-template-columns: 1fr; }
+  .contra-divider { padding: 0; transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">BioTeam<span>-AI</span></div>
+    <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono)">v4.0 | Director: JangKeun Kim</span>
+  </div>
+  <div class="header-status">
+    <span><span class="status-dot green"></span>API Connected</span>
+    <span><span class="status-dot green"></span>20/20 Agents+Engines</span>
+    <span style="color:var(--amber)">$12.47 / $50.00 today</span>
+    <span style="color:var(--text-muted)">2026-02-16 14:32 EST</span>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="nav" id="nav">
+  <button class="nav-tab active" onclick="showSection('mission',event)">Mission Control</button>
+  <button class="nav-tab" onclick="showSection('query',event)">Direct Query</button>
+  <button class="nav-tab" onclick="showSection('litrev',event)">W1: Literature Review</button>
+  <button class="nav-tab" onclick="showSection('rcmxt',event)">RCMXT Scoring</button>
+  <button class="nav-tab" onclick="showSection('contradiction',event)">Contradictions</button>
+  <button class="nav-tab" onclick="showSection('hypothesis',event)">W2: Hypotheses</button>
+  <button class="nav-tab" onclick="showSection('workflow',event)">Workflow Tracker</button>
+  <button class="nav-tab" onclick="showSection('negative',event)">Negative Results</button>
+  <button class="nav-tab" onclick="showSection('cost',event)">Cost Analytics</button>
+  <button class="nav-tab" onclick="showSection('coldstart',event)">Cold Start Report</button>
+</div>
+
+<div class="main">
+
+<!-- ==================== SECTION 1: MISSION CONTROL ==================== -->
+<div class="section active" id="sec-mission">
+  <div class="section-title">Mission Control</div>
+  <div class="section-desc">System overview and active workflows</div>
+
+  <!-- Metrics row -->
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="metric">
+      <div class="metric-value">3</div>
+      <div class="metric-label">Active Workflows</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--green)">47</div>
+      <div class="metric-label">Papers Processed Today</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--amber)">$12.47</div>
+      <div class="metric-label">Today's Spend</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--purple)">142</div>
+      <div class="metric-label">Knowledge Base Items</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Active Workflows -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Active Workflows</div>
+        <span class="tag tag-cyan">3 RUNNING</span>
+      </div>
+      <table>
+        <tr class="wf-row-clickable" onclick="openWorkflowSheet('w1_anemia')" style="cursor:pointer">
+          <td><span class="tag tag-cyan">W1</span></td>
+          <td>Spaceflight anemia mechanisms</td>
+          <td><span class="tag tag-amber">SYNTHESIZE</span></td>
+          <td style="font-family:var(--font-mono);font-size:12px;color:var(--amber)">$2.40/$5</td>
+        </tr>
+        <tr class="wf-row-clickable" onclick="openWorkflowSheet('w2_cfrna')" style="cursor:pointer">
+          <td><span class="tag tag-purple">W2</span></td>
+          <td>cfRNA biomarker hypothesis</td>
+          <td><span class="tag tag-amber">WAITING_HUMAN</span></td>
+          <td style="font-family:var(--font-mono);font-size:12px;color:var(--amber)">$4.80/$15</td>
+        </tr>
+        <tr class="wf-row-clickable" onclick="openWorkflowSheet('w3_deg')" style="cursor:pointer">
+          <td><span class="tag tag-blue">W3</span></td>
+          <td>DEG analysis — JAXA dataset</td>
+          <td><span class="tag tag-cyan">EXECUTE</span></td>
+          <td style="font-family:var(--font-mono);font-size:12px;color:var(--green)">$1.20/$10</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Activity</div>
+        <span class="card-subtitle">Live</span>
+      </div>
+      <div class="feed-item">
+        <div class="feed-time">14:31</div>
+        <div class="feed-icon">&#x1F50D;</div>
+        <div class="feed-text"><strong>Knowledge Manager</strong> found 12 new papers on PubMed for "erythropoiesis spaceflight"</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-time">14:28</div>
+        <div class="feed-icon">&#x26A0;</div>
+        <div class="feed-text"><strong>W2</strong> awaiting Director approval — 3 hypotheses ranked, top: cfRNA-EPO correlation</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-time">14:25</div>
+        <div class="feed-icon">&#x2705;</div>
+        <div class="feed-text"><strong>Statistical Rigor QA</strong> approved W3 analysis plan (power=0.82)</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-time">14:20</div>
+        <div class="feed-icon">&#x1F4CA;</div>
+        <div class="feed-text"><strong>Transcriptomics</strong> generated DESeq2 code for JAXA cfRNA dataset</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-time">14:15</div>
+        <div class="feed-icon">&#x1F9EC;</div>
+        <div class="feed-text"><strong>RCMXT</strong> scored claim "neocytolysis drives spaceflight anemia" — R:0.72 C:0.45 M:0.81 X:NULL T:0.68</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Grid -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Agent Status (18 agents + 2 engines)</div>
+      <div class="btn-group">
+        <span class="tag tag-green" style="font-size:10px">15 IDLE</span>
+        <span class="tag tag-amber" style="font-size:10px">3 BUSY</span>
+        <span class="tag tag-cyan" style="font-size:10px">2 ACTIVE</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+      <div class="agent-cell clickable" onclick="openAgentSheet('research_director')" data-agent="research_director"><span class="agent-dot busy"></span><strong>Research Director</strong><span class="tag tag-purple" style="font-size:9px">OPUS</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('project_manager')" data-agent="project_manager"><span class="agent-dot idle"></span>Project Manager<span class="tag tag-blue" style="font-size:9px">HAIKU</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('knowledge_manager')" data-agent="knowledge_manager"><span class="agent-dot active"></span><strong>Knowledge Manager</strong><span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('exp_designer')" data-agent="exp_designer"><span class="agent-dot idle"></span>Exp. Designer<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('integrative_bio')" data-agent="integrative_bio"><span class="agent-dot idle"></span>Integrative Bio<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t01_genomics')" data-agent="t01_genomics"><span class="agent-dot idle"></span>[1] Genomics<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t02_transcriptomics')" data-agent="t02_transcriptomics"><span class="agent-dot busy"></span><strong>[2] Transcriptomics</strong><span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t03_proteomics')" data-agent="t03_proteomics"><span class="agent-dot idle"></span>[3] Proteomics<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t04_biostats')" data-agent="t04_biostats"><span class="agent-dot idle"></span>[4] Biostatistics<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t05_ml')" data-agent="t05_ml"><span class="agent-dot idle"></span>[5] ML/DL<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t06_systems')" data-agent="t06_systems"><span class="agent-dot idle"></span>[6] Systems Bio<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t07_structural')" data-agent="t07_structural"><span class="agent-dot idle"></span>[7] Structural Bio<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t08_scicomm')" data-agent="t08_scicomm"><span class="agent-dot idle"></span>[8] SciComm<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t09_grants')" data-agent="t09_grants"><span class="agent-dot idle"></span>[9] Grants<span class="tag tag-purple" style="font-size:9px">OPUS</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('t10_data_eng')" data-agent="t10_data_eng"><span class="agent-dot idle"></span>[10] Data Eng<span class="tag tag-blue" style="font-size:9px">HAIKU</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('qa_stat_rigor')" data-agent="qa_stat_rigor"><span class="agent-dot busy"></span><strong>QA: Stat Rigor</strong><span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('qa_bio_plausibility')" data-agent="qa_bio_plausibility"><span class="agent-dot idle"></span>QA: Bio Plausibility<span class="tag tag-cyan" style="font-size:9px">SONNET</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('qa_reproducibility')" data-agent="qa_reproducibility"><span class="agent-dot idle"></span>QA: Reproducibility<span class="tag tag-blue" style="font-size:9px">HAIKU</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('ambiguity_engine')" data-agent="ambiguity_engine" style="border-style:dashed"><span class="agent-dot active"></span>Ambiguity Engine<span class="tag tag-amber" style="font-size:9px">HYBRID</span></div>
+      <div class="agent-cell clickable" onclick="openAgentSheet('nr_module')" data-agent="nr_module" style="border-style:dashed"><span class="agent-dot idle"></span>NR Module<span class="tag tag-amber" style="font-size:9px">HYBRID</span></div>
+    </div>
+  </div>
+
+  <!-- Health -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">/health</div><span class="tag tag-green">ALL OK</span></div>
+    <div style="display:flex;gap:24px;font-size:12px;font-family:var(--font-mono)">
+      <span><span class="status-dot green"></span>Anthropic API (43ms)</span>
+      <span><span class="status-dot green"></span>SQLite (1ms)</span>
+      <span><span class="status-dot green"></span>ChromaDB (8ms)</span>
+      <span><span class="status-dot green"></span>PubMed (210ms)</span>
+      <span><span class="status-dot green"></span>Semantic Scholar (85ms)</span>
+      <span><span class="status-dot green"></span>Langfuse (22ms)</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 2: DIRECT QUERY ==================== -->
+<div class="section" id="sec-query">
+  <div class="section-title">Direct Query Result</div>
+  <div class="section-desc">Single-turn question answered without full workflow (1-3 LLM calls)</div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Query</div>
+        <div style="font-size:15px;margin-top:4px;color:var(--cyan)">Is gene TNFSF11 differentially expressed in spaceflight cfRNA data?</div>
+      </div>
+      <div style="text-align:right">
+        <div class="tag tag-green">COMPLETED</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)">18.2s | $0.23 | 3 LLM calls</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Response</div>
+      <div><span class="tag tag-cyan">Specialist: Transcriptomics</span></div>
+    </div>
+    <div style="line-height:1.8;color:var(--text)">
+      <p><strong>Yes, TNFSF11 (RANKL) shows significant differential expression in spaceflight cfRNA.</strong></p>
+      <p style="margin-top:12px">Based on available data from the NASA GeneLab and published cfRNA studies:</p>
+      <ul style="margin:12px 0 12px 24px;color:var(--text-dim)">
+        <li><strong>Garrett-Bakelman et al. (2019)</strong> — Twins Study: TNFSF11 upregulated 1.8-fold (log2FC=0.85, padj=0.003) in cfRNA at R+0 vs. pre-flight baseline. Returned to baseline by R+6 months.</li>
+        <li><strong>Kim et al. (2024)</strong> — JAXA cfRNA: TNFSF11 among top 50 DEGs (padj=0.01) in ISS crew at R+1, consistent with bone resorption activation.</li>
+        <li><strong>da Silveira et al. (2020)</strong> — Multi-omics integration showed concordant TNFSF11 upregulation at both transcript (cfRNA) and protein (plasma RANKL) levels, supporting biological significance.</li>
+      </ul>
+      <p><strong>Biological context:</strong> TNFSF11/RANKL is a key osteoclast differentiation factor. Its upregulation in cfRNA is consistent with the well-documented spaceflight-induced bone loss and may be linked to the erythropoietic stress response via shared BMP/RANKL signaling in the bone marrow niche.</p>
+      <p style="margin-top:12px"><strong>Caveat:</strong> Sample sizes are small (n=1 for Twins, n=6 for JAXA). Replication in larger cohorts is needed. Internal Lab KB has no negative results for this specific gene.</p>
+    </div>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-family:var(--font-mono)">SOURCES</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:2">
+        1. Garrett-Bakelman FE et al. <em>Science</em> 364(6436), 2019. PMID: 30975860<br>
+        2. Kim J et al. <em>Nature</em> 632, 2024. PMID: 39972177<br>
+        3. da Silveira WA et al. <em>Cell</em> 183(5), 2020. PMID: 33242416
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);margin-bottom:4px">CONFIDENCE</div>
+        <div class="progress-bar" style="height:8px">
+          <div class="progress-fill" style="width:72%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);display:flex;justify-content:space-between">
+          <span>Moderate-High (3 independent sources, small N)</span>
+          <span style="font-family:var(--font-mono)">0.72</span>
+        </div>
+      </div>
+      <button class="btn btn-primary">Escalate to W1 Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 3: LITERATURE REVIEW ==================== -->
+<div class="section" id="sec-litrev">
+  <div class="section-title">W1: Literature Review Report</div>
+  <div class="section-desc">Spaceflight-Induced Anemia Mechanisms | Completed 2026-02-16 13:47</div>
+
+  <!-- Summary metrics -->
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="metric">
+      <div class="metric-value">203</div>
+      <div class="metric-label">Papers Found</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--amber)">47</div>
+      <div class="metric-label">Screened Relevant</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--green)">23</div>
+      <div class="metric-label">Included in Review</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--red)">3</div>
+      <div class="metric-label">Neg. Results Found</div>
+    </div>
+  </div>
+
+  <!-- Key Findings -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Key Findings (Top 5)</div>
+      <div class="card-subtitle">Extracted from 23 papers</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:14px;border-left:3px solid var(--green)">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">Neocytolysis is the primary mechanism of spaceflight anemia</div>
+            <div style="font-size:12px;color:var(--text-dim)">Selective hemolysis of young RBCs (neocytes) occurs within 48h of microgravity exposure, triggered by EPO suppression from fluid redistribution. 54% more RBCs destroyed vs. ground controls.</div>
+          </div>
+          <span class="tag tag-green" style="flex-shrink:0;margin-left:12px">HIGH CONF</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;font-family:var(--font-mono)">
+          Trudel et al. Nature Medicine 2022 | Risso et al. Front Physiol 2014 | Alfrey et al. J Lab Clin Med 1996
+        </div>
+      </div>
+
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:14px;border-left:3px solid var(--amber)">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">Hemolysis rate is 54% higher during spaceflight and persists after return</div>
+            <div style="font-size:12px;color:var(--text-dim)">Alveolar CO measurements show elevated hemolysis rate in 14 ISS astronauts. Effect persists for up to 1 year post-flight. Compensatory erythropoiesis eventually normalizes hemoglobin.</div>
+          </div>
+          <span class="tag tag-amber" style="flex-shrink:0;margin-left:12px">MOD CONF</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;font-family:var(--font-mono)">
+          Trudel et al. Nature Medicine 2022 (n=14) | Note: single-lab finding awaiting replication
+        </div>
+      </div>
+
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:14px;border-left:3px solid var(--green)">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">cfRNA signatures reflect erythropoietic stress during spaceflight</div>
+            <div style="font-size:12px;color:var(--text-dim)">Cell-free RNA profiling reveals upregulation of erythroid transcription factors (GATA1, KLF1) and hemoglobin genes in plasma, correlating with reticulocyte count changes. Multi-omics concordance observed.</div>
+          </div>
+          <span class="tag tag-green" style="flex-shrink:0;margin-left:12px">HIGH CONF</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;font-family:var(--font-mono)">
+          Kim et al. Nature 2024 | Garrett-Bakelman et al. Science 2019
+        </div>
+      </div>
+
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:14px;border-left:3px solid var(--red)">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">Iron metabolism dysregulation may contribute independently</div>
+            <div style="font-size:12px;color:var(--text-dim)">Elevated ferritin and hepcidin suggest altered iron homeostasis, but direction of causality (iron overload causing hemolysis vs. hemolysis releasing iron) is unresolved.</div>
+          </div>
+          <span class="tag tag-red" style="flex-shrink:0;margin-left:12px">LOW CONF</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;font-family:var(--font-mono)">
+          Zwart et al. Am J Clin Nutr 2013 | Smith et al. Nutrients 2021 | CONTRADICTED by: Risso et al. 2014
+        </div>
+      </div>
+
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:14px;border-left:3px solid var(--amber)">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">Radiation exposure may synergize with microgravity-induced anemia</div>
+            <div style="font-size:12px;color:var(--text-dim)">Mouse studies show combined radiation + hindlimb unloading causes greater anemia than either stressor alone. Human data limited to ISS (low radiation environment).</div>
+          </div>
+          <span class="tag tag-amber" style="flex-shrink:0;margin-left:12px">MOD CONF</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;font-family:var(--font-mono)">
+          Alwood et al. PLoS ONE 2017 | Mao et al. FASEB J 2015 | NOTE: animal models only
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Negative Results -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Negative Results from Lab KB</div>
+      <span class="tag tag-red">3 RELEVANT</span>
+    </div>
+    <table>
+      <thead><tr><th>Claim Tested</th><th>Outcome</th><th>Category</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>EPO injection prevents spaceflight anemia in mouse analog</td>
+          <td style="color:var(--red)">No significant prevention (p=0.34, n=12)</td>
+          <td><span class="tag tag-amber">Protocol</span></td>
+          <td>Internal — Kim Lab 2025</td>
+        </tr>
+        <tr>
+          <td>Hepcidin correlates with hemoglobin loss in ISS crew</td>
+          <td style="color:var(--red)">r=0.12, not significant (n=6)</td>
+          <td><span class="tag tag-purple">Analysis</span></td>
+          <td>Internal — Kim Lab 2024</td>
+        </tr>
+        <tr>
+          <td>cfRNA hemolysis signature detectable pre-flight</td>
+          <td style="color:var(--red)">Below detection limit in all pre-flight samples</td>
+          <td><span class="tag tag-blue">Biological</span></td>
+          <td>Internal — Kim Lab 2025</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Synthesis -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Synthesis</div>
+      <span class="tag tag-purple">Research Director (Opus)</span>
+    </div>
+    <div style="line-height:1.8;color:var(--text-dim)">
+      <p>The literature converges on <strong style="color:var(--text)">neocytolysis as the primary mechanism</strong> of spaceflight anemia, driven by EPO suppression secondary to cephalad fluid redistribution. Trudel et al. (2022) provided the strongest evidence with direct alveolar CO measurements in 14 astronauts, demonstrating 54% elevated hemolysis during 6-month ISS missions.</p>
+      <p style="margin-top:12px">However, <strong style="color:var(--amber)">three unresolved questions</strong> remain:</p>
+      <ol style="margin:8px 0 8px 24px">
+        <li>The causal relationship between iron dysregulation and hemolysis (Finding #4) — our Lab KB shows hepcidin does not correlate with hemoglobin loss (n=6), weakening the iron-first hypothesis.</li>
+        <li>Whether cfRNA signatures can serve as early biomarkers — our Lab KB confirms the hemolysis signature is NOT detectable pre-flight, limiting predictive utility.</li>
+        <li>Radiation synergy (Finding #5) is based entirely on animal models and cannot be confirmed in ISS's relatively low-radiation environment.</li>
+      </ol>
+      <p style="margin-top:12px"><strong style="color:var(--cyan)">Key gap identified:</strong> No study has simultaneously measured neocytolysis rate, cfRNA erythroid signatures, and iron metabolism markers in the same astronaut cohort. This multi-omics integration is the critical next step.</p>
+    </div>
+  </div>
+
+  <!-- Novelty Assessment -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Novelty Assessment</div>
+      <span class="tag tag-green">2 NOVEL INSIGHTS</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:var(--bg-deep);padding:10px 14px;border-radius:6px;display:flex;gap:12px;align-items:start">
+        <span style="color:var(--green);font-size:16px">&#x2728;</span>
+        <div>
+          <div style="font-weight:600;font-size:13px">Lab negative result (hepcidin-Hb non-correlation) contradicts 3 published claims</div>
+          <div style="font-size:12px;color:var(--text-dim)">This is a novel finding not yet reported in literature. Recommend escalation to W6 Ambiguity Resolution.</div>
+        </div>
+      </div>
+      <div style="background:var(--bg-deep);padding:10px 14px;border-radius:6px;display:flex;gap:12px;align-items:start">
+        <span style="color:var(--green);font-size:16px">&#x2728;</span>
+        <div>
+          <div style="font-weight:600;font-size:13px">No published study integrates neocytolysis + cfRNA + iron markers simultaneously</div>
+          <div style="font-size:12px;color:var(--text-dim)">This gap suggests a high-impact study design. Recommend escalation to W2 Hypothesis Generation.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+    <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">
+      Total cost: $2.47 | Duration: 8m 34s | LLM calls: 9 | Loops: 0/3
+    </span>
+    <div class="btn-group">
+      <button class="btn">Export PDF</button>
+      <button class="btn btn-primary">Start W2: Generate Hypotheses</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 4: RCMXT SCORING ==================== -->
+<div class="section" id="sec-rcmxt">
+  <div class="section-title">RCMXT Evidence Scoring</div>
+  <div class="section-desc">5-axis confidence vectors for biological claims</div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Claims Under Investigation</div>
+      <div class="card-subtitle">3 claims scored</div>
+    </div>
+    <div class="radar-container" style="margin:20px 0">
+      <div class="radar-wrap">
+        <div class="radar-title" style="color:var(--green)">Claim 1</div>
+        <canvas id="radar1" width="200" height="200"></canvas>
+        <div class="radar-subtitle">Neocytolysis drives spaceflight anemia</div>
+      </div>
+      <div class="radar-wrap">
+        <div class="radar-title" style="color:var(--cyan)">Claim 2</div>
+        <canvas id="radar2" width="200" height="200"></canvas>
+        <div class="radar-subtitle">cfRNA reflects erythropoietic stress</div>
+      </div>
+      <div class="radar-wrap">
+        <div class="radar-title" style="color:var(--amber)">Claim 3</div>
+        <canvas id="radar3" width="200" height="200"></canvas>
+        <div class="radar-subtitle">Iron dysregulation causes hemolysis</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Score Details</div></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Claim</th>
+          <th style="text-align:center">R</th>
+          <th style="text-align:center">C</th>
+          <th style="text-align:center">M</th>
+          <th style="text-align:center">X</th>
+          <th style="text-align:center">T</th>
+          <th style="text-align:center">Composite</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Neocytolysis drives spaceflight anemia</td>
+          <td class="score-cell score-high" style="text-align:center">0.82</td>
+          <td class="score-cell score-mid" style="text-align:center">0.55</td>
+          <td class="score-cell score-high" style="text-align:center">0.88</td>
+          <td class="score-cell score-null" style="text-align:center">&#x2014;</td>
+          <td class="score-cell score-high" style="text-align:center">0.75</td>
+          <td class="score-cell score-high" style="text-align:center">0.75</td>
+        </tr>
+        <tr>
+          <td>cfRNA reflects erythropoietic stress in spaceflight</td>
+          <td class="score-cell score-mid" style="text-align:center">0.65</td>
+          <td class="score-cell score-mid" style="text-align:center">0.60</td>
+          <td class="score-cell score-high" style="text-align:center">0.78</td>
+          <td class="score-cell score-high" style="text-align:center">0.85</td>
+          <td class="score-cell score-mid" style="text-align:center">0.55</td>
+          <td class="score-cell score-mid" style="text-align:center">0.69</td>
+        </tr>
+        <tr>
+          <td>Iron dysregulation independently causes spaceflight hemolysis</td>
+          <td class="score-cell score-low" style="text-align:center">0.30</td>
+          <td class="score-cell score-low" style="text-align:center">0.35</td>
+          <td class="score-cell score-mid" style="text-align:center">0.52</td>
+          <td class="score-cell score-null" style="text-align:center">&#x2014;</td>
+          <td class="score-cell score-mid" style="text-align:center">0.40</td>
+          <td class="score-cell score-low" style="text-align:center">0.39</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:11px;color:var(--text-muted);display:flex;gap:24px">
+      <span><span style="color:var(--green)">&#9632;</span> High (&gt;0.7)</span>
+      <span><span style="color:var(--amber)">&#9632;</span> Moderate (0.4-0.7)</span>
+      <span><span style="color:var(--red)">&#9632;</span> Low (&lt;0.4)</span>
+      <span><span style="color:var(--text-muted)">&#x2014;</span> NULL (no multi-omics data)</span>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">
+      <strong>R</strong>=Reproducibility &nbsp; <strong>C</strong>=Condition Specificity &nbsp; <strong>M</strong>=Methodological Robustness &nbsp; <strong>X</strong>=Cross-Omics Consistency &nbsp; <strong>T</strong>=Temporal Stability
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 5: CONTRADICTIONS ==================== -->
+<div class="section" id="sec-contradiction">
+  <div class="section-title">Contradiction Detection</div>
+  <div class="section-desc">Ambiguity Resolution Engine output</div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Contradiction #1</div>
+      <span class="tag tag-amber" style="font-size:13px;padding:4px 12px">Type 1: Conditional Truth</span>
+    </div>
+
+    <div class="contra-vs">
+      <div class="contra-claim" style="border-left:3px solid var(--green)">
+        <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:8px">CLAIM A</div>
+        <div style="font-weight:600;margin-bottom:8px">"Spaceflight causes immune suppression"</div>
+        <div style="font-size:12px;color:var(--text-dim)">
+          Crucian et al. (2015): Latent herpesvirus reactivation in 63% of ISS crew during 6-month missions. Reduced NK cell cytotoxicity. T-cell response to mitogen stimulation decreased 40%.
+        </div>
+        <div style="margin-top:12px;font-size:11px;font-family:var(--font-mono)">
+          <span class="score-cell score-high">R:0.78</span>&nbsp;
+          <span class="score-cell score-mid">C:0.50</span>&nbsp;
+          <span class="score-cell score-high">M:0.72</span>&nbsp;
+          <span class="score-cell score-null">X:&#x2014;</span>&nbsp;
+          <span class="score-cell score-high">T:0.80</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          Conditions: 6-month ISS missions, in-flight sampling
+        </div>
+      </div>
+
+      <div class="contra-divider">&#x26A1;</div>
+
+      <div class="contra-claim" style="border-left:3px solid var(--cyan)">
+        <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:8px">CLAIM B</div>
+        <div style="font-weight:600;margin-bottom:8px">"Spaceflight causes immune activation"</div>
+        <div style="font-size:12px;color:var(--text-dim)">
+          Garrett-Bakelman et al. (2019): Twins Study showed persistent immune activation markers. Elevated inflammatory cytokines (IL-6, TNF-alpha). Gene expression profiling revealed upregulation of innate immune pathways during 1-year mission.
+        </div>
+        <div style="margin-top:12px;font-size:11px;font-family:var(--font-mono)">
+          <span class="score-cell score-low">R:0.25</span>&nbsp;
+          <span class="score-cell score-low">C:0.30</span>&nbsp;
+          <span class="score-cell score-high">M:0.90</span>&nbsp;
+          <span class="score-cell score-high">X:0.85</span>&nbsp;
+          <span class="score-cell score-mid">T:0.40</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          Conditions: 1-year mission, n=1, multi-omics
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">Classification Rationale</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+        <p><strong style="color:var(--amber)">Type 1: Conditional Truth</strong> — Both claims are correct under different conditions.</p>
+        <p style="margin-top:8px"><strong>Key differentiating variables:</strong></p>
+        <ul style="margin:8px 0 0 20px">
+          <li><strong>Mission duration:</strong> 6-month vs. 12-month missions may trigger different immune phases</li>
+          <li><strong>Immune branch:</strong> Adaptive immunity (T-cells, NK) suppressed vs. innate immunity (cytokines, gene expression) activated</li>
+          <li><strong>Temporal phase:</strong> Early suppression → compensatory activation → chronic dysregulation</li>
+        </ul>
+        <p style="margin-top:12px;color:var(--text-muted)">Confidence in classification: <strong style="color:var(--green)">0.85</strong></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">Resolution Hypotheses</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:var(--bg-deep);padding:10px;border-radius:6px">
+          <div style="font-weight:600;font-size:13px;color:var(--cyan)">H1: Temporal dynamics model</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">Immune suppression (weeks 1-8) followed by compensatory activation (months 3-6) followed by chronic dysregulation (months 6-12+). Both observations are snapshots of different phases.</div>
+        </div>
+        <div style="background:var(--bg-deep);padding:10px;border-radius:6px">
+          <div style="font-weight:600;font-size:13px;color:var(--cyan)">H2: Branch-specific response</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">Adaptive immunity genuinely suppressed while innate immunity simultaneously activated, representing immune imbalance rather than uniform suppression or activation.</div>
+        </div>
+        <div style="background:var(--bg-deep);padding:10px;border-radius:6px">
+          <div style="font-weight:600;font-size:13px;color:var(--cyan)">H3: Stress-mediated dual effect</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">Cortisol elevation suppresses adaptive immunity while simultaneously promoting inflammatory (innate) pathways via NF-kB.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px">Suggested Discriminating Experiment</div>
+    <div style="background:var(--bg-deep);padding:16px;border-radius:var(--radius);border:1px dashed var(--cyan-dim)">
+      <div style="font-size:13px;color:var(--text);line-height:1.8">
+        <strong>Longitudinal immune profiling with monthly sampling</strong><br>
+        <strong>Design:</strong> Collect PBMCs and plasma monthly from ISS crew (n&ge;6) across a 12-month mission.<br>
+        <strong>Measures:</strong> Flow cytometry (NK, T-cell subsets), cytokine panel (IL-6, TNF-a, IFN-g), gene expression (innate + adaptive pathways), cortisol.<br>
+        <strong>Key test:</strong> If H1 is correct, a temporal crossover point should exist where adaptive markers nadir and innate markers peak.<br>
+        <strong>Feasibility:</strong> Requires monthly blood draws on ISS — currently possible with existing protocols. Could leverage ongoing JAXA/NASA collaborations.
+      </div>
+      <div style="margin-top:12px;font-size:11px;font-family:var(--font-mono);color:var(--text-muted)">
+        Generated by: Experimental Designer (Sonnet) | Reviewed by: QA Biological Plausibility (PASS)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 6: HYPOTHESIS GENERATION ==================== -->
+<div class="section" id="sec-hypothesis">
+  <div class="section-title">W2: Hypothesis Generation</div>
+  <div class="section-desc">Generate-Debate-Evolve pattern | 7 specialist teams contributed | Status: WAITING_HUMAN</div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="hypo-card">
+      <div class="hypo-rank">#1</div>
+      <div style="font-size:16px;font-weight:600;margin-top:8px;color:var(--cyan)">
+        cfRNA erythroid signature as a non-invasive biomarker for spaceflight anemia severity
+      </div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.7">
+        <strong>Hypothesis:</strong> The ratio of erythroid transcription factors (GATA1, KLF1) to hemolysis markers (HMOX1, HP) in cfRNA can quantitatively predict anemia severity (Hb drop) during spaceflight, providing a non-invasive monitoring tool.<br>
+        <strong>Testable prediction:</strong> cfRNA erythroid ratio at mission day 14 correlates with Hb loss at month 6 (r &gt; 0.7).<br>
+        <strong>Data available:</strong> JAXA cfRNA dataset (n=6), Twins Study cfRNA (n=1).
+      </div>
+      <div class="hypo-scores">
+        <div class="hypo-score-item"><span style="color:var(--green)">Merit: 0.85</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Feasibility: 0.80</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Novelty: 0.75</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Alignment: 0.90</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Data: 0.70</span></div>
+        <div class="hypo-score-item" style="background:var(--cyan-dim);color:white"><strong>Weighted: 0.81</strong></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+        <strong>QA Debate:</strong> Statistical Rigor challenged power with n=6 (power=0.45). Bio Plausibility noted cfRNA half-life uncertainty. <strong style="color:var(--green)">Resolution:</strong> Combine JAXA + Twins + upcoming Axiom-4 data (n~10 total). Acknowledge exploratory nature.
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:var(--purple)">
+        <strong>Evolution:</strong> After debate, refined from "predict anemia" to "monitor anemia severity" — lowering the predictive claim to a monitoring claim aligns better with small N.
+      </div>
+    </div>
+
+    <div class="hypo-card">
+      <div class="hypo-rank">#2</div>
+      <div style="font-size:16px;font-weight:600;margin-top:8px;color:var(--cyan)">
+        BMP-RANKL crosstalk in bone marrow niche links bone loss and anemia
+      </div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.7">
+        <strong>Hypothesis:</strong> Microgravity-induced osteoclast activation (via RANKL/TNFSF11) disrupts the bone marrow erythropoietic niche, causing anemia independent of EPO suppression.<br>
+        <strong>Testable prediction:</strong> Serum RANKL levels at R+1 inversely correlate with reticulocyte count recovery (r &lt; -0.5).<br>
+        <strong>Data available:</strong> RANKL serum data from bone metabolism studies; cfRNA TNFSF11 from JAXA.
+      </div>
+      <div class="hypo-scores">
+        <div class="hypo-score-item"><span style="color:var(--green)">Merit: 0.78</span></div>
+        <div class="hypo-score-item"><span style="color:var(--amber)">Feasibility: 0.65</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Novelty: 0.88</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Alignment: 0.85</span></div>
+        <div class="hypo-score-item"><span style="color:var(--amber)">Data: 0.55</span></div>
+        <div class="hypo-score-item" style="background:var(--cyan-dim);color:white"><strong>Weighted: 0.75</strong></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+        <strong>QA Debate:</strong> Bio Plausibility flagged that BMP-RANKL crosstalk in marrow niche is mechanistically plausible but only demonstrated in mouse models. <strong style="color:var(--amber)">Caution:</strong> Cross-species extrapolation risk.
+      </div>
+    </div>
+
+    <div class="hypo-card">
+      <div class="hypo-rank">#3</div>
+      <div style="font-size:16px;font-weight:600;margin-top:8px;color:var(--cyan)">
+        Gut microbiome shift drives iron malabsorption contributing to spaceflight anemia
+      </div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.7">
+        <strong>Hypothesis:</strong> Spaceflight-induced gut microbiome dysbiosis reduces iron absorption, compounding hemolysis-driven anemia. The dual hit (increased destruction + decreased production) explains why anemia persists post-flight.<br>
+        <strong>Testable prediction:</strong> Fecal iron-metabolizing bacteria abundance correlates with serum ferritin trajectory.
+      </div>
+      <div class="hypo-scores">
+        <div class="hypo-score-item"><span style="color:var(--amber)">Merit: 0.62</span></div>
+        <div class="hypo-score-item"><span style="color:var(--amber)">Feasibility: 0.55</span></div>
+        <div class="hypo-score-item"><span style="color:var(--green)">Novelty: 0.90</span></div>
+        <div class="hypo-score-item"><span style="color:var(--amber)">Alignment: 0.60</span></div>
+        <div class="hypo-score-item"><span style="color:var(--red)">Data: 0.35</span></div>
+        <div class="hypo-score-item" style="background:var(--border);color:var(--text)"><strong>Weighted: 0.62</strong></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+        <strong>QA Debate:</strong> Stat Rigor: confounders (diet, stress, medications) make causal inference extremely difficult. Reproducibility: no standardized microbiome sampling protocol for spaceflight. <strong style="color:var(--red)">Risk:</strong> High novelty but low feasibility with current data.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;padding:16px;background:var(--bg-card);border:2px solid var(--amber);border-radius:var(--radius-lg)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="color:var(--amber);font-size:18px">&#x26A0;</span>
+      <span style="font-weight:600;color:var(--amber)">WAITING FOR DIRECTOR APPROVAL</span>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px">Select hypotheses to advance to EVOLVE phase:</div>
+    <div class="btn-group">
+      <button class="btn btn-primary">Approve Top 2</button>
+      <button class="btn">Approve All 3</button>
+      <button class="btn">Modify Rankings</button>
+      <button class="btn">Request More Hypotheses</button>
+      <button class="btn btn-danger">Cancel W2</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 7: WORKFLOW TRACKER ==================== -->
+<div class="section" id="sec-workflow">
+  <div class="section-title">Workflow Progress Tracker</div>
+  <div class="section-desc">W1: Literature Review — "Spaceflight Anemia Mechanisms"</div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Pipeline Progress</div>
+        <div class="card-subtitle">Loop 1/3 | Step 7 of 9</div>
+      </div>
+      <div style="text-align:right">
+        <span class="tag tag-amber">WAITING_HUMAN</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)">Duration: 8m 12s</div>
+      </div>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-node done">&#x2713;</div>
+        <div class="pipeline-label">SCOPE</div>
+      </div>
+      <div class="pipeline-connector done"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node done">&#x2713;</div>
+        <div class="pipeline-label">DECOMPOSE</div>
+      </div>
+      <div class="pipeline-connector done"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node done">&#x2713;</div>
+        <div class="pipeline-label">SEARCH</div>
+      </div>
+      <div class="pipeline-connector done"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node done">&#x2713;</div>
+        <div class="pipeline-label">SCREEN</div>
+      </div>
+      <div class="pipeline-connector done"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node done">&#x2713;</div>
+        <div class="pipeline-label">EXTRACT</div>
+      </div>
+      <div class="pipeline-connector done"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node done">&#x2713;</div>
+        <div class="pipeline-label">NEG CHECK</div>
+      </div>
+      <div class="pipeline-connector active"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node waiting">&#x23F8;</div>
+        <div class="pipeline-label" style="color:var(--amber)">SYNTHESIZE</div>
+      </div>
+      <div class="pipeline-connector"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node pending">8</div>
+        <div class="pipeline-label">NOVELTY</div>
+      </div>
+      <div class="pipeline-connector"></div>
+      <div class="pipeline-step">
+        <div class="pipeline-node pending">9</div>
+        <div class="pipeline-label">REPORT</div>
+      </div>
+    </div>
+
+    <!-- Budget bar -->
+    <div style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:var(--text-dim)">Budget Usage</span>
+        <span style="font-family:var(--font-mono);color:var(--amber)">$2.40 / $5.00 (48%)</span>
+      </div>
+      <div class="progress-bar" style="height:10px">
+        <div class="progress-fill" style="width:48%;background:linear-gradient(90deg,var(--teal),var(--amber))"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">
+        <span>$0</span>
+        <span>Est. remaining: ~$1.20</span>
+        <span>$5 max</span>
+      </div>
+    </div>
+
+    <!-- Step cost breakdown -->
+    <div style="margin-top:16px">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-family:var(--font-mono)">STEP COSTS</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          SCOPE <span style="color:var(--green)">$0.08</span>
+        </div>
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          DECOMPOSE <span style="color:var(--green)">$0.52</span>
+        </div>
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          SEARCH <span style="color:var(--green)">$0.15</span>
+        </div>
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          SCREEN <span style="color:var(--green)">$0.35</span>
+        </div>
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          EXTRACT <span style="color:var(--amber)">$0.89</span>
+        </div>
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          NEG CHECK <span style="color:var(--green)">$0.04</span>
+        </div>
+        <div style="background:var(--bg-deep);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-mono)">
+          SYNTHESIZE <span style="color:var(--amber)">$0.37</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Intervention panel -->
+  <div class="card" style="border-color:var(--amber)">
+    <div class="card-header">
+      <div class="card-title" style="color:var(--amber)">Human Checkpoint: SYNTHESIZE</div>
+      <span class="tag tag-amber">ACTION REQUIRED</span>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px">
+      Research Director (Opus) has produced a synthesis of 23 papers. Review before generating the final report.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text-dim)">
+        <strong>Outputs so far:</strong> 203 papers found &#x2192; 47 screened &#x2192; 23 included &#x2192; 5 key findings &#x2192; 3 negative results &#x2192; synthesis draft ready
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary">&#x2713; Approve &amp; Continue</button>
+      <button class="btn">&#x270E; Modify Search Terms</button>
+      <button class="btn">&#x1F4DD; Inject Note</button>
+      <button class="btn">&#x23E9; Skip to Report</button>
+      <button class="btn btn-danger">&#x2716; Cancel Workflow</button>
+    </div>
+    <div style="margin-top:12px">
+      <label style="font-size:12px;color:var(--text-dim)">Inject note for next step:</label>
+      <textarea style="width:100%;margin-top:4px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;font-family:var(--font-sans);resize:vertical;min-height:60px" placeholder="e.g., Also consider the role of hepcidin in the iron recycling pathway..."></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 8: NEGATIVE RESULTS ==================== -->
+<div class="section" id="sec-negative">
+  <div class="section-title">Negative Results Module</div>
+  <div class="section-desc">4 data sources for unpublished failures and negative findings</div>
+
+  <!-- Lab KB -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Internal Lab KB</div>
+      <div class="btn-group">
+        <span class="tag tag-green">12 entries</span>
+        <button class="btn btn-sm">+ Add Entry</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Claim Tested</th><th>Outcome</th><th>Category</th><th>N</th><th>Added</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>EPO injection prevents spaceflight anemia in mouse HU model</td>
+          <td style="color:var(--red)">No prevention (p=0.34)</td>
+          <td><span class="tag tag-amber">Protocol</span></td>
+          <td style="font-family:var(--font-mono)">12</td>
+          <td style="font-family:var(--font-mono);color:var(--text-muted)">2025-09</td>
+        </tr>
+        <tr>
+          <td>Serum hepcidin correlates with Hb loss in ISS crew</td>
+          <td style="color:var(--red)">r=0.12, NS</td>
+          <td><span class="tag tag-purple">Analysis</span></td>
+          <td style="font-family:var(--font-mono)">6</td>
+          <td style="font-family:var(--font-mono);color:var(--text-muted)">2024-11</td>
+        </tr>
+        <tr>
+          <td>cfRNA hemolysis signature present pre-flight</td>
+          <td style="color:var(--red)">Below detection limit</td>
+          <td><span class="tag tag-blue">Biological</span></td>
+          <td style="font-family:var(--font-mono)">8</td>
+          <td style="font-family:var(--font-mono);color:var(--text-muted)">2025-03</td>
+        </tr>
+        <tr>
+          <td>scRNA-seq captures RBC maturation stages in cfRNA</td>
+          <td style="color:var(--red)">Mature RBC cfRNA too degraded</td>
+          <td><span class="tag tag-red">Reagent</span></td>
+          <td style="font-family:var(--font-mono)">3</td>
+          <td style="font-family:var(--font-mono);color:var(--text-muted)">2025-06</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Shadow Mining -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Shadow Literature Mining</div>
+      <span class="tag tag-purple">Tier 1 Phrases | Precision: 0.92</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+      Negative results detected in published papers via constrained vocabulary matching + LLM interpretation
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:12px;border-left:3px solid var(--amber)">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">Zwart et al. Am J Clin Nutr 2013</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">
+          "Despite elevated ferritin levels, <span class="hl-phrase">we found no evidence</span> of increased oxidative stress markers (8-OHdG, MDA) in astronauts with elevated iron, suggesting that iron overload alone <span class="hl-phrase">did not reach significance</span> as a driver of RBC damage."
+        </div>
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted)">
+          Phrase: "we found no evidence" (Tier 1) | LLM confidence: 0.95 | Extracted claim: Iron overload does not cause oxidative RBC damage in spaceflight
+        </div>
+      </div>
+
+      <div style="background:var(--bg-deep);border-radius:var(--radius);padding:12px;border-left:3px solid var(--amber)">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">Mao et al. FASEB J 2015</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">
+          "The combined radiation + hindlimb unloading group showed synergistic bone loss, but <span class="hl-phrase">the effect was not significant</span> for anemia markers (Hb, Hct) at the doses tested (0.5 Gy), suggesting that low-dose radiation alone <span class="hl-phrase">could not confirm</span> a direct hemolytic effect."
+        </div>
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted)">
+          Phrases: "the effect was not significant" + "could not confirm" (Tier 1) | LLM confidence: 0.88 | Extracted: Low-dose radiation does not directly cause hemolysis
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clinical Trial Failures -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Clinical Trial Failures</div>
+      <span class="tag tag-blue">ClinicalTrials.gov</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Trial ID</th><th>Intervention</th><th>Status</th><th>Reason</th><th>Relevance</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-family:var(--font-mono);color:var(--cyan)">NCT03429842</td>
+          <td>Iron supplementation for spaceflight anemia prevention</td>
+          <td><span class="tag tag-red">TERMINATED</span></td>
+          <td>No efficacy at interim analysis (p=0.78)</td>
+          <td><span class="tag tag-green">HIGH</span></td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--font-mono);color:var(--cyan)">NCT04102345</td>
+          <td>Resistive exercise protocol for RBC maintenance</td>
+          <td><span class="tag tag-amber">COMPLETED (NEGATIVE)</span></td>
+          <td>No significant difference in Hb levels (d=0.12)</td>
+          <td><span class="tag tag-amber">MODERATE</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== SECTION 9: COST ANALYTICS ==================== -->
+<div class="section" id="sec-cost">
+  <div class="section-title">Cost Analytics</div>
+  <div class="section-desc">Budget tracking and validation gates</div>
+
+  <div class="grid-3" style="margin-bottom:20px">
+    <div class="metric">
+      <div class="metric-value" style="color:var(--amber)">$12.47</div>
+      <div class="metric-label">Today's Spend</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value" style="color:var(--green)">$87.23</div>
+      <div class="metric-label">This Week</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">$342.50</div>
+      <div class="metric-label">Total (Phase 1)</div>
+    </div>
+  </div>
+
+  <!-- Actual vs Estimated -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Actual vs. Estimated Cost per Workflow</div>
+      <span class="tag tag-green">Within 2x threshold</span>
+    </div>
+    <div style="margin-top:8px">
+      <div class="cost-bar-row">
+        <div class="cost-bar-label">Direct Query</div>
+        <div class="cost-bar-track">
+          <div class="cost-bar-actual" style="width:23%;background:var(--cyan)">$0.23</div>
+          <div class="cost-bar-estimated" style="left:50%"></div>
+        </div>
+        <div class="cost-bar-value" style="color:var(--text-dim)">Est: $0.50</div>
+      </div>
+      <div class="cost-bar-row">
+        <div class="cost-bar-label">W1: Lit Review</div>
+        <div class="cost-bar-track">
+          <div class="cost-bar-actual" style="width:49%;background:var(--green)">$2.47</div>
+          <div class="cost-bar-estimated" style="left:60%"></div>
+        </div>
+        <div class="cost-bar-value" style="color:var(--text-dim)">Est: $3.00</div>
+      </div>
+      <div class="cost-bar-row">
+        <div class="cost-bar-label">W2: Hypothesis</div>
+        <div class="cost-bar-track">
+          <div class="cost-bar-actual" style="width:32%;background:var(--amber)">$4.80</div>
+          <div class="cost-bar-estimated" style="left:33%"></div>
+        </div>
+        <div class="cost-bar-value" style="color:var(--text-dim)">Est: $5.00</div>
+      </div>
+      <div class="cost-bar-row">
+        <div class="cost-bar-label">W3: Analysis</div>
+        <div class="cost-bar-track">
+          <div class="cost-bar-actual" style="width:12%;background:var(--green)">$1.20</div>
+          <div class="cost-bar-estimated" style="left:30%"></div>
+        </div>
+        <div class="cost-bar-value" style="color:var(--text-dim)">Est: $3.00</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:12px;display:flex;gap:16px">
+      <span>&#9632; Actual cost</span>
+      <span>&#x250A; Estimated cost</span>
+      <span style="color:var(--green)">All workflows within 2x budget &#x2713;</span>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Model tier distribution -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">Model Tier Usage (Today)</div>
+      <canvas id="pieChart" width="200" height="200" style="display:block;margin:0 auto"></canvas>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;font-size:12px">
+        <span><span style="color:var(--purple)">&#9632;</span> Opus: $4.20 (34%)</span>
+        <span><span style="color:var(--cyan)">&#9632;</span> Sonnet: $7.15 (57%)</span>
+        <span><span style="color:var(--blue)">&#9632;</span> Haiku: $1.12 (9%)</span>
+      </div>
+    </div>
+
+    <!-- Daily trend -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">Daily Spend (Last 7 Days)</div>
+      <canvas id="trendChart" width="350" height="200" style="display:block;margin:0 auto;width:100%"></canvas>
+    </div>
+  </div>
+
+  <!-- Prompt caching impact -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Prompt Caching Impact</div>
+      <span class="tag tag-green">Saving 83%</span>
+    </div>
+    <div class="grid-3" style="margin-top:8px">
+      <div class="metric" style="padding:12px">
+        <div class="metric-value" style="font-size:20px;color:var(--green)">$8.34</div>
+        <div class="metric-label">Saved via Cache</div>
+      </div>
+      <div class="metric" style="padding:12px">
+        <div class="metric-value" style="font-size:20px">2.1M</div>
+        <div class="metric-label">Cached Tokens</div>
+      </div>
+      <div class="metric" style="padding:12px">
+        <div class="metric-value" style="font-size:20px;color:var(--cyan)">94%</div>
+        <div class="metric-label">Cache Hit Rate</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SECTION 10: COLD START ==================== -->
+<div class="section" id="sec-coldstart">
+  <div class="section-title">Cold Start Report</div>
+  <div class="section-desc">Initial system seeding — completed 2026-02-16 10:15 EST | Duration: 2h 18m</div>
+
+  <div class="grid-2" style="margin-bottom:20px">
+    <!-- Knowledge Seeding -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Step 1: Knowledge Seeding</div>
+        <span class="tag tag-green">COMPLETE (28 min)</span>
+      </div>
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="metric" style="padding:12px">
+          <div class="metric-value" style="font-size:22px">67</div>
+          <div class="metric-label">Publications Imported</div>
+        </div>
+        <div class="metric" style="padding:12px">
+          <div class="metric-value" style="font-size:22px;color:var(--teal)">24</div>
+          <div class="metric-label">Topics Extracted</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-dim)">
+        <strong>Source:</strong> ORCID 0000-0002-7825-7573<br>
+        <strong>Top topics:</strong> spaceflight biology, cfRNA, multi-omics, radiation, gene expression, epigenetics
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">
+        ChromaDB: 67 abstracts + 24 topic embeddings stored in literature collection
+      </div>
+    </div>
+
+    <!-- Lab KB Seeding -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Step 2: Lab KB Seeding</div>
+        <span class="tag tag-green">COMPLETE (15 min)</span>
+      </div>
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="metric" style="padding:12px">
+          <div class="metric-value" style="font-size:22px;color:var(--red)">12</div>
+          <div class="metric-label">Negative Results Entered</div>
+        </div>
+        <div class="metric" style="padding:12px">
+          <div class="metric-value" style="font-size:22px">4</div>
+          <div class="metric-label">Categories Covered</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-dim)">
+        <strong>Categories:</strong> Protocol (4), Analysis (3), Biological (3), Reagent (2)<br>
+        <strong>Domains:</strong> cfRNA (5), anemia (3), radiation (2), microbiome (2)
+      </div>
+    </div>
+  </div>
+
+  <!-- RCMXT Calibration -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Step 3: RCMXT Calibration</div>
+      <span class="tag tag-green">PASS (1h 47m)</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+      50 benchmark claims scored 5x each. LLM-only calibration (Phase 1). Inter-expert baseline deferred to Phase 2.
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Axis</th>
+          <th style="text-align:center">Pearson r<br>(LLM vs. Reference)</th>
+          <th style="text-align:center">Target</th>
+          <th style="text-align:center">Intra-Run Std</th>
+          <th style="text-align:center">Target</th>
+          <th style="text-align:center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>R</strong> (Reproducibility)</td>
+          <td class="score-cell score-high" style="text-align:center">0.84</td>
+          <td style="text-align:center;color:var(--text-muted)">≥ 0.70</td>
+          <td class="score-cell score-high" style="text-align:center">0.08</td>
+          <td style="text-align:center;color:var(--text-muted)">< 0.15</td>
+          <td style="text-align:center"><span class="tag tag-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td><strong>C</strong> (Condition Specificity)</td>
+          <td class="score-cell score-high" style="text-align:center">0.76</td>
+          <td style="text-align:center;color:var(--text-muted)">≥ 0.70</td>
+          <td class="score-cell score-high" style="text-align:center">0.11</td>
+          <td style="text-align:center;color:var(--text-muted)">< 0.15</td>
+          <td style="text-align:center"><span class="tag tag-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td><strong>M</strong> (Methodological Robustness)</td>
+          <td class="score-cell score-high" style="text-align:center">0.81</td>
+          <td style="text-align:center;color:var(--text-muted)">≥ 0.70</td>
+          <td class="score-cell score-high" style="text-align:center">0.07</td>
+          <td style="text-align:center;color:var(--text-muted)">< 0.15</td>
+          <td style="text-align:center"><span class="tag tag-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td><strong>X</strong> (Cross-Omics Consistency)</td>
+          <td class="score-cell score-high" style="text-align:center">0.73</td>
+          <td style="text-align:center;color:var(--text-muted)">≥ 0.70</td>
+          <td class="score-cell score-high" style="text-align:center">0.13</td>
+          <td style="text-align:center;color:var(--text-muted)">< 0.15</td>
+          <td style="text-align:center"><span class="tag tag-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td><strong>T</strong> (Temporal Stability)</td>
+          <td class="score-cell score-high" style="text-align:center">0.71</td>
+          <td style="text-align:center;color:var(--text-muted)">≥ 0.70</td>
+          <td class="score-cell score-high" style="text-align:center">0.12</td>
+          <td style="text-align:center;color:var(--text-muted)">< 0.15</td>
+          <td style="text-align:center"><span class="tag tag-green">PASS</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:12px;color:var(--green)">
+      All 5 axes passed calibration thresholds. X-axis NULL handling verified on 42/50 claims (84% single-omics as expected).
+    </div>
+  </div>
+
+  <!-- Smoke Test -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Step 4: Smoke Test</div>
+      <span class="tag tag-green">PASS (8 min)</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg-deep);padding:12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:13px">Direct Query Test</div>
+          <div style="font-size:12px;color:var(--text-dim)">"What is spaceflight-induced anemia?"</div>
+        </div>
+        <div style="text-align:right">
+          <span class="tag tag-green">PASS</span>
+          <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">12.4s | $0.18 | Used seeded knowledge</div>
+        </div>
+      </div>
+      <div style="background:var(--bg-deep);padding:12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:13px">W1 Stub Test</div>
+          <div style="font-size:12px;color:var(--text-dim)">Search + Screen only (no full workflow)</div>
+        </div>
+        <div style="text-align:right">
+          <span class="tag tag-green">PASS</span>
+          <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">45.2s | $0.42 | 47 papers found, 23 relevant</div>
+        </div>
+      </div>
+      <div style="background:var(--bg-deep);padding:12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:13px">Health Check</div>
+          <div style="font-size:12px;color:var(--text-dim)">All dependencies</div>
+        </div>
+        <div style="text-align:right">
+          <span class="tag tag-green">ALL OK</span>
+          <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">6/6 services healthy</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:var(--radius-lg);padding:20px;text-align:center;margin-top:8px">
+    <div style="font-size:24px;margin-bottom:4px">&#x2705;</div>
+    <div style="font-size:16px;font-weight:600;color:var(--green)">Cold Start Complete — System Ready</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-top:4px">
+      67 publications seeded | 12 negative results entered | RCMXT calibrated (all axes r>0.70) | Smoke test passed
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px">
+      Total cost: $2.84 | Duration: 2h 18m | Ready for first real workflow
+    </div>
+  </div>
+</div>
+
+</div><!-- end .main -->
+
+<script>
+// Tab navigation
+function showSection(id, evt) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  var btn = evt ? evt.target : (event ? event.target : null);
+  if (btn) btn.classList.add('active');
+}
+
+// Expandable sections
+document.querySelectorAll('.expandable-header').forEach(h => {
+  h.addEventListener('click', () => {
+    const arrow = h.querySelector('.expandable-arrow');
+    const content = h.nextElementSibling;
+    arrow.classList.toggle('open');
+    content.classList.toggle('open');
+  });
+});
+
+// Draw radar charts
+function drawRadar(canvasId, scores, color) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const cx = 100, cy = 100, r = 75;
+  const labels = ['R', 'C', 'M', 'X', 'T'];
+  const n = 5;
+
+  ctx.clearRect(0, 0, 200, 200);
+
+  // Draw grid
+  for (let level = 0.2; level <= 1.0; level += 0.2) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+      const x = cx + r * level * Math.cos(angle);
+      const y = cy + r * level * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(42,53,80,0.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Draw axes
+  for (let i = 0; i < n; i++) {
+    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    ctx.strokeStyle = 'rgba(42,53,80,0.4)';
+    ctx.stroke();
+
+    // Labels
+    const lx = cx + (r + 15) * Math.cos(angle);
+    const ly = cy + (r + 15) * Math.sin(angle);
+    ctx.fillStyle = '#8892a8';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const val = scores[i];
+    const label = val === null ? labels[i] + ': —' : labels[i] + ': ' + val.toFixed(2);
+    ctx.fillText(label, lx, ly);
+  }
+
+  // Draw data
+  ctx.beginPath();
+  let hasData = false;
+  for (let i = 0; i < n; i++) {
+    if (scores[i] === null) continue;
+    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    const x = cx + r * scores[i] * Math.cos(angle);
+    const y = cy + r * scores[i] * Math.sin(angle);
+    if (!hasData) { ctx.moveTo(x, y); hasData = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = color + '25';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Draw points
+  for (let i = 0; i < n; i++) {
+    if (scores[i] === null) continue;
+    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    const x = cx + r * scores[i] * Math.cos(angle);
+    const y = cy + r * scores[i] * Math.sin(angle);
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+}
+
+// Claim 1: Neocytolysis (high R, moderate C, high M, null X, high T)
+drawRadar('radar1', [0.82, 0.55, 0.88, null, 0.75], '#10b981');
+// Claim 2: cfRNA (moderate-high across, has X)
+drawRadar('radar2', [0.65, 0.60, 0.78, 0.85, 0.55], '#22d3ee');
+// Claim 3: Iron (low across)
+drawRadar('radar3', [0.30, 0.35, 0.52, null, 0.40], '#f59e0b');
+
+// Pie chart
+function drawPie() {
+  const canvas = document.getElementById('pieChart');
+  const ctx = canvas.getContext('2d');
+  const cx = 100, cy = 100, r = 80;
+  const data = [
+    { value: 0.34, color: '#a78bfa', label: 'Opus' },
+    { value: 0.57, color: '#22d3ee', label: 'Sonnet' },
+    { value: 0.09, color: '#3b82f6', label: 'Haiku' },
+  ];
+  let start = -Math.PI / 2;
+  data.forEach(d => {
+    const end = start + d.value * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    start = end;
+  });
+  // Center hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, 45, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a2235';
+  ctx.fill();
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 16px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$12.47', cx, cy);
+}
+drawPie();
+
+// Trend chart
+function drawTrend() {
+  const canvas = document.getElementById('trendChart');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const data = [8.20, 15.40, 11.80, 6.50, 18.90, 14.30, 12.47];
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const max = 25;
+  const padL = 35, padB = 25, padT = 10, padR = 10;
+  const chartW = w - padL - padR;
+  const chartH = h - padB - padT;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(42,53,80,0.4)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + chartH * (1 - i / 5);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    ctx.fillStyle = '#5a6478';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + (max * i / 5).toFixed(0), padL - 4, y + 3);
+  }
+
+  // Budget line
+  ctx.beginPath();
+  const budgetY = padT + chartH * (1 - 50 / max);
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+  ctx.moveTo(padL, budgetY);
+  ctx.lineTo(w - padR, budgetY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Area
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = padL + (chartW / (data.length - 1)) * i;
+    const y = padT + chartH * (1 - v / max);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineTo(padL + chartW, padT + chartH);
+  ctx.lineTo(padL, padT + chartH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, h);
+  grad.addColorStop(0, 'rgba(34,211,238,0.3)');
+  grad.addColorStop(1, 'rgba(34,211,238,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = padL + (chartW / (data.length - 1)) * i;
+    const y = padT + chartH * (1 - v / max);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Points + labels
+  data.forEach((v, i) => {
+    const x = padL + (chartW / (data.length - 1)) * i;
+    const y = padT + chartH * (1 - v / max);
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#22d3ee';
+    ctx.fill();
+    ctx.fillStyle = '#8892a8';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(days[i], x, h - 6);
+  });
+}
+drawTrend();
+</script>
+
+<!-- ==================== DRILL-DOWN SHEET ==================== -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="sheet-panel" id="sheetPanel">
+  <div class="sheet-header">
+    <div>
+      <div id="sheetTitle" style="font-size:16px;font-weight:600;color:var(--text)"></div>
+      <div id="sheetSubtitle" style="font-size:12px;color:var(--text-dim);margin-top:2px"></div>
+    </div>
+    <button onclick="closeSheet()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;padding:4px 8px;border-radius:4px;transition:all 0.15s" onmouseover="this.style.background='var(--bg-hover)';this.style.color='var(--text)'" onmouseout="this.style.background='none';this.style.color='var(--text-dim)'">&times;</button>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<script>
+// ===== AGENT DATA =====
+const agentData = {
+  research_director: {
+    name: 'Research Director',
+    tier: 'Strategic',
+    model: 'Opus (synthesis) / Sonnet (routing)',
+    status: 'busy',
+    statusLabel: 'Processing W1 synthesis',
+    description: 'Decomposes research questions, assigns to specialists, synthesizes multi-agent outputs, routes Direct Queries.',
+    capabilities: ['Task decomposition & delegation', 'Multi-source synthesis (Opus-tier)', 'Direct Query routing (simple vs. workflow)', 'Cross-team coordination', 'Final report generation'],
+    tools: ['Workflow Engine API', 'Agent Registry', 'Cost Tracker'],
+    mcp: ['None (orchestration only)'],
+    currentTask: { workflow: 'W1', step: 'SYNTHESIZE', desc: 'Synthesizing 47 screened papers on spaceflight anemia into structured report', startedAt: '14:33:22' },
+    recentHistory: [
+      { time: '14:33', action: 'Started SYNTHESIZE for W1 (Opus mode)', cost: '$0.00' },
+      { time: '14:28', action: 'Routed W2 to WAITING_HUMAN — 3 hypotheses ready for review', cost: '$0.08' },
+      { time: '14:15', action: 'Decomposed W1 query into 4 sub-questions', cost: '$0.52' },
+      { time: '13:50', action: 'Classified Direct Query as simple_query → Transcriptomics', cost: '$0.05' },
+    ],
+    totalCost: '$1.87',
+    callCount: 12,
+    criticality: 'Critical (no degraded mode)',
+  },
+  project_manager: {
+    name: 'Project Manager',
+    tier: 'Strategic',
+    model: 'Haiku',
+    status: 'idle',
+    statusLabel: 'Idle — last active 14:20',
+    description: 'Tracks task status, timelines, and dashboard state. Updates Project Board.',
+    capabilities: ['Task tracking & status updates', 'Timeline management', 'Dashboard state management', 'Progress reporting'],
+    tools: ['SQLite DB', 'SSE Hub'],
+    mcp: ['None'],
+    currentTask: null,
+    recentHistory: [
+      { time: '14:20', action: 'Updated W1 progress: EXTRACT → NEG CHECK', cost: '$0.01' },
+      { time: '14:05', action: 'Created timeline estimate for W3', cost: '$0.02' },
+    ],
+    totalCost: '$0.12',
+    callCount: 8,
+    criticality: 'Optional (workflows run without PM)',
+  },
+  knowledge_manager: {
+    name: 'Knowledge Manager',
+    tier: 'Strategic',
+    model: 'Sonnet',
+    status: 'active',
+    statusLabel: 'Querying Semantic Scholar',
+    description: 'Manages semantic + episodic memory. Handles literature search, novelty detection, and ChromaDB operations.',
+    capabilities: ['PubMed search (Biopython)', 'Semantic Scholar queries', 'ChromaDB storage (3 collections)', 'Citation graph traversal', 'Novelty assessment vs. existing knowledge'],
+    tools: ['ChromaDB', 'PubMed (Bio.Entrez)', 'Semantic Scholar API', 'bioRxiv/medRxiv API'],
+    mcp: ['bioRxiv', 'Hugging Face (paper search)'],
+    currentTask: { workflow: 'W1', step: 'SEARCH (follow-up)', desc: 'Fetching citation graph for top 5 papers via Semantic Scholar SPECTER2', startedAt: '14:31:08' },
+    recentHistory: [
+      { time: '14:31', action: 'Found 12 new papers on PubMed for "erythropoiesis spaceflight"', cost: '$0.08' },
+      { time: '14:22', action: 'Stored 47 paper abstracts in ChromaDB (literature collection)', cost: '$0.05' },
+      { time: '14:10', action: 'Novelty check: 3 of 47 papers not in existing knowledge base', cost: '$0.12' },
+    ],
+    totalCost: '$0.94',
+    callCount: 18,
+    criticality: 'Critical (all workflows need memory)',
+  },
+  t02_transcriptomics: {
+    name: '[2] Transcriptomics & Single-Cell',
+    tier: 'Domain Expert',
+    model: 'Sonnet',
+    status: 'busy',
+    statusLabel: 'Generating DESeq2 code',
+    description: 'RNA-seq, scRNA-seq, cfRNA analysis. DEG identification, pathway enrichment, cell type deconvolution.',
+    capabilities: ['Bulk RNA-seq analysis (DESeq2, edgeR)', 'scRNA-seq (Seurat, Scanpy)', 'cfRNA biomarker analysis', 'Gene set enrichment (GSEA)', 'Cell type deconvolution'],
+    tools: ['Code Sandbox (Docker)', 'DataRegistry'],
+    mcp: ['None'],
+    currentTask: { workflow: 'W3', step: 'EXECUTE', desc: 'Generating DESeq2 differential expression code for JAXA cfRNA dataset (6 crew × 3 timepoints)', startedAt: '14:35:00' },
+    recentHistory: [
+      { time: '14:35', action: 'Started code generation for JAXA cfRNA DESeq2 pipeline', cost: '$0.00' },
+      { time: '14:20', action: 'Answered Direct Query on TNFSF11 expression', cost: '$0.12' },
+      { time: '13:45', action: 'Screened 47 papers for W1 (transcriptomics relevance)', cost: '$0.15' },
+    ],
+    totalCost: '$0.62',
+    callCount: 7,
+    criticality: 'Optional (workflow skips if unavailable)',
+  },
+  qa_stat_rigor: {
+    name: 'QA: Statistical Rigor',
+    tier: 'QA (Independent)',
+    model: 'Sonnet',
+    status: 'busy',
+    statusLabel: 'Reviewing W3 analysis plan',
+    description: 'Audits statistical methodology. Checks multiple testing correction, effect sizes, overfitting risk, power analysis.',
+    capabilities: ['Multiple testing correction audit', 'Effect size validation', 'Power analysis review', 'Overfitting detection', 'Statistical assumption checking'],
+    tools: ['None (review only)'],
+    mcp: ['None'],
+    currentTask: { workflow: 'W3', step: 'VALIDATE', desc: 'Reviewing DESeq2 analysis plan: checking MTC method, sample size adequacy (n=6), batch effect handling', startedAt: '14:32:00' },
+    recentHistory: [
+      { time: '14:32', action: 'Started statistical review of W3 analysis plan', cost: '$0.00' },
+      { time: '14:25', action: 'Approved W3 analysis plan (power=0.82 for top DEGs)', cost: '$0.10' },
+    ],
+    totalCost: '$0.38',
+    callCount: 5,
+    criticality: 'Optional (output marked "unreviewed" if skipped)',
+  },
+  ambiguity_engine: {
+    name: 'Ambiguity Resolution Engine',
+    tier: 'Core Engine (Hybrid)',
+    model: 'Sonnet (LLM) + Deterministic code',
+    status: 'active',
+    statusLabel: 'Scoring RCMXT for W1 claim',
+    description: 'Detects contradictions in evidence, classifies them using 5-type taxonomy, scores claims with RCMXT 5-axis vector.',
+    capabilities: ['5-type contradiction taxonomy', 'RCMXT scoring (R/C/M/X/T)', 'Resolution hypothesis generation', 'Study metadata extraction (deterministic)', 'Replication counting (deterministic)'],
+    tools: ['ChromaDB (literature)', 'RCMXT Monitor'],
+    mcp: ['None'],
+    currentTask: { workflow: 'W1', step: 'post-EXTRACT', desc: 'Scoring RCMXT for claim "neocytolysis drives spaceflight anemia" — R:0.72 C:0.45 M:0.81 X:NULL T:0.68', startedAt: '14:30:15' },
+    recentHistory: [
+      { time: '14:30', action: 'Started RCMXT scoring for "neocytolysis" claim', cost: '$0.00' },
+      { time: '14:18', action: 'Classified contradiction: immune suppression vs. activation → Conditional Truth (Type 1)', cost: '$0.08' },
+    ],
+    totalCost: '$0.45',
+    callCount: 6,
+    criticality: 'Optional in Phase 1, Critical in Phase 2+',
+  },
+};
+
+// Default data for agents without specific detail
+const defaultAgentData = {
+  exp_designer: { name: 'Experimental Designer', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  integrative_bio: { name: 'Integrative Biologist', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t01_genomics: { name: '[1] Genomics & Epigenomics', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t03_proteomics: { name: '[3] Proteomics & Metabolomics', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t04_biostats: { name: '[4] Biostatistics', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t05_ml: { name: '[5] Machine Learning & DL', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t06_systems: { name: '[6] Systems Biology & Networks', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t07_structural: { name: '[7] Structural Biology', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t08_scicomm: { name: '[8] Scientific Communication', tier: 'Domain Expert', model: 'Sonnet', status: 'idle' },
+  t09_grants: { name: '[9] Grant Writing & Funding', tier: 'Domain Expert', model: 'Opus', status: 'idle' },
+  t10_data_eng: { name: '[10] Data Engineering', tier: 'Domain Expert', model: 'Haiku', status: 'idle' },
+  qa_bio_plausibility: { name: 'QA: Biological Plausibility', tier: 'QA (Independent)', model: 'Sonnet', status: 'idle' },
+  qa_reproducibility: { name: 'QA: Reproducibility & Standards', tier: 'QA (Independent)', model: 'Haiku', status: 'idle' },
+  nr_module: { name: 'Negative Results Module', tier: 'Core Engine (Hybrid)', model: 'Sonnet + Deterministic', status: 'idle' },
+};
+
+// ===== WORKFLOW DATA =====
+const workflowData = {
+  w1_anemia: {
+    name: 'W1: Literature Review',
+    query: 'Spaceflight-induced anemia mechanisms',
+    state: 'WAITING_HUMAN',
+    currentStep: 'SYNTHESIZE',
+    budget: { used: 2.40, max: 5.00 },
+    loop: { current: 1, max: 3 },
+    duration: '8m 12s',
+    steps: [
+      { id: 'SCOPE', status: 'done', agent: 'Research Director', cost: 0.08, duration: '12s', output: 'Defined scope: spaceflight anemia mechanisms, focus on neocytolysis, EPO regulation, cfRNA biomarkers. Exclusions: ground-analog studies (unless no spaceflight data), non-mammalian models.' },
+      { id: 'DECOMPOSE', status: 'done', agent: 'Research Director (Opus)', cost: 0.52, duration: '28s', output: 'Decomposed into 4 sub-queries: (1) Neocytolysis evidence in microgravity, (2) EPO regulation during spaceflight, (3) cfRNA markers of erythropoietic stress, (4) Iron metabolism and hepcidin in space.' },
+      { id: 'SEARCH', status: 'done', agent: 'Knowledge Manager', cost: 0.15, duration: '45s', output: 'PubMed: 89 results. Semantic Scholar: 124 results (SPECTER2 relevance). bioRxiv: 7 preprints. After dedup: 142 unique papers.' },
+      { id: 'SCREEN', status: 'done', agent: 'Transcriptomics + KM', cost: 0.35, duration: '1m 20s', output: '142 → 47 papers retained. Exclusion reasons: 38 ground-analog only, 29 non-mammalian, 18 tangential (space radiation focus), 10 duplicate cohorts.' },
+      { id: 'EXTRACT', status: 'done', agent: 'Transcriptomics', cost: 0.89, duration: '2m 45s', output: '47 papers → 128 structured findings extracted. Key evidence: 23 supporting neocytolysis, 15 on EPO dynamics, 8 cfRNA studies, 12 iron/hepcidin.' },
+      { id: 'NEG CHECK', status: 'done', agent: 'NR Module', cost: 0.12, duration: '18s', output: 'Lab KB: 2 relevant entries. (1) "RBC lifespan unchanged in 30-day bedrest" — suggests neocytolysis may require actual microgravity. (2) "EPO ELISA failed in 3/6 JAXA samples" — potential measurement artifact.' },
+      { id: 'SYNTHESIZE', status: 'waiting', agent: 'Research Director (Opus)', cost: null, duration: null, output: null, isHumanCheckpoint: true },
+      { id: 'NOVELTY', status: 'pending', agent: 'Knowledge Manager', cost: null, duration: null, output: null },
+      { id: 'REPORT', status: 'pending', agent: 'Research Director', cost: null, duration: null, output: null },
+    ],
+  },
+  w2_cfrna: {
+    name: 'W2: Hypothesis Generation',
+    query: 'cfRNA biomarkers for spaceflight-induced anemia prediction',
+    state: 'WAITING_HUMAN',
+    currentStep: 'RANK (awaiting approval)',
+    budget: { used: 4.80, max: 15.00 },
+    loop: { current: 1, max: 3 },
+    duration: '12m 45s',
+    steps: [
+      { id: 'CONTEXTUALIZE', status: 'done', agent: 'Knowledge Manager + NR Module', cost: 0.35, duration: '22s', output: 'Retrieved 128 findings from W1, 2 negative results, and 15 related papers from memory.' },
+      { id: 'GENERATE', status: 'done', agent: '7 Specialists (parallel)', cost: 2.10, duration: '3m 30s', output: '7 hypotheses generated from Genomics, Transcriptomics, Proteomics, BioStats, ML/DL, Systems Bio, Structural Bio.' },
+      { id: 'NEGATIVE FILTER', status: 'done', agent: 'NR Module', cost: 0.15, duration: '10s', output: '2 hypotheses flagged: one contradicts Lab KB bedrest data, one overlaps with failed trial NCT03248011.' },
+      { id: 'DEBATE', status: 'done', agent: '3 QA Agents', cost: 0.90, duration: '2m 15s', output: 'Each hypothesis challenged. Statistical Rigor flagged sample size concerns for 4/7. Biological Plausibility approved 5/7. Reproducibility flagged 3/7 lacking FAIR compliance.' },
+      { id: 'RANK', status: 'waiting', agent: 'Research Director (Opus)', cost: 1.30, duration: '1m 20s', output: 'Top 3 ranked. Awaiting Director approval before EVOLVE.', isHumanCheckpoint: true },
+      { id: 'EVOLVE', status: 'pending', agent: 'Specialists', cost: null, duration: null, output: null },
+      { id: 'RCMXT PROFILE', status: 'pending', agent: 'Ambiguity Engine', cost: null, duration: null, output: null },
+      { id: 'PRESENT', status: 'pending', agent: 'Research Director', cost: null, duration: null, output: null },
+    ],
+  },
+  w3_deg: {
+    name: 'W3: Data Analysis',
+    query: 'Differential expression analysis — JAXA cfRNA dataset',
+    state: 'RUNNING',
+    currentStep: 'EXECUTE',
+    budget: { used: 1.20, max: 10.00 },
+    loop: { current: 1, max: 3 },
+    duration: '4m 30s',
+    steps: [
+      { id: 'INGEST', status: 'done', agent: 'Data Engineering (Haiku)', cost: 0.03, duration: '8s', output: 'Registered: JAXA_cfRNA_counts.csv (6 crew × 3 timepoints × 22,415 genes). SHA256 verified. DataRegistry entry created.' },
+      { id: 'QC', status: 'done', agent: 'BioStats + Transcriptomics', cost: 0.25, duration: '35s', output: 'PCA shows batch effect between crew 1-3 and 4-6. Recommended: include batch as covariate. Library sizes: 12-18M (acceptable). 2 outlier samples flagged.' },
+      { id: 'PLAN', status: 'done', agent: 'Research Director (Opus)', cost: 0.62, duration: '45s', output: 'Analysis plan: DESeq2 with ~timepoint + crew_batch design. MTC: BH FDR < 0.05. Effect size filter: |log2FC| > 1. Power analysis: 0.82 for top DEGs.' },
+      { id: 'EXECUTE', status: 'active', agent: 'Transcriptomics → Docker', cost: 0.30, duration: '2m (running)', output: 'DESeq2 code generated. Submitted to Docker sandbox. Awaiting execution result...' },
+      { id: 'INTEGRATE', status: 'pending', agent: 'Integrative Biologist', cost: null, duration: null, output: null },
+      { id: 'VALIDATE', status: 'pending', agent: 'QA: Statistical Rigor', cost: null, duration: null, output: null },
+      { id: 'PLAUSIBILITY', status: 'pending', agent: 'QA: Bio Plausibility', cost: null, duration: null, output: null },
+      { id: 'INTERPRET', status: 'pending', agent: 'Systems Bio + Research Director', cost: null, duration: null, output: null },
+      { id: 'AUDIT', status: 'pending', agent: 'QA: Reproducibility', cost: null, duration: null, output: null },
+      { id: 'REPORT', status: 'pending', agent: 'Research Director', cost: null, duration: null, output: null },
+    ],
+  },
+};
+
+// ===== SHEET FUNCTIONS =====
+function openAgentSheet(agentId) {
+  const agent = agentData[agentId] || defaultAgentData[agentId];
+  if (!agent) return;
+  const isDetailed = !!agentData[agentId];
+
+  document.getElementById('sheetTitle').textContent = agent.name;
+  document.getElementById('sheetSubtitle').innerHTML = `<span class="tag tag-${agent.status === 'busy' ? 'amber' : agent.status === 'active' ? 'cyan' : 'green'}" style="font-size:10px">${agent.status.toUpperCase()}</span> &middot; ${agent.tier} &middot; ${agent.model}`;
+
+  let html = '';
+
+  if (isDetailed) {
+    // Status line
+    html += `<div class="sheet-section"><div class="sheet-section-title">STATUS</div><div style="color:var(--text-dim);font-size:13px">${agent.statusLabel}</div></div>`;
+
+    // Current Task
+    if (agent.currentTask) {
+      html += `<div class="sheet-section"><div class="sheet-section-title">CURRENT TASK</div>`;
+      html += `<div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:var(--radius);padding:12px">`;
+      html += `<div style="display:flex;gap:8px;margin-bottom:8px"><span class="tag tag-cyan">${agent.currentTask.workflow}</span><span class="tag tag-amber">${agent.currentTask.step}</span></div>`;
+      html += `<div style="font-size:13px;color:var(--text);line-height:1.6">${agent.currentTask.desc}</div>`;
+      html += `<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px">Started: ${agent.currentTask.startedAt}</div>`;
+      html += `</div></div>`;
+    }
+
+    // Description
+    html += `<div class="sheet-section"><div class="sheet-section-title">DESCRIPTION</div><div style="font-size:13px;color:var(--text-dim);line-height:1.7">${agent.description}</div></div>`;
+
+    // Capabilities
+    html += `<div class="sheet-section"><div class="sheet-section-title">CAPABILITIES</div><ul style="list-style:none;font-size:12px;color:var(--text-dim)">`;
+    agent.capabilities.forEach(c => { html += `<li style="padding:3px 0;border-bottom:1px solid var(--bg-deep)">&#x2022; ${c}</li>`; });
+    html += `</ul></div>`;
+
+    // Tools & MCP
+    html += `<div class="sheet-section"><div class="sheet-section-title">TOOLS & INTEGRATIONS</div>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:6px">`;
+    agent.tools.forEach(t => { html += `<span class="tag tag-cyan" style="font-size:10px">${t}</span>`; });
+    agent.mcp.forEach(m => { html += `<span class="tag tag-purple" style="font-size:10px">MCP: ${m}</span>`; });
+    html += `</div></div>`;
+
+    // Recent History
+    html += `<div class="sheet-section"><div class="sheet-section-title">RECENT ACTIVITY</div>`;
+    html += `<div style="font-size:12px">`;
+    agent.recentHistory.forEach(h => {
+      html += `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bg-deep)">`;
+      html += `<span style="color:var(--text-muted);font-family:var(--font-mono);white-space:nowrap">${h.time}</span>`;
+      html += `<span style="color:var(--text-dim);flex:1">${h.action}</span>`;
+      html += `<span style="color:var(--green);font-family:var(--font-mono);white-space:nowrap">${h.cost}</span>`;
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+
+    // Stats
+    html += `<div class="sheet-section"><div class="sheet-section-title">SESSION STATS</div>`;
+    html += `<div style="display:flex;gap:24px;font-size:12px">`;
+    html += `<div><span style="color:var(--text-muted)">Total Cost</span><div style="font-family:var(--font-mono);color:var(--cyan);font-size:14px;margin-top:2px">${agent.totalCost}</div></div>`;
+    html += `<div><span style="color:var(--text-muted)">LLM Calls</span><div style="font-family:var(--font-mono);color:var(--cyan);font-size:14px;margin-top:2px">${agent.callCount}</div></div>`;
+    html += `<div><span style="color:var(--text-muted)">Criticality</span><div style="font-size:11px;color:var(--amber);margin-top:4px">${agent.criticality}</div></div>`;
+    html += `</div></div>`;
+
+    // Inject Note (Phase 2 preview)
+    html += `<div class="sheet-section" style="border-top:2px solid var(--border)"><div class="sheet-section-title" style="color:var(--amber)">INJECT NOTE <span style="font-size:9px;color:var(--text-muted);font-weight:400">(Phase 2)</span></div>`;
+    html += `<div style="display:flex;gap:8px">`;
+    html += `<input type="text" placeholder="e.g., Prioritize EPO-related papers..." style="flex:1;background:var(--bg-deep);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text);font-size:12px;outline:none" onfocus="this.style.borderColor='var(--cyan)'" onblur="this.style.borderColor='var(--border)'">`;
+    html += `<button style="background:var(--cyan-dim);color:var(--text);border:none;border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer;white-space:nowrap;opacity:0.5" disabled>Send</button>`;
+    html += `</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px">Note will be injected into the agent's next ContextPackage</div></div>`;
+
+  } else {
+    // Minimal detail for agents without full data
+    html += `<div class="sheet-section"><div class="sheet-section-title">STATUS</div><div style="color:var(--text-dim);font-size:13px">Idle — no active tasks</div></div>`;
+    html += `<div class="sheet-section"><div class="sheet-section-title">TIER</div><div style="font-size:13px;color:var(--text-dim)">${agent.tier}</div></div>`;
+    html += `<div class="sheet-section"><div class="sheet-section-title">MODEL</div><div style="font-size:13px;color:var(--text-dim)">${agent.model}</div></div>`;
+    html += `<div class="sheet-section" style="border-top:1px dashed var(--border)"><div style="font-size:12px;color:var(--text-muted);text-align:center;padding:20px 0">Detailed activity data shown when agent is active</div></div>`;
+  }
+
+  document.getElementById('sheetBody').innerHTML = html;
+  document.getElementById('sheetOverlay').classList.add('open');
+  document.getElementById('sheetPanel').classList.add('open');
+}
+
+function openWorkflowSheet(workflowId) {
+  const wf = workflowData[workflowId];
+  if (!wf) return;
+
+  const stateColors = { RUNNING: 'cyan', WAITING_HUMAN: 'amber', COMPLETED: 'green', FAILED: 'red', PAUSED: 'purple', OVER_BUDGET: 'red' };
+  const stateColor = stateColors[wf.state] || 'cyan';
+
+  document.getElementById('sheetTitle').textContent = wf.name;
+  document.getElementById('sheetSubtitle').innerHTML = `<span class="tag tag-${stateColor}" style="font-size:10px">${wf.state}</span> &middot; Step: ${wf.currentStep} &middot; Loop ${wf.loop.current}/${wf.loop.max}`;
+
+  let html = '';
+
+  // Query
+  html += `<div class="sheet-section"><div class="sheet-section-title">QUERY</div><div style="font-size:13px;color:var(--cyan)">${wf.query}</div></div>`;
+
+  // Budget
+  const pct = ((wf.budget.used / wf.budget.max) * 100).toFixed(0);
+  const budgetColor = pct > 80 ? 'var(--red)' : pct > 50 ? 'var(--amber)' : 'var(--green)';
+  html += `<div class="sheet-section"><div class="sheet-section-title">BUDGET</div>`;
+  html += `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text-dim)">Usage</span><span style="font-family:var(--font-mono);color:${budgetColor}">$${wf.budget.used.toFixed(2)} / $${wf.budget.max.toFixed(2)} (${pct}%)</span></div>`;
+  html += `<div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:${pct}%;background:${budgetColor}"></div></div>`;
+  html += `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)">Duration: ${wf.duration}</div>`;
+  html += `</div>`;
+
+  // Pipeline Steps (expandable)
+  html += `<div class="sheet-section"><div class="sheet-section-title">PIPELINE STEPS <span style="font-size:10px;color:var(--text-muted);font-weight:400">(click to expand)</span></div>`;
+
+  wf.steps.forEach((step, idx) => {
+    const statusIcons = { done: '&#x2713;', active: '&#x25B6;', waiting: '&#x23F8;', pending: (idx + 1).toString() };
+    const statusColors = { done: 'var(--green)', active: 'var(--cyan)', waiting: 'var(--amber)', pending: 'var(--text-muted)' };
+    const icon = statusIcons[step.status] || (idx + 1);
+    const color = statusColors[step.status] || 'var(--text-muted)';
+    const hasOutput = step.output !== null;
+
+    html += `<div class="step-row ${hasOutput ? '' : ''}" onclick="${hasOutput ? `toggleStepDetail('step_${workflowId}_${idx}')` : ''}" style="${!hasOutput ? 'cursor:default;opacity:0.6' : ''}">`;
+    html += `<div style="display:flex;align-items:center;gap:10px">`;
+    html += `<div style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid ${color};color:${color};background:${step.status === 'done' ? color.replace(')', ',0.15)').replace('var(', 'rgba(').replace('--green', '16,185,129') : 'transparent'};flex-shrink:0">${icon}</div>`;
+    html += `<div style="flex:1"><div style="font-size:13px;font-weight:500;color:${step.status === 'pending' ? 'var(--text-muted)' : 'var(--text)'}">${step.id}${step.isHumanCheckpoint ? ' <span style="color:var(--amber);font-size:10px">&#x23F8; CHECKPOINT</span>' : ''}</div>`;
+    html += `<div style="font-size:11px;color:var(--text-muted)">${step.agent}</div></div>`;
+    if (step.cost !== null) html += `<div style="font-size:11px;font-family:var(--font-mono);color:var(--green)">$${step.cost.toFixed(2)}</div>`;
+    if (step.duration) html += `<div style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);margin-left:8px">${step.duration}</div>`;
+    if (hasOutput) html += `<div style="color:var(--text-muted);font-size:10px;margin-left:4px">&#x25BC;</div>`;
+    html += `</div></div>`;
+
+    // Expandable output
+    if (hasOutput) {
+      html += `<div class="step-detail-content" id="step_${workflowId}_${idx}">`;
+      html += `<div style="padding:12px 12px 12px 46px;font-size:12px;color:var(--text-dim);line-height:1.7;background:var(--bg-deep);border-bottom:1px solid var(--border)">${step.output}</div>`;
+      html += `</div>`;
+    }
+  });
+  html += `</div>`;
+
+  // Intervention Actions
+  if (wf.state === 'WAITING_HUMAN') {
+    html += `<div class="sheet-section" style="border-top:2px solid var(--amber)"><div class="sheet-section-title" style="color:var(--amber)">DIRECTOR ACTION REQUIRED</div>`;
+    html += `<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">The workflow is paused at a human checkpoint. Review the outputs above and choose an action.</div>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">`;
+    html += `<button style="background:var(--green-dim);color:var(--text);border:1px solid var(--green);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer" onclick="alert('Approved! Workflow continues to next step.')">&#x2713; Approve</button>`;
+    html += `<button style="background:var(--bg-deep);color:var(--text);border:1px solid var(--border-light);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer" onclick="alert('Opening modification dialog...')">&#x270E; Modify</button>`;
+    html += `<button style="background:var(--bg-deep);color:var(--text);border:1px solid var(--border-light);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer" onclick="alert('Skipping step...')">&#x23ED; Skip</button>`;
+    html += `<button style="background:var(--red-dim);color:var(--text);border:1px solid var(--red);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer" onclick="alert('Workflow cancelled.')">&#x2717; Cancel</button>`;
+    html += `</div>`;
+    html += `<div style="margin-top:4px"><input type="text" placeholder="Add note for next step (optional)..." style="width:100%;background:var(--bg-deep);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text);font-size:12px;outline:none" onfocus="this.style.borderColor='var(--amber)'" onblur="this.style.borderColor='var(--border)'"></div>`;
+    html += `</div>`;
+  } else if (wf.state === 'RUNNING') {
+    html += `<div class="sheet-section" style="border-top:2px solid var(--cyan)"><div class="sheet-section-title" style="color:var(--cyan)">CONTROLS</div>`;
+    html += `<div style="display:flex;gap:8px">`;
+    html += `<button style="background:var(--bg-deep);color:var(--text);border:1px solid var(--border-light);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer" onclick="alert('Workflow paused.')">&#x23F8; Pause</button>`;
+    html += `<button style="background:var(--red-dim);color:var(--text);border:1px solid var(--red);border-radius:var(--radius);padding:8px 16px;font-size:12px;cursor:pointer" onclick="alert('Workflow cancelled.')">&#x2717; Cancel</button>`;
+    html += `</div>`;
+    html += `<div style="margin-top:8px"><input type="text" placeholder="Inject note for next step..." style="width:100%;background:var(--bg-deep);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text);font-size:12px;outline:none" onfocus="this.style.borderColor='var(--cyan)'" onblur="this.style.borderColor='var(--border)'"></div>`;
+    html += `</div>`;
+  }
+
+  document.getElementById('sheetBody').innerHTML = html;
+  document.getElementById('sheetOverlay').classList.add('open');
+  document.getElementById('sheetPanel').classList.add('open');
+}
+
+function closeSheet() {
+  document.getElementById('sheetOverlay').classList.remove('open');
+  document.getElementById('sheetPanel').classList.remove('open');
+}
+
+function toggleStepDetail(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+// Close sheet with Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeSheet();
+});
+</script>
+
+</body>
+</html>
