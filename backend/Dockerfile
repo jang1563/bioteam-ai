@@ -2,14 +2,23 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# System deps for SQLite and curl (healthcheck)
+# System deps for curl (healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Python deps
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]" 2>/dev/null || pip install --no-cache-dir .
+# Copy project metadata (for pip install)
+COPY pyproject.toml /tmp/pyproject.toml
 
-COPY . .
+# Install Python dependencies from pyproject.toml
+RUN pip install --no-cache-dir $(python -c "
+import tomllib, pathlib
+data = tomllib.loads(pathlib.Path('/tmp/pyproject.toml').read_text())
+print(' '.join(f'\"{d}\"' for d in data['project']['dependencies']))
+")
+
+# Copy backend code
+COPY backend/ .
+
+ENV PYTHONPATH=/app
 
 EXPOSE 8000
 

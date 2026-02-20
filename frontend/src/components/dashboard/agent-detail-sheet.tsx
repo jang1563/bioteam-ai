@@ -3,6 +3,7 @@
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -21,6 +22,11 @@ export function AgentDetailSheet() {
       <SheetContent className="w-[450px] overflow-y-auto sm:max-w-[450px]">
         <SheetHeader>
           <SheetTitle>{agent?.name ?? "Agent Detail"}</SheetTitle>
+          <SheetDescription>
+            {agent
+              ? `View details for ${agent.name} agent (${agent.state})`
+              : "Loading agent details"}
+          </SheetDescription>
         </SheetHeader>
 
         {loading && (

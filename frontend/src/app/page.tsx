@@ -7,20 +7,24 @@ import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { AgentDetailSheet } from "@/components/dashboard/agent-detail-sheet";
 import { WorkflowDetailSheet } from "@/components/dashboard/workflow-detail-sheet";
 import { CreateWorkflowDialog } from "@/components/dashboard/create-workflow-dialog";
+import {
+  AgentGridSkeleton,
+  WorkflowListSkeleton,
+  ActivityFeedSkeleton,
+} from "@/components/dashboard/loading-skeletons";
 import { useAgents } from "@/hooks/use-agents";
 import { useWorkflows } from "@/hooks/use-workflows";
 import { useSSE } from "@/hooks/use-sse";
 import { useAppStore } from "@/stores/app-store";
 
 export default function MissionControlPage() {
-  const { agents } = useAgents();
-  const { workflows, refresh: refreshWorkflows } = useWorkflows();
+  const { agents, loading: agentsLoading } = useAgents();
+  const { workflows, loading: workflowsLoading, refresh: refreshWorkflows } = useWorkflows();
   const events = useAppStore((s) => s.events);
   const addEvent = useAppStore((s) => s.addEvent);
 
   useSSE((event) => {
     addEvent(event);
-    // Auto-refresh workflows on workflow events
     if (event.event_type.startsWith("workflow.")) {
       refreshWorkflows();
     }
@@ -37,11 +41,11 @@ export default function MissionControlPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">
-            Agents ({agents.length})
+            Agents {!agentsLoading && `(${agents.length})`}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <AgentGrid agents={agents} />
+          {agentsLoading ? <AgentGridSkeleton /> : <AgentGrid agents={agents} />}
         </CardContent>
       </Card>
 
@@ -49,9 +53,11 @@ export default function MissionControlPage() {
         {/* Workflows */}
         <div className="space-y-3 lg:col-span-2">
           <h2 className="text-sm font-medium text-muted-foreground">
-            Active Workflows ({workflows.length})
+            Active Workflows {!workflowsLoading && `(${workflows.length})`}
           </h2>
-          {workflows.length === 0 ? (
+          {workflowsLoading ? (
+            <WorkflowListSkeleton />
+          ) : workflows.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
                 No workflows yet. Create one to get started.
@@ -73,7 +79,11 @@ export default function MissionControlPage() {
           </h2>
           <Card>
             <CardContent className="p-3">
-              <ActivityFeed events={events} />
+              {events.length === 0 && agentsLoading ? (
+                <ActivityFeedSkeleton />
+              ) : (
+                <ActivityFeed events={events} />
+              )}
             </CardContent>
           </Card>
         </div>

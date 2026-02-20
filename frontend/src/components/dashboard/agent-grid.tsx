@@ -35,18 +35,24 @@ export function AgentGrid({ agents }: AgentGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+    <div
+      role="group"
+      aria-label="Agent grid"
+      className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+    >
       {agents.map((agent) => (
         <Tooltip key={agent.id} delayDuration={200}>
           <TooltipTrigger asChild>
             <button
               onClick={() => setSelectedAgentId(agent.id)}
+              aria-label={`${agent.name}, status: ${agent.state}, tier: ${agent.model_tier}`}
               className={cn(
                 "group relative flex flex-col items-center gap-1.5 rounded-lg border border-border p-3 transition-all hover:border-primary/40 hover:bg-accent",
               )}
             >
               {/* Status dot */}
               <div
+                aria-hidden="true"
                 className={cn(
                   "h-3 w-3 rounded-full",
                   stateColors[agent.state] ?? stateColors.unknown,

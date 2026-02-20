@@ -27,12 +27,21 @@ function getHeaders(): HeadersInit {
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  retries = 0,
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
     ...options,
     headers: { ...getHeaders(), ...(options.headers ?? {}) },
   });
+
+  // Rate limited — retry with backoff (max 2 retries)
+  if (res.status === 429 && retries < 2) {
+    const retryAfter = parseInt(res.headers.get("Retry-After") ?? "2", 10);
+    const delay = Math.min(retryAfter * 1000, 10_000);
+    await new Promise((r) => setTimeout(r, delay));
+    return request<T>(path, options, retries + 1);
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));

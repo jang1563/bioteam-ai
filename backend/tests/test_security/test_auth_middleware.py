@@ -93,6 +93,79 @@ def test_bearer_prefix_required():
         assert resp.status_code == 401
 
 
+# === SSE query-param auth ===
+# SSE returns a blocking StreamingResponse, so we test middleware logic
+# using a standalone app with a simple response at the SSE path.
+
+
+def _sse_auth_client():
+    """Create a test app with auth middleware and a simple /api/v1/sse endpoint."""
+    from fastapi import FastAPI
+    from app.middleware.auth import APIKeyAuthMiddleware
+
+    test_app = FastAPI()
+    test_app.add_middleware(APIKeyAuthMiddleware)
+
+    @test_app.get("/api/v1/sse")
+    async def fake_sse():
+        return {"status": "sse_ok"}
+
+    @test_app.get("/api/v1/agents")
+    async def fake_agents():
+        return {"status": "agents_ok"}
+
+    return TestClient(test_app)
+
+
+def test_sse_query_param_auth_valid():
+    """SSE endpoint should accept ?token= query param."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        client = _sse_auth_client()
+        resp = client.get("/api/v1/sse?token=sse-secret")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "sse_ok"
+
+
+def test_sse_query_param_auth_invalid():
+    """SSE endpoint with wrong query param token should get 403."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        client = _sse_auth_client()
+        resp = client.get("/api/v1/sse?token=wrong-token")
+        assert resp.status_code == 403
+
+
+def test_sse_no_auth_returns_401():
+    """SSE endpoint without any auth should get 401."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        client = _sse_auth_client()
+        resp = client.get("/api/v1/sse")
+        assert resp.status_code == 401
+
+
+def test_sse_bearer_header_also_works():
+    """SSE endpoint should also accept standard Bearer header."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        client = _sse_auth_client()
+        resp = client.get(
+            "/api/v1/sse",
+            headers={"Authorization": "Bearer sse-secret"},
+        )
+        assert resp.status_code == 200
+
+
+def test_non_sse_query_param_rejected():
+    """Non-SSE endpoints should NOT accept query param auth."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "my-key"
+        client = _sse_auth_client()
+        resp = client.get("/api/v1/agents?token=my-key")
+        assert resp.status_code == 401
+
+
 if __name__ == "__main__":
     print("Testing Auth Middleware:")
     test_no_key_configured_allows_all()
@@ -102,4 +175,9 @@ if __name__ == "__main__":
     test_health_exempt_from_auth()
     test_root_exempt_from_auth()
     test_bearer_prefix_required()
+    test_sse_query_param_auth_valid()
+    test_sse_query_param_auth_invalid()
+    test_sse_no_auth_returns_401()
+    test_sse_bearer_header_also_works()
+    test_non_sse_query_param_rejected()
     print("\nAll Auth Middleware tests passed!")

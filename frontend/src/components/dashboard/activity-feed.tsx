@@ -32,13 +32,19 @@ export function ActivityFeed({ events }: ActivityFeedProps) {
 
   return (
     <ScrollArea className="h-[300px]">
-      <div className="space-y-1 pr-3">
+      <div
+        role="log"
+        aria-label="Activity feed"
+        aria-live="polite"
+        className="space-y-1 pr-3"
+      >
         {events.map((event, i) => (
           <div
             key={`${event.timestamp}-${i}`}
             className="flex items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent"
           >
             <span
+              aria-hidden="true"
               className={cn(
                 "mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full",
                 eventColors[event.event_type]

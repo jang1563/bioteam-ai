@@ -28,7 +28,7 @@ export function Header() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-6">
       <div className="flex items-center gap-2">
-        <Activity className="h-4 w-4 text-muted-foreground" />
+        <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="text-sm font-medium text-muted-foreground">
           Dashboard
         </span>
@@ -38,11 +38,14 @@ export function Header() {
         <Badge
           variant={isHealthy ? "default" : "destructive"}
           className="flex items-center gap-1.5 text-xs"
+          role="status"
+          aria-live="polite"
+          aria-label={`Backend status: ${isHealthy ? "Connected" : "Disconnected"}`}
         >
           {isHealthy ? (
-            <Wifi className="h-3 w-3" />
+            <Wifi className="h-3 w-3" aria-hidden="true" />
           ) : (
-            <WifiOff className="h-3 w-3" />
+            <WifiOff className="h-3 w-3" aria-hidden="true" />
           )}
           {isHealthy ? "Connected" : "Disconnected"}
         </Badge>

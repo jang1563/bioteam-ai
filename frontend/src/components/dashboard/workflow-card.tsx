@@ -37,13 +37,22 @@ export function WorkflowCard({ workflow }: WorkflowCardProps) {
     <Card
       className="cursor-pointer transition-all hover:border-primary/40 hover:shadow-md"
       onClick={() => setSelected(workflow.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setSelected(workflow.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Workflow ${workflow.template}, status: ${config.label}, budget: $${budgetUsed.toFixed(2)} of $${workflow.budget_total.toFixed(2)}, ${stepsCompleted} steps completed`}
     >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">
           {workflow.template}
         </CardTitle>
         <Badge variant="outline" className={cn("flex items-center gap-1", config.color)}>
-          <Icon className="h-3 w-3" />
+          <Icon className="h-3 w-3" aria-hidden="true" />
           {config.label}
         </Badge>
       </CardHeader>
@@ -61,7 +70,11 @@ export function WorkflowCard({ workflow }: WorkflowCardProps) {
               ${budgetUsed.toFixed(2)} / ${workflow.budget_total.toFixed(2)}
             </span>
           </div>
-          <Progress value={budgetPct} className="h-1.5" />
+          <Progress
+            value={budgetPct}
+            className="h-1.5"
+            aria-label={`Budget usage: ${budgetPct}%`}
+          />
         </div>
 
         {/* ID preview */}

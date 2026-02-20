@@ -92,12 +92,13 @@ app = FastAPI(
 )
 
 # Middleware (order matters: first added = outermost)
+from app.config import settings as _settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[o.strip() for o in _settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 app.add_middleware(APIKeyAuthMiddleware)
 app.add_middleware(RateLimitMiddleware, global_rpm=60, expensive_rpm=10)

@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -66,6 +67,11 @@ export function WorkflowDetailSheet() {
           <SheetTitle>
             Workflow {workflow?.template ?? ""}
           </SheetTitle>
+          <SheetDescription>
+            {workflow
+              ? `Workflow ${workflow.template} details and intervention controls (${workflow.state})`
+              : "Loading workflow details"}
+          </SheetDescription>
         </SheetHeader>
 
         {loading && (
@@ -158,15 +164,16 @@ export function WorkflowDetailSheet() {
               <p className="mb-2 text-xs font-medium text-muted-foreground">
                 Interventions
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2" role="group" aria-label="Workflow intervention actions">
                 {(workflow.state === "RUNNING" || workflow.state === "WAITING_HUMAN") && (
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={intervening}
                     onClick={() => doIntervene("pause")}
+                    aria-label={`Pause workflow ${workflow.template}`}
                   >
-                    <Pause className="mr-1 h-3 w-3" /> Pause
+                    <Pause className="mr-1 h-3 w-3" aria-hidden="true" /> Pause
                   </Button>
                 )}
                 {workflow.state === "PAUSED" && (
@@ -175,8 +182,9 @@ export function WorkflowDetailSheet() {
                     variant="outline"
                     disabled={intervening}
                     onClick={() => doIntervene("resume")}
+                    aria-label={`Resume workflow ${workflow.template}`}
                   >
-                    <Play className="mr-1 h-3 w-3" /> Resume
+                    <Play className="mr-1 h-3 w-3" aria-hidden="true" /> Resume
                   </Button>
                 )}
                 {["PENDING", "RUNNING", "PAUSED", "WAITING_HUMAN"].includes(workflow.state) && (
@@ -185,16 +193,18 @@ export function WorkflowDetailSheet() {
                     variant="destructive"
                     disabled={intervening}
                     onClick={() => doIntervene("cancel")}
+                    aria-label={`Cancel workflow ${workflow.template}`}
                   >
-                    <XCircle className="mr-1 h-3 w-3" /> Cancel
+                    <XCircle className="mr-1 h-3 w-3" aria-hidden="true" /> Cancel
                   </Button>
                 )}
               </div>
 
               {/* Inject Note */}
               <div className="mt-3 space-y-2">
+                <label htmlFor="note-action-select" className="sr-only">Note action type</label>
                 <Select value={noteAction} onValueChange={(v) => setNoteAction(v as NoteAction)}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-8 text-xs" id="note-action-select" aria-label="Note action type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -205,19 +215,23 @@ export function WorkflowDetailSheet() {
                     <SelectItem value="EDIT_TEXT">Edit Text</SelectItem>
                   </SelectContent>
                 </Select>
+                <label htmlFor="workflow-note-input" className="sr-only">Workflow note</label>
                 <Textarea
+                  id="workflow-note-input"
                   placeholder="Enter note for workflow..."
                   className="min-h-[60px] text-xs"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
+                  aria-label="Enter note for workflow"
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={intervening || !note.trim()}
                   onClick={() => doIntervene("inject_note")}
+                  aria-label="Inject note into workflow"
                 >
-                  <MessageSquarePlus className="mr-1 h-3 w-3" /> Inject Note
+                  <MessageSquarePlus className="mr-1 h-3 w-3" aria-hidden="true" /> Inject Note
                 </Button>
               </div>
             </div>

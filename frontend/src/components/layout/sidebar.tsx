@@ -30,6 +30,7 @@ export function Sidebar() {
 
   return (
     <aside
+      aria-label="Sidebar"
       className={cn(
         "flex h-screen flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-200",
         collapsed ? "w-16" : "w-56",
@@ -44,13 +45,15 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 px-2 py-3">
+      <nav aria-label="Main navigation" className="flex-1 space-y-1 px-2 py-3">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           const link = (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
+              aria-label={collapsed ? label : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 active
@@ -59,7 +62,7 @@ export function Sidebar() {
                 collapsed && "justify-center px-0",
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               {!collapsed && label}
             </Link>
           );
@@ -83,11 +86,12 @@ export function Sidebar() {
           size="icon"
           className="h-8 w-full"
           onClick={toggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           ) : (
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           )}
         </Button>
       </div>

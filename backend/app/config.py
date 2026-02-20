@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///data/bioteam.db"
 
+    # CORS (comma-separated origins)
+    cors_origins: str = "http://localhost:3000"
+
     # Langfuse (empty = disabled)
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -68,14 +69,17 @@ export function CreateWorkflowDialog({ onCreated }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Workflow</DialogTitle>
+          <DialogDescription>
+            Configure and launch a new research workflow.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="workflow-template" className="text-xs font-medium text-muted-foreground">
               Template
             </label>
             <Select value={template} onValueChange={setTemplate}>
-              <SelectTrigger>
+              <SelectTrigger id="workflow-template" aria-label="Workflow template">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -90,10 +94,11 @@ export function CreateWorkflowDialog({ onCreated }: Props) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="workflow-query" className="text-xs font-medium text-muted-foreground">
               Research Query
             </label>
             <Textarea
+              id="workflow-query"
               placeholder="e.g., What are the mechanisms of spaceflight-induced anemia?"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -102,10 +107,11 @@ export function CreateWorkflowDialog({ onCreated }: Props) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="workflow-budget" className="text-xs font-medium text-muted-foreground">
               Budget ($)
             </label>
             <Input
+              id="workflow-budget"
               type="number"
               min="0.1"
               max="100"
@@ -116,10 +122,11 @@ export function CreateWorkflowDialog({ onCreated }: Props) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="workflow-seed-papers" className="text-xs font-medium text-muted-foreground">
               Seed Papers (DOIs, one per line)
             </label>
             <Textarea
+              id="workflow-seed-papers"
               placeholder="10.1234/example.2024.001"
               value={seedPapers}
               onChange={(e) => setSeedPapers(e.target.value)}
