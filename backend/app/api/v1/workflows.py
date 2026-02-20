@@ -1,11 +1,13 @@
 """Workflow API endpoints — create, inspect, and intervene in workflows.
 
+GET /api/v1/workflows — list all workflow instances
 GET /api/v1/workflows/{id} — full WorkflowInstance
 GET /api/v1/workflows/{id}/steps/{step_id} — step checkpoint result
 POST /api/v1/workflows — create + start a workflow
 POST /api/v1/workflows/{id}/intervene — pause/resume/cancel/inject_note
 
 v5.1: SQLite persistence for workflow state (survives server restarts).
+v5.2: Added list endpoint for dashboard.
 """
 
 from __future__ import annotations
@@ -125,6 +127,30 @@ class InterveneResponse(BaseModel):
 
 
 # === Endpoints ===
+
+
+@router.get("/workflows", response_model=list[WorkflowStatusResponse])
+async def list_workflows() -> list[WorkflowStatusResponse]:
+    """List all workflow instances."""
+    with Session(db_engine) as session:
+        instances = session.exec(select(WorkflowInstance)).all()
+        # Expunge all before session closes
+        for inst in instances:
+            session.expunge(inst)
+
+    return [
+        WorkflowStatusResponse(
+            id=inst.id,
+            template=inst.template,
+            state=inst.state,
+            current_step=inst.current_step,
+            step_history=inst.step_history,
+            budget_total=inst.budget_total,
+            budget_remaining=inst.budget_remaining,
+            loop_count=inst.loop_count,
+        )
+        for inst in instances
+    ]
 
 
 @router.post("/workflows", response_model=CreateWorkflowResponse)

@@ -118,6 +118,36 @@ def test_intervene_inject_note():
     print("  PASS: intervene_inject_note")
 
 
+def test_list_workflows():
+    """GET /api/v1/workflows should return all workflow instances."""
+    client = _setup()
+    # Create two workflows
+    client.post("/api/v1/workflows", json={"template": "W1", "query": "query 1"})
+    client.post("/api/v1/workflows", json={"template": "W2", "query": "query 2"})
+
+    response = client.get("/api/v1/workflows")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    # Should have at least the 2 we just created (may have more from other tests)
+    assert len(data) >= 2
+    # Check structure
+    for item in data:
+        assert "id" in item
+        assert "template" in item
+        assert "state" in item
+    print("  PASS: list_workflows")
+
+
+def test_list_workflows_empty_initially():
+    """GET /api/v1/workflows should work even when no workflows exist."""
+    client = _setup()
+    response = client.get("/api/v1/workflows")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+    print("  PASS: list_workflows_empty_initially")
+
+
 if __name__ == "__main__":
     print("Testing Workflow API:")
     test_create_workflow()
@@ -125,4 +155,6 @@ if __name__ == "__main__":
     test_get_workflow_not_found()
     test_intervene_cancel()
     test_intervene_inject_note()
+    test_list_workflows()
+    test_list_workflows_empty_initially()
     print("\nAll Workflow API tests passed!")

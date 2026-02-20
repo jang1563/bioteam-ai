@@ -20,6 +20,7 @@ from app.api.v1.sse import router as sse_router
 from app.api.v1.agents import router as agents_router
 from app.api.v1.workflows import router as workflows_router
 from app.api.v1.backup import router as backup_router
+from app.api.v1.negative_results import router as nr_router
 from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -121,6 +122,7 @@ app.include_router(sse_router)
 app.include_router(agents_router)
 app.include_router(workflows_router)
 app.include_router(backup_router)
+app.include_router(nr_router)
 
 
 @app.get("/")
