@@ -45,6 +45,10 @@ class WorkflowInstance(SQLModel, table=True):
     injected_notes: list[dict] = SQLField(default_factory=list, sa_column=Column(JSON))
     # v4.2: seed papers for researcher-directed literature review
     seed_papers: list[str] = SQLField(default_factory=list, sa_column=Column(JSON))  # DOIs provided by Director
+    # v5.2: Tier 1 feature data (reproducibility, citation validation, evidence scoring)
+    session_manifest: dict = SQLField(default_factory=dict, sa_column=Column(JSON))
+    citation_report: dict = SQLField(default_factory=dict, sa_column=Column(JSON))
+    rcmxt_scores: list[dict] = SQLField(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
 

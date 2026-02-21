@@ -107,6 +107,10 @@ class WorkflowStatusResponse(BaseModel):
     budget_total: float = 5.0
     budget_remaining: float = 5.0
     loop_count: dict[str, int] = Field(default_factory=dict)
+    # Tier 1: reproducibility, citation validation, evidence scoring
+    session_manifest: dict = Field(default_factory=dict)
+    citation_report: dict = Field(default_factory=dict)
+    rcmxt_scores: list[dict] = Field(default_factory=list)
 
 
 class StepCheckpointResponse(BaseModel):
@@ -160,6 +164,9 @@ async def list_workflows() -> list[WorkflowStatusResponse]:
             budget_total=inst.budget_total,
             budget_remaining=inst.budget_remaining,
             loop_count=inst.loop_count,
+            session_manifest=inst.session_manifest,
+            citation_report=inst.citation_report,
+            rcmxt_scores=inst.rcmxt_scores,
         )
         for inst in instances
     ]
@@ -390,6 +397,9 @@ async def get_workflow(workflow_id: str) -> WorkflowStatusResponse:
         budget_total=instance.budget_total,
         budget_remaining=instance.budget_remaining,
         loop_count=instance.loop_count,
+        session_manifest=instance.session_manifest,
+        citation_report=instance.citation_report,
+        rcmxt_scores=instance.rcmxt_scores,
     )
 
 

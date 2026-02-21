@@ -85,15 +85,16 @@ def _make_runner():
 
 
 def test_step_count():
-    """W1 should have exactly 8 steps."""
-    assert len(W1_STEPS) == 8
+    """W1 should have exactly 10 steps."""
+    assert len(W1_STEPS) == 10
     print("  PASS: step_count")
 
 
 def test_step_order():
     """Steps should be in correct order."""
     expected = ["SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK",
-                "SYNTHESIZE", "NOVELTY_CHECK", "REPORT"]
+                "SYNTHESIZE", "CITATION_CHECK", "RCMXT_SCORE",
+                "NOVELTY_CHECK", "REPORT"]
     actual = [s.id for s in W1_STEPS]
     assert actual == expected
     print("  PASS: step_order")
@@ -112,13 +113,12 @@ def test_human_checkpoint():
 
 
 def test_code_only_steps():
-    """NEGATIVE_CHECK and REPORT should be code-only."""
-    neg = get_step_by_id("NEGATIVE_CHECK")
-    report = get_step_by_id("REPORT")
-    assert neg.agent_id == "code_only"
-    assert report.agent_id == "code_only"
-    assert neg.estimated_cost == 0.0
-    assert report.estimated_cost == 0.0
+    """NEGATIVE_CHECK, CITATION_CHECK, RCMXT_SCORE, and REPORT should be code-only."""
+    for step_id in ("NEGATIVE_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "REPORT"):
+        step = get_step_by_id(step_id)
+        assert step is not None, f"{step_id} not found"
+        assert step.agent_id == "code_only", f"{step_id} should be code_only"
+        assert step.estimated_cost == 0.0, f"{step_id} should have zero cost"
     print("  PASS: code_only_steps")
 
 
@@ -156,7 +156,9 @@ def test_run_to_human_checkpoint():
     assert "EXTRACT" in step_ids
     assert "NEGATIVE_CHECK" in step_ids
     assert "SYNTHESIZE" in step_ids
-    # NOVELTY_CHECK and REPORT should NOT have run yet
+    # Post-human steps should NOT have run yet
+    assert "CITATION_CHECK" not in step_ids
+    assert "RCMXT_SCORE" not in step_ids
     assert "NOVELTY_CHECK" not in step_ids
     assert "REPORT" not in step_ids
     print("  PASS: run_to_human_checkpoint")
@@ -177,6 +179,8 @@ def test_resume_after_human():
     assert final["instance"].state == "COMPLETED"
 
     step_ids = list(final["step_results"].keys())
+    assert "CITATION_CHECK" in step_ids
+    assert "RCMXT_SCORE" in step_ids
     assert "NOVELTY_CHECK" in step_ids
     assert "REPORT" in step_ids
     print("  PASS: resume_after_human")

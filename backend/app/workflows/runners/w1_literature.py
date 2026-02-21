@@ -1,10 +1,13 @@
-"""W1 Literature Review Runner — 8-step pipeline for systematic literature review.
+"""W1 Literature Review Runner — 10-step pipeline for systematic literature review.
 
 Steps:
-  SCOPE → SEARCH → SCREEN → EXTRACT → NEGATIVE_CHECK → SYNTHESIZE → NOVELTY_CHECK → REPORT
-    RD      KM      T02       T02       LabKB(code)       RD(Opus)       KM            code
+  SCOPE → SEARCH → SCREEN → EXTRACT → NEGATIVE_CHECK → SYNTHESIZE
+    RD      KM      T02       T02       LabKB(code)       RD(Opus)
+  → [HUMAN CHECKPOINT]
+  → CITATION_CHECK → RCMXT_SCORE → NOVELTY_CHECK → REPORT
+      code              code            KM            code(+SessionManifest)
 
-NEGATIVE_CHECK and REPORT are code-only steps (no LLM).
+Code-only steps: NEGATIVE_CHECK, CITATION_CHECK, RCMXT_SCORE, REPORT.
 SYNTHESIZE has a human checkpoint for Director review.
 """
 
@@ -67,9 +70,23 @@ W1_STEPS: list[WorkflowStepDef] = [
         id="SYNTHESIZE",
         agent_id="research_director",
         output_schema="SynthesisReport",
-        next_step="NOVELTY_CHECK",
+        next_step="CITATION_CHECK",
         is_human_checkpoint=True,
         estimated_cost=0.50,
+    ),
+    WorkflowStepDef(
+        id="CITATION_CHECK",
+        agent_id="code_only",
+        output_schema="dict",
+        next_step="RCMXT_SCORE",
+        estimated_cost=0.0,
+    ),
+    WorkflowStepDef(
+        id="RCMXT_SCORE",
+        agent_id="code_only",
+        output_schema="dict",
+        next_step="NOVELTY_CHECK",
+        estimated_cost=0.0,
     ),
     WorkflowStepDef(
         id="NOVELTY_CHECK",
@@ -184,7 +201,7 @@ class W1LiteratureReviewRunner:
                     payload={"step": step.id},
                 )
 
-            if step.id in ("NEGATIVE_CHECK", "REPORT"):
+            if step.id in ("NEGATIVE_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "REPORT"):
                 # Code-only steps
                 result = await self._run_code_step(step, query, instance)
                 self._step_results[step.id] = result
@@ -249,15 +266,16 @@ class W1LiteratureReviewRunner:
     ) -> dict[str, Any]:
         """Resume after human approval at SYNTHESIZE checkpoint.
 
-        Continues from NOVELTY_CHECK through REPORT.
+        Continues from CITATION_CHECK through REPORT.
         Note: Caller is responsible for transitioning state to RUNNING first.
         """
         # Ensure we're in RUNNING state (caller should have done this)
         if instance.state != "RUNNING":
             self.engine.resume(instance)
 
-        # Run remaining steps: NOVELTY_CHECK, REPORT
-        remaining_steps = [s for s in W1_STEPS if s.id in ("NOVELTY_CHECK", "REPORT")]
+        # Run remaining steps after human checkpoint
+        remaining_ids = ("CITATION_CHECK", "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT")
+        remaining_steps = [s for s in W1_STEPS if s.id in remaining_ids]
 
         for step in remaining_steps:
             if instance.state not in ("RUNNING",):
@@ -271,7 +289,7 @@ class W1LiteratureReviewRunner:
                     agent_id=step.agent_id,
                 )
 
-            if step.id == "REPORT":
+            if step.id in ("CITATION_CHECK", "RCMXT_SCORE", "REPORT"):
                 result = await self._run_code_step(step, query, instance)
                 self._step_results[step.id] = result
                 self.engine.advance(instance, step.id)
@@ -295,6 +313,9 @@ class W1LiteratureReviewRunner:
                     step_id=step.id,
                     agent_id=step.agent_id,
                 )
+
+        # Store Tier 1 results on instance before completing
+        self._store_tier1_results(instance)
 
         # Mark completed if all steps done
         if instance.state == "RUNNING":
@@ -353,9 +374,13 @@ class W1LiteratureReviewRunner:
         query: str,
         instance: WorkflowInstance,
     ) -> AgentOutput:
-        """Run a code-only step (NEGATIVE_CHECK or REPORT)."""
+        """Run a code-only step."""
         if step.id == "NEGATIVE_CHECK":
             return await self._negative_check(query)
+        elif step.id == "CITATION_CHECK":
+            return self._citation_check()
+        elif step.id == "RCMXT_SCORE":
+            return self._rcmxt_score()
         elif step.id == "REPORT":
             return self._generate_report(query, instance)
         return AgentOutput(agent_id="code_only", error=f"Unknown code step: {step.id}")
@@ -386,8 +411,104 @@ class W1LiteratureReviewRunner:
             summary=f"Found {len(negative_results)} negative results for: {query[:80]}",
         )
 
+    def _citation_check(self) -> AgentOutput:
+        """Validate citations in SYNTHESIZE output against SEARCH sources."""
+        from app.engines.citation_validator import CitationValidator
+
+        validator = CitationValidator()
+
+        # Register sources from SEARCH step
+        search_result = self._step_results.get("SEARCH")
+        if search_result and hasattr(search_result, 'output') and isinstance(search_result.output, dict):
+            papers = search_result.output.get("papers", [])
+            validator.register_sources(papers)
+
+        # Get synthesis text and cited sources from SYNTHESIZE step
+        synth_result = self._step_results.get("SYNTHESIZE")
+        synthesis_text = ""
+        inline_refs = None
+        if synth_result and hasattr(synth_result, 'output') and isinstance(synth_result.output, dict):
+            synthesis_text = synth_result.output.get("summary", "")
+            sources_cited = synth_result.output.get("sources_cited", [])
+            if sources_cited:
+                inline_refs = [{"doi": s} for s in sources_cited if isinstance(s, str) and s.startswith("10.")]
+
+        report = validator.validate(synthesis_text, inline_refs=inline_refs)
+
+        report_dict = {
+            "step": "CITATION_CHECK",
+            "total_citations": report.total_citations,
+            "verified": report.verified,
+            "verification_rate": report.verification_rate,
+            "is_clean": report.is_clean,
+            "issues": [
+                {
+                    "citation_ref": issue.citation_ref,
+                    "issue_type": issue.issue_type,
+                    "context": issue.context,
+                    "suggestion": issue.suggestion,
+                }
+                for issue in report.issues
+            ],
+        }
+
+        return AgentOutput(
+            agent_id="code_only",
+            output=report_dict,
+            output_type="CitationReport",
+            summary=f"Citations: {report.verified}/{report.total_citations} verified ({report.verification_rate:.0%})",
+        )
+
+    def _rcmxt_score(self) -> AgentOutput:
+        """Score key findings using RCMXT heuristics."""
+        from app.engines.rcmxt_scorer import RCMXTScorer
+
+        scorer = RCMXTScorer()
+
+        # Load data from prior steps
+        search_output = None
+        extract_output = None
+        synthesis_output = None
+
+        search_result = self._step_results.get("SEARCH")
+        if search_result and hasattr(search_result, 'output') and isinstance(search_result.output, dict):
+            search_output = search_result.output
+
+        extract_result = self._step_results.get("EXTRACT")
+        if extract_result and hasattr(extract_result, 'output') and isinstance(extract_result.output, dict):
+            extract_output = extract_result.output
+
+        synth_result = self._step_results.get("SYNTHESIZE")
+        if synth_result and hasattr(synth_result, 'output') and isinstance(synth_result.output, dict):
+            synthesis_output = synth_result.output
+
+        scorer.load_step_data(search_output, extract_output, synthesis_output)
+        scores = scorer.score_all()
+        scores_dicts = [s.model_dump(mode="json") for s in scores]
+
+        return AgentOutput(
+            agent_id="code_only",
+            output={
+                "step": "RCMXT_SCORE",
+                "scores": scores_dicts,
+                "total_scored": len(scores),
+            },
+            output_type="RCMXTScores",
+            summary=f"RCMXT scored {len(scores)} findings",
+        )
+
+    def _store_tier1_results(self, instance: WorkflowInstance) -> None:
+        """Store citation report and RCMXT scores on the workflow instance."""
+        citation_result = self._step_results.get("CITATION_CHECK")
+        if citation_result and hasattr(citation_result, 'output') and isinstance(citation_result.output, dict):
+            instance.citation_report = citation_result.output
+
+        rcmxt_result = self._step_results.get("RCMXT_SCORE")
+        if rcmxt_result and hasattr(rcmxt_result, 'output') and isinstance(rcmxt_result.output, dict):
+            instance.rcmxt_scores = rcmxt_result.output.get("scores", [])
+
     def _generate_report(self, query: str, instance: WorkflowInstance) -> AgentOutput:
-        """Assemble the final W1 report from all step results."""
+        """Assemble the final W1 report from all step results, including SessionManifest."""
         report = {
             "title": f"W1 Literature Review: {query}",
             "query": query,
@@ -404,9 +525,88 @@ class W1LiteratureReviewRunner:
             elif hasattr(result, 'output') and result.output:
                 report[f"{step_id.lower()}_summary"] = str(result.output)[:200]
 
+        # Build and attach SessionManifest
+        manifest = self._build_session_manifest(query, instance)
+        report["session_manifest"] = manifest
+        instance.session_manifest = manifest
+
         return AgentOutput(
             agent_id="code_only",
             output=report,
             output_type="W1Report",
             summary=f"W1 Report: {query[:100]}",
         )
+
+    def _build_session_manifest(self, query: str, instance: WorkflowInstance) -> dict:
+        """Aggregate LLM metadata from all step results into a SessionManifest."""
+        from app.models.evidence import SessionManifest, PRISMAFlow
+
+        llm_calls = []
+        total_input = 0
+        total_output = 0
+        total_cost = 0.0
+        model_versions: set[str] = set()
+
+        for step_id, result in self._step_results.items():
+            if not hasattr(result, 'model_version'):
+                continue
+            if result.model_version and result.model_version != "deterministic":
+                model_versions.add(result.model_version)
+                llm_calls.append({
+                    "step_id": step_id,
+                    "agent_id": result.agent_id,
+                    "model_version": result.model_version,
+                    "input_tokens": result.input_tokens,
+                    "output_tokens": result.output_tokens,
+                    "cached_input_tokens": result.cached_input_tokens,
+                    "cost": result.cost,
+                })
+                total_input += result.input_tokens
+                total_output += result.output_tokens
+                total_cost += result.cost
+
+        prisma = self._build_prisma_flow()
+
+        manifest = SessionManifest(
+            workflow_id=instance.id,
+            template=instance.template,
+            query=query,
+            started_at=instance.created_at,
+            completed_at=datetime.now(timezone.utc),
+            llm_calls=llm_calls,
+            total_input_tokens=total_input,
+            total_output_tokens=total_output,
+            total_cost=total_cost,
+            model_versions=sorted(model_versions),
+            seed_papers=instance.seed_papers,
+            system_version="v0.5",
+            prisma=prisma,
+        )
+        return manifest.model_dump(mode="json")
+
+    def _build_prisma_flow(self) -> "PRISMAFlow":
+        """Build PRISMA flow diagram data from step results."""
+        from app.models.evidence import PRISMAFlow
+
+        prisma = PRISMAFlow()
+
+        search_result = self._step_results.get("SEARCH")
+        if search_result and hasattr(search_result, 'output') and isinstance(search_result.output, dict):
+            prisma.records_identified = search_result.output.get("total_found", 0)
+            prisma.records_from_databases = search_result.output.get("total_found", 0)
+
+        screen_result = self._step_results.get("SCREEN")
+        if screen_result and hasattr(screen_result, 'output') and isinstance(screen_result.output, dict):
+            prisma.records_screened = screen_result.output.get("total_screened", 0)
+            prisma.records_excluded_screening = screen_result.output.get("excluded", 0)
+
+        extract_result = self._step_results.get("EXTRACT")
+        if extract_result and hasattr(extract_result, 'output') and isinstance(extract_result.output, dict):
+            prisma.full_text_assessed = extract_result.output.get("total_extracted", 0)
+            prisma.studies_included = extract_result.output.get("total_extracted", 0)
+
+        neg_result = self._step_results.get("NEGATIVE_CHECK")
+        if neg_result and hasattr(neg_result, 'output') and isinstance(neg_result.output, dict):
+            prisma.negative_results_found = neg_result.output.get("negative_results_found", 0)
+
+        return prisma

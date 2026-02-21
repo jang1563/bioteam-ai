@@ -41,6 +41,7 @@ import type {
   WorkflowStatus,
   StepCheckpoint,
   StepHistoryEntry,
+  RCMXTScore,
 } from "@/types/api";
 
 const W1_STEP_LABELS: Record<string, string> = {
@@ -50,11 +51,16 @@ const W1_STEP_LABELS: Record<string, string> = {
   EXTRACT: "Data Extraction",
   NEGATIVE_CHECK: "Negative Results Check",
   SYNTHESIZE: "Synthesis (Human Checkpoint)",
+  CITATION_CHECK: "Citation Validation",
+  RCMXT_SCORE: "Evidence Scoring (RCMXT)",
   NOVELTY_CHECK: "Novelty Assessment",
   REPORT: "Final Report",
 };
 
-const W1_ALL_STEPS = ["SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK", "SYNTHESIZE", "NOVELTY_CHECK", "REPORT"];
+const W1_ALL_STEPS = [
+  "SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK", "SYNTHESIZE",
+  "CITATION_CHECK", "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT",
+];
 
 function stepStatusIcon(stepId: string, workflow: WorkflowStatus) {
   const completed = workflow.step_history.some((s) => s.step_id === stepId);
@@ -253,7 +259,8 @@ export function WorkflowDetailSheet() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       The synthesis step is complete. Review the results above, then click
-                      Resume to continue with novelty check and final report.
+                      Resume to continue with citation validation, evidence scoring, novelty
+                      check, and final report.
                     </p>
                   </div>
                 </>
@@ -274,6 +281,51 @@ export function WorkflowDetailSheet() {
                           <span className="font-mono">{v}</span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* RCMXT Evidence Scores */}
+              {workflow.rcmxt_scores && workflow.rcmxt_scores.length > 0 && (
+                <>
+                  <Separator />
+                  <RCMXTScoreTable scores={workflow.rcmxt_scores} />
+                </>
+              )}
+
+              {/* Citation Report */}
+              {workflow.citation_report && workflow.citation_report.total_citations > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                      Citation Validation
+                    </p>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span>Total citations</span>
+                        <span className="font-mono">{workflow.citation_report.total_citations}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Verified</span>
+                        <span className="font-mono text-emerald-500">{workflow.citation_report.verified}</span>
+                      </div>
+                      {workflow.citation_report.unverified > 0 && (
+                        <div className="flex justify-between">
+                          <span>Unverified</span>
+                          <span className="font-mono text-amber-500">{workflow.citation_report.unverified}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span>Verification rate</span>
+                        <span className="font-mono">
+                          {(workflow.citation_report.verification_rate * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      {workflow.citation_report.is_clean && (
+                        <Badge variant="default" className="text-[10px] mt-1">Clean</Badge>
+                      )}
                     </div>
                   </div>
                 </>
@@ -390,6 +442,53 @@ function StateBadge({ state }: { state: string }) {
     OVER_BUDGET: "destructive",
   };
   return <Badge variant={variants[state] ?? "secondary"} className="text-xs">{state}</Badge>;
+}
+
+function RCMXTScoreTable({ scores }: { scores: RCMXTScore[] }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+        Evidence Quality (RCMXT)
+      </p>
+      <div className="overflow-x-auto rounded border border-border">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-border bg-accent/50">
+              <th className="px-2 py-1 text-left font-medium text-muted-foreground">Claim</th>
+              <th className="px-1.5 py-1 text-center font-medium text-muted-foreground" title="Reproducibility">R</th>
+              <th className="px-1.5 py-1 text-center font-medium text-muted-foreground" title="Condition Specificity">C</th>
+              <th className="px-1.5 py-1 text-center font-medium text-muted-foreground" title="Methodology">M</th>
+              <th className="px-1.5 py-1 text-center font-medium text-muted-foreground" title="Cross-Omics">X</th>
+              <th className="px-1.5 py-1 text-center font-medium text-muted-foreground" title="Temporal">T</th>
+              <th className="px-1.5 py-1 text-center font-medium text-muted-foreground">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scores.map((s, i) => (
+              <tr key={i} className="border-b border-border last:border-0">
+                <td className="px-2 py-1 max-w-[180px] truncate" title={s.claim}>
+                  {s.claim}
+                </td>
+                <td className="px-1.5 py-1 text-center font-mono">{s.R.toFixed(2)}</td>
+                <td className="px-1.5 py-1 text-center font-mono">{s.C.toFixed(2)}</td>
+                <td className="px-1.5 py-1 text-center font-mono">{s.M.toFixed(2)}</td>
+                <td className="px-1.5 py-1 text-center font-mono text-muted-foreground">
+                  {s.X !== null ? s.X.toFixed(2) : "—"}
+                </td>
+                <td className="px-1.5 py-1 text-center font-mono">{s.T.toFixed(2)}</td>
+                <td className="px-1.5 py-1 text-center font-mono font-medium">
+                  {s.composite !== null ? s.composite.toFixed(2) : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        v0.1-heuristic | R=Reproducibility C=Condition M=Methodology X=Cross-Omics T=Temporal
+      </p>
+    </div>
+  );
 }
 
 function StepResultPanel({ data, stepId }: { data: Record<string, unknown>; stepId: string }) {

@@ -44,12 +44,46 @@ export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5"
 export interface WorkflowStatus {
   id: string;
   template: string;
+  query: string;
   state: WorkflowState;
   current_step: string;
   step_history: StepHistoryEntry[];
   budget_total: number;
   budget_remaining: number;
   loop_count: Record<string, number>;
+  session_manifest: Record<string, unknown>;
+  citation_report: CitationReport;
+  rcmxt_scores: RCMXTScore[];
+}
+
+// === Tier 1: Reproducibility & Evidence Scoring ===
+
+export interface RCMXTScore {
+  claim: string;
+  R: number;
+  C: number;
+  M: number;
+  X: number | null;
+  T: number;
+  composite: number | null;
+  sources: string[];
+  scorer_version: string;
+  model_version: string;
+}
+
+export interface CitationIssue {
+  type: "unverified" | "hallucinated" | "missing_doi";
+  citation: string;
+  detail: string;
+}
+
+export interface CitationReport {
+  total_citations: number;
+  verified: number;
+  unverified: number;
+  verification_rate: number;
+  is_clean: boolean;
+  issues: CitationIssue[];
 }
 
 export interface StepHistoryEntry {
