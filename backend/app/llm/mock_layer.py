@@ -63,7 +63,9 @@ class MockLLMLayer:
             "system": system,
             "temperature": temperature,
         })
-        result = self.responses.get(key, response_model.model_construct())
+        result = self.responses.get(key)
+        if result is None:
+            result = _build_default(response_model)
         return result, self._mock_meta(model_tier)
 
     async def complete_raw(
@@ -111,6 +113,37 @@ class MockLLMLayer:
     def estimate_cost(self, model_tier: ModelTier, input_tokens: int,
                       output_tokens: int, cached_input_tokens: int = 0) -> float:
         return 0.0
+
+
+def _build_default(model: type[BaseModel]) -> BaseModel:
+    """Build a default instance of a Pydantic model, filling required fields."""
+    try:
+        return model()
+    except Exception:
+        pass
+    # Fill required fields with type-appropriate defaults
+    defaults = {}
+    for name, field_info in model.model_fields.items():
+        if field_info.is_required():
+            annotation = field_info.annotation
+            if annotation is str or (hasattr(annotation, '__origin__') is False and annotation == str):
+                defaults[name] = ""
+            elif annotation is int:
+                defaults[name] = 0
+            elif annotation is float:
+                defaults[name] = 0.0
+            elif annotation is bool:
+                defaults[name] = False
+            elif annotation is list or (hasattr(annotation, '__origin__') and getattr(annotation, '__origin__', None) is list):
+                defaults[name] = []
+            elif annotation is dict or (hasattr(annotation, '__origin__') and getattr(annotation, '__origin__', None) is dict):
+                defaults[name] = {}
+            else:
+                defaults[name] = ""
+    try:
+        return model(**defaults)
+    except Exception:
+        return model.model_construct(**defaults)
 
 
 class _MockMessage:

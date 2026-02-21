@@ -64,6 +64,7 @@ class SSEEvent(BaseModel):
 
     event_type: Literal[
         "workflow.started",
+        "workflow.resumed",
         "workflow.step_started",
         "workflow.step_completed",
         "workflow.step_failed",

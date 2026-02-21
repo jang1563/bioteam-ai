@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -20,19 +21,95 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pause, Play, XCircle, MessageSquarePlus } from "lucide-react";
-import { useWorkflowDetail } from "@/hooks/use-workflows";
+import {
+  Pause,
+  Play,
+  XCircle,
+  MessageSquarePlus,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Loader2,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/api-client";
-import type { InterveneResponse, NoteAction } from "@/types/api";
+import type {
+  InterveneResponse,
+  NoteAction,
+  WorkflowStatus,
+  StepCheckpoint,
+  StepHistoryEntry,
+} from "@/types/api";
+
+const W1_STEP_LABELS: Record<string, string> = {
+  SCOPE: "Scope Definition",
+  SEARCH: "Literature Search",
+  SCREEN: "Paper Screening",
+  EXTRACT: "Data Extraction",
+  NEGATIVE_CHECK: "Negative Results Check",
+  SYNTHESIZE: "Synthesis (Human Checkpoint)",
+  NOVELTY_CHECK: "Novelty Assessment",
+  REPORT: "Final Report",
+};
+
+const W1_ALL_STEPS = ["SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK", "SYNTHESIZE", "NOVELTY_CHECK", "REPORT"];
+
+function stepStatusIcon(stepId: string, workflow: WorkflowStatus) {
+  const completed = workflow.step_history.some((s) => s.step_id === stepId);
+  const isCurrent = workflow.current_step === stepId;
+  const isRunning = workflow.state === "RUNNING" && isCurrent;
+
+  if (completed && !isCurrent) return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />;
+  if (isRunning) return <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin shrink-0" />;
+  if (isCurrent && workflow.state === "WAITING_HUMAN") return <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />;
+  if (workflow.state === "FAILED" && isCurrent) return <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />;
+  return <span className="h-3.5 w-3.5 rounded-full border border-border shrink-0 inline-block" />;
+}
 
 export function WorkflowDetailSheet() {
   const selectedId = useAppStore((s) => s.selectedWorkflowId);
   const setSelected = useAppStore((s) => s.setSelectedWorkflowId);
-  const { workflow, loading } = useWorkflowDetail(selectedId);
+  const [workflow, setWorkflow] = useState<WorkflowStatus | null>(null);
+  const [loading, setLoading] = useState(false);
   const [note, setNote] = useState("");
   const [noteAction, setNoteAction] = useState<NoteAction>("FREE_TEXT");
   const [intervening, setIntervening] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+
+  const fetchWorkflow = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      setLoading(true);
+      const data = await api.get<WorkflowStatus>(`/api/v1/workflows/${selectedId}`);
+      setWorkflow(data);
+    } catch {
+      // handled
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedId]);
+
+  // Initial fetch
+  useEffect(() => {
+    if (selectedId) {
+      fetchWorkflow();
+    } else {
+      setWorkflow(null);
+      setExpandedSteps(new Set());
+    }
+  }, [selectedId, fetchWorkflow]);
+
+  // Auto-refresh while workflow is active
+  useEffect(() => {
+    if (!selectedId || !workflow) return;
+    const activeStates = ["RUNNING", "PENDING"];
+    if (!activeStates.includes(workflow.state)) return;
+
+    const interval = setInterval(fetchWorkflow, 3000);
+    return () => clearInterval(interval);
+  }, [selectedId, workflow?.state, fetchWorkflow]);
 
   const doIntervene = async (action: string) => {
     if (!selectedId) return;
@@ -46,11 +123,22 @@ export function WorkflowDetailSheet() {
         },
       );
       if (action === "inject_note") setNote("");
+      // Refresh after intervention
+      await fetchWorkflow();
     } catch {
       // error handled by API client
     } finally {
       setIntervening(false);
     }
+  };
+
+  const toggleStep = (stepId: string) => {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) next.delete(stepId);
+      else next.add(stepId);
+      return next;
+    });
   };
 
   const budgetUsed = workflow
@@ -62,182 +150,315 @@ export function WorkflowDetailSheet() {
 
   return (
     <Sheet open={!!selectedId} onOpenChange={(open) => !open && setSelected(null)}>
-      <SheetContent className="w-[450px] overflow-y-auto sm:max-w-[450px]">
-        <SheetHeader>
-          <SheetTitle>
-            Workflow {workflow?.template ?? ""}
-          </SheetTitle>
-          <SheetDescription>
-            {workflow
-              ? `Workflow ${workflow.template} details and intervention controls (${workflow.state})`
-              : "Loading workflow details"}
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent className="w-[500px] overflow-y-auto sm:max-w-[500px] p-0">
+        <div className="p-6 pb-0">
+          <SheetHeader>
+            <SheetTitle>
+              Workflow {workflow?.template ?? ""}
+            </SheetTitle>
+            <SheetDescription>
+              {workflow
+                ? `${workflow.template} pipeline details and controls (${workflow.state})`
+                : "Loading workflow details"}
+            </SheetDescription>
+          </SheetHeader>
+        </div>
 
-        {loading && (
-          <p className="py-4 text-sm text-muted-foreground">Loading...</p>
+        {loading && !workflow && (
+          <p className="px-6 py-4 text-sm text-muted-foreground">Loading...</p>
         )}
 
         {workflow && (
-          <div className="mt-4 space-y-4">
-            {/* State badge + ID */}
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">{workflow.state}</Badge>
-              <span className="font-mono text-xs text-muted-foreground truncate">
-                {workflow.id}
-              </span>
-            </div>
-
-            {/* Budget */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Budget</span>
-                <span className="font-mono">
-                  ${budgetUsed.toFixed(2)} / ${workflow.budget_total.toFixed(2)}
+          <ScrollArea className="h-[calc(100vh-120px)]">
+            <div className="space-y-4 p-6 pt-4">
+              {/* State badge + ID */}
+              <div className="flex items-center gap-2">
+                <StateBadge state={workflow.state} />
+                <span className="font-mono text-xs text-muted-foreground truncate">
+                  {workflow.id}
                 </span>
+                {(workflow.state === "RUNNING" || workflow.state === "PENDING") && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-auto" />
+                )}
               </div>
-              <Progress value={budgetPct} className="h-2" />
-            </div>
 
-            <Separator />
-
-            {/* Step Timeline */}
-            <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Step History
-              </p>
-              {workflow.step_history.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60">No steps yet</p>
-              ) : (
-                <div className="space-y-1">
-                  {workflow.step_history.map((step, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-accent"
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      <span className="font-medium">
-                        {step.step_id ?? `Step ${i + 1}`}
-                      </span>
-                      {step.agent_id && (
-                        <span className="text-muted-foreground">
-                          ({step.agent_id})
-                        </span>
-                      )}
-                    </div>
-                  ))}
+              {/* Budget */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Budget</span>
+                  <span className="font-mono">
+                    ${budgetUsed.toFixed(2)} / ${workflow.budget_total.toFixed(2)}
+                  </span>
                 </div>
-              )}
-              {workflow.current_step && (
-                <div className="mt-1 flex items-center gap-2 rounded bg-accent px-2 py-1 text-xs">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-                  <span className="font-medium">{workflow.current_step}</span>
-                  <span className="text-muted-foreground">(current)</span>
-                </div>
-              )}
-            </div>
+                <Progress value={budgetPct} className="h-2" />
+              </div>
 
-            {/* Loop counts */}
-            {Object.keys(workflow.loop_count).length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    Loop Counts
-                  </p>
-                  <div className="space-y-0.5 text-xs">
-                    {Object.entries(workflow.loop_count).map(([k, v]) => (
-                      <div key={k} className="flex justify-between">
-                        <span>{k}</span>
-                        <span className="font-mono">{v}</span>
+              <Separator />
+
+              {/* Pipeline Steps */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Pipeline Steps ({workflow.step_history.length}/{W1_ALL_STEPS.length})
+                </p>
+                <div className="space-y-0.5">
+                  {W1_ALL_STEPS.map((stepId) => {
+                    const historyEntry = workflow.step_history.find(
+                      (s) => s.step_id === stepId
+                    );
+                    const hasData = historyEntry && historyEntry.result_data;
+                    const isExpanded = expandedSteps.has(stepId);
+
+                    return (
+                      <div key={stepId}>
+                        <button
+                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent text-left"
+                          onClick={() => hasData && toggleStep(stepId)}
+                          disabled={!hasData}
+                          aria-expanded={isExpanded}
+                          aria-label={`${W1_STEP_LABELS[stepId] ?? stepId}: ${historyEntry ? "completed" : "pending"}`}
+                        >
+                          {stepStatusIcon(stepId, workflow)}
+                          <span className="font-medium flex-1">
+                            {W1_STEP_LABELS[stepId] ?? stepId}
+                          </span>
+                          {historyEntry?.completed_at && (
+                            <span className="text-muted-foreground text-[10px]">
+                              {formatTime(historyEntry.completed_at as string)}
+                            </span>
+                          )}
+                          {hasData && (
+                            isExpanded
+                              ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </button>
+
+                        {/* Expanded step result */}
+                        {isExpanded && hasData && (
+                          <StepResultPanel data={historyEntry.result_data as Record<string, unknown>} stepId={stepId} />
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              </>
-            )}
-
-            <Separator />
-
-            {/* Intervention Controls */}
-            <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Interventions
-              </p>
-              <div className="flex gap-2" role="group" aria-label="Workflow intervention actions">
-                {(workflow.state === "RUNNING" || workflow.state === "WAITING_HUMAN") && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={intervening}
-                    onClick={() => doIntervene("pause")}
-                    aria-label={`Pause workflow ${workflow.template}`}
-                  >
-                    <Pause className="mr-1 h-3 w-3" aria-hidden="true" /> Pause
-                  </Button>
-                )}
-                {workflow.state === "PAUSED" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={intervening}
-                    onClick={() => doIntervene("resume")}
-                    aria-label={`Resume workflow ${workflow.template}`}
-                  >
-                    <Play className="mr-1 h-3 w-3" aria-hidden="true" /> Resume
-                  </Button>
-                )}
-                {["PENDING", "RUNNING", "PAUSED", "WAITING_HUMAN"].includes(workflow.state) && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={intervening}
-                    onClick={() => doIntervene("cancel")}
-                    aria-label={`Cancel workflow ${workflow.template}`}
-                  >
-                    <XCircle className="mr-1 h-3 w-3" aria-hidden="true" /> Cancel
-                  </Button>
-                )}
               </div>
 
-              {/* Inject Note */}
-              <div className="mt-3 space-y-2">
-                <label htmlFor="note-action-select" className="sr-only">Note action type</label>
-                <Select value={noteAction} onValueChange={(v) => setNoteAction(v as NoteAction)}>
-                  <SelectTrigger className="h-8 text-xs" id="note-action-select" aria-label="Note action type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FREE_TEXT">Free Text</SelectItem>
-                    <SelectItem value="ADD_PAPER">Add Paper</SelectItem>
-                    <SelectItem value="EXCLUDE_PAPER">Exclude Paper</SelectItem>
-                    <SelectItem value="MODIFY_QUERY">Modify Query</SelectItem>
-                    <SelectItem value="EDIT_TEXT">Edit Text</SelectItem>
-                  </SelectContent>
-                </Select>
-                <label htmlFor="workflow-note-input" className="sr-only">Workflow note</label>
-                <Textarea
-                  id="workflow-note-input"
-                  placeholder="Enter note for workflow..."
-                  className="min-h-[60px] text-xs"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  aria-label="Enter note for workflow"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={intervening || !note.trim()}
-                  onClick={() => doIntervene("inject_note")}
-                  aria-label="Inject note into workflow"
-                >
-                  <MessageSquarePlus className="mr-1 h-3 w-3" aria-hidden="true" /> Inject Note
-                </Button>
+              {/* WAITING_HUMAN banner */}
+              {workflow.state === "WAITING_HUMAN" && (
+                <>
+                  <Separator />
+                  <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
+                    <p className="text-xs font-medium text-amber-500 mb-1">
+                      Human Review Required
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      The synthesis step is complete. Review the results above, then click
+                      Resume to continue with novelty check and final report.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Loop counts */}
+              {Object.keys(workflow.loop_count).length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      Loop Counts
+                    </p>
+                    <div className="space-y-0.5 text-xs">
+                      {Object.entries(workflow.loop_count).map(([k, v]) => (
+                        <div key={k} className="flex justify-between">
+                          <span>{k}</span>
+                          <span className="font-mono">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              {/* Intervention Controls */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Interventions
+                </p>
+                <div className="flex gap-2" role="group" aria-label="Workflow intervention actions">
+                  {workflow.state === "WAITING_HUMAN" && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      disabled={intervening}
+                      onClick={() => doIntervene("resume")}
+                      aria-label={`Approve and resume workflow ${workflow.template}`}
+                    >
+                      <Play className="mr-1 h-3 w-3" aria-hidden="true" /> Approve & Resume
+                    </Button>
+                  )}
+                  {workflow.state === "RUNNING" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={intervening}
+                      onClick={() => doIntervene("pause")}
+                      aria-label={`Pause workflow ${workflow.template}`}
+                    >
+                      <Pause className="mr-1 h-3 w-3" aria-hidden="true" /> Pause
+                    </Button>
+                  )}
+                  {workflow.state === "PAUSED" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={intervening}
+                      onClick={() => doIntervene("resume")}
+                      aria-label={`Resume workflow ${workflow.template}`}
+                    >
+                      <Play className="mr-1 h-3 w-3" aria-hidden="true" /> Resume
+                    </Button>
+                  )}
+                  {["PENDING", "RUNNING", "PAUSED", "WAITING_HUMAN"].includes(workflow.state) && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={intervening}
+                      onClick={() => doIntervene("cancel")}
+                      aria-label={`Cancel workflow ${workflow.template}`}
+                    >
+                      <XCircle className="mr-1 h-3 w-3" aria-hidden="true" /> Cancel
+                    </Button>
+                  )}
+                </div>
+
+                {/* Inject Note */}
+                {["RUNNING", "PAUSED", "WAITING_HUMAN"].includes(workflow.state) && (
+                  <div className="mt-3 space-y-2">
+                    <label htmlFor="note-action-select" className="sr-only">Note action type</label>
+                    <Select value={noteAction} onValueChange={(v) => setNoteAction(v as NoteAction)}>
+                      <SelectTrigger className="h-8 text-xs" id="note-action-select" aria-label="Note action type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FREE_TEXT">Free Text</SelectItem>
+                        <SelectItem value="ADD_PAPER">Add Paper</SelectItem>
+                        <SelectItem value="EXCLUDE_PAPER">Exclude Paper</SelectItem>
+                        <SelectItem value="MODIFY_QUERY">Modify Query</SelectItem>
+                        <SelectItem value="EDIT_TEXT">Edit Text</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <label htmlFor="workflow-note-input" className="sr-only">Workflow note</label>
+                    <Textarea
+                      id="workflow-note-input"
+                      placeholder="Enter note for workflow..."
+                      className="min-h-[60px] text-xs"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      aria-label="Enter note for workflow"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={intervening || !note.trim()}
+                      onClick={() => doIntervene("inject_note")}
+                      aria-label="Inject note into workflow"
+                    >
+                      <MessageSquarePlus className="mr-1 h-3 w-3" aria-hidden="true" /> Inject Note
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          </ScrollArea>
         )}
       </SheetContent>
     </Sheet>
   );
+}
+
+function StateBadge({ state }: { state: string }) {
+  const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+    RUNNING: "default",
+    COMPLETED: "default",
+    PENDING: "secondary",
+    PAUSED: "outline",
+    WAITING_HUMAN: "outline",
+    FAILED: "destructive",
+    CANCELLED: "secondary",
+    OVER_BUDGET: "destructive",
+  };
+  return <Badge variant={variants[state] ?? "secondary"} className="text-xs">{state}</Badge>;
+}
+
+function StepResultPanel({ data, stepId }: { data: Record<string, unknown>; stepId: string }) {
+  return (
+    <div className="ml-6 mb-2 rounded border border-border bg-accent/30 p-2 text-xs space-y-1.5">
+      {Object.entries(data).map(([key, value]) => {
+        if (value === null || value === undefined) return null;
+        const displayKey = key.replace(/_/g, " ");
+
+        if (typeof value === "string" && value.length > 100) {
+          return (
+            <div key={key}>
+              <span className="font-medium text-muted-foreground capitalize">{displayKey}:</span>
+              <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed max-h-[200px] overflow-y-auto">
+                {value}
+              </p>
+            </div>
+          );
+        }
+
+        if (Array.isArray(value)) {
+          return (
+            <div key={key}>
+              <span className="font-medium text-muted-foreground capitalize">
+                {displayKey} ({value.length}):
+              </span>
+              <div className="mt-0.5 space-y-0.5">
+                {value.slice(0, 10).map((item, i) => (
+                  <div key={i} className="text-[11px] pl-2 border-l border-border">
+                    {typeof item === "object" ? JSON.stringify(item).slice(0, 200) : String(item)}
+                  </div>
+                ))}
+                {value.length > 10 && (
+                  <span className="text-muted-foreground text-[10px]">
+                    ...and {value.length - 10} more
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        if (typeof value === "object") {
+          return (
+            <div key={key}>
+              <span className="font-medium text-muted-foreground capitalize">{displayKey}:</span>
+              <pre className="mt-0.5 text-[11px] whitespace-pre-wrap max-h-[150px] overflow-y-auto">
+                {JSON.stringify(value, null, 2)}
+              </pre>
+            </div>
+          );
+        }
+
+        return (
+          <div key={key} className="flex gap-2">
+            <span className="font-medium text-muted-foreground capitalize shrink-0">{displayKey}:</span>
+            <span>{String(value)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch {
+    return "";
+  }
 }

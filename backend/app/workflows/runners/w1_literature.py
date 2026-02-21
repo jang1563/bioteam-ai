@@ -127,11 +127,13 @@ class W1LiteratureReviewRunner:
         engine: WorkflowEngine | None = None,
         sse_hub: SSEHub | None = None,
         lab_kb=None,  # LabKBEngine — optional, for NEGATIVE_CHECK
+        persist_fn=None,  # async callable(WorkflowInstance) → None
     ) -> None:
         self.registry = registry
         self.engine = engine or WorkflowEngine()
         self.sse_hub = sse_hub
         self.lab_kb = lab_kb
+        self._persist_fn = persist_fn
         self.async_runner = AsyncWorkflowRunner(
             engine=self.engine,
             registry=self.registry,
@@ -139,6 +141,11 @@ class W1LiteratureReviewRunner:
         )
         # Store step results for inter-step data flow
         self._step_results: dict[str, AgentOutput] = {}
+
+    async def _persist(self, instance: WorkflowInstance) -> None:
+        """Persist workflow state to storage (if callback provided)."""
+        if self._persist_fn:
+            await self._persist_fn(instance)
 
     async def run(
         self,
@@ -159,6 +166,7 @@ class W1LiteratureReviewRunner:
             )
 
         self.engine.start(instance, first_step="SCOPE")
+        await self._persist(instance)
         self._step_results = {}
 
         # Run steps sequentially up to SYNTHESIZE checkpoint
@@ -166,11 +174,22 @@ class W1LiteratureReviewRunner:
             if instance.state not in ("RUNNING",):
                 break
 
+            # Broadcast step start
+            if self.sse_hub:
+                await self.sse_hub.broadcast_dict(
+                    event_type="workflow.step_started",
+                    workflow_id=instance.id,
+                    step_id=step.id,
+                    agent_id=step.agent_id,
+                    payload={"step": step.id},
+                )
+
             if step.id in ("NEGATIVE_CHECK", "REPORT"):
                 # Code-only steps
                 result = await self._run_code_step(step, query, instance)
                 self._step_results[step.id] = result
                 self.engine.advance(instance, step.id, step_result={"type": "code_only"})
+                await self._persist(instance)
             elif step.id in _METHOD_MAP:
                 # Agent steps — call specific method
                 result = await self._run_agent_step(step, query, instance)
@@ -178,13 +197,41 @@ class W1LiteratureReviewRunner:
 
                 if not result.is_success:
                     self.engine.fail(instance, result.error or "Agent step failed")
+                    await self._persist(instance)
+                    if self.sse_hub:
+                        await self.sse_hub.broadcast_dict(
+                            event_type="workflow.failed",
+                            workflow_id=instance.id,
+                            step_id=step.id,
+                            payload={"error": result.error or "Agent step failed"},
+                        )
                     break
 
+                # Record cost
+                if result.cost > 0:
+                    self.engine.deduct_budget(instance, result.cost)
+
                 self.engine.advance(instance, step.id)
+                await self._persist(instance)
+
+                # Broadcast step completion
+                if self.sse_hub:
+                    await self.sse_hub.broadcast_dict(
+                        event_type="workflow.step_completed",
+                        workflow_id=instance.id,
+                        step_id=step.id,
+                        agent_id=step.agent_id,
+                        payload={
+                            "step": step.id,
+                            "cost": result.cost,
+                            "summary": result.summary[:200] if result.summary else "",
+                        },
+                    )
 
                 # Human checkpoint at SYNTHESIZE
                 if step.is_human_checkpoint:
                     self.engine.request_human(instance)
+                    await self._persist(instance)
                     logger.info("W1 paused at %s for human review", step.id)
                     break
 
@@ -203,8 +250,11 @@ class W1LiteratureReviewRunner:
         """Resume after human approval at SYNTHESIZE checkpoint.
 
         Continues from NOVELTY_CHECK through REPORT.
+        Note: Caller is responsible for transitioning state to RUNNING first.
         """
-        self.engine.resume(instance)
+        # Ensure we're in RUNNING state (caller should have done this)
+        if instance.state != "RUNNING":
+            self.engine.resume(instance)
 
         # Run remaining steps: NOVELTY_CHECK, REPORT
         remaining_steps = [s for s in W1_STEPS if s.id in ("NOVELTY_CHECK", "REPORT")]
@@ -213,21 +263,43 @@ class W1LiteratureReviewRunner:
             if instance.state not in ("RUNNING",):
                 break
 
+            if self.sse_hub:
+                await self.sse_hub.broadcast_dict(
+                    event_type="workflow.step_started",
+                    workflow_id=instance.id,
+                    step_id=step.id,
+                    agent_id=step.agent_id,
+                )
+
             if step.id == "REPORT":
                 result = await self._run_code_step(step, query, instance)
                 self._step_results[step.id] = result
                 self.engine.advance(instance, step.id)
+                await self._persist(instance)
             else:
                 result = await self._run_agent_step(step, query, instance)
                 self._step_results[step.id] = result
                 if not result.is_success:
                     self.engine.fail(instance, result.error or "Agent step failed")
+                    await self._persist(instance)
                     break
+                if result.cost > 0:
+                    self.engine.deduct_budget(instance, result.cost)
                 self.engine.advance(instance, step.id)
+                await self._persist(instance)
+
+            if self.sse_hub:
+                await self.sse_hub.broadcast_dict(
+                    event_type="workflow.step_completed",
+                    workflow_id=instance.id,
+                    step_id=step.id,
+                    agent_id=step.agent_id,
+                )
 
         # Mark completed if all steps done
         if instance.state == "RUNNING":
             self.engine.complete(instance)
+            await self._persist(instance)
 
         return {
             "instance": instance,

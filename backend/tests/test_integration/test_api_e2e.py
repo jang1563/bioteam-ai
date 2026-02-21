@@ -45,7 +45,27 @@ def _setup():
     set_dq_registry(registry)
     set_workflow_deps(registry, engine)
 
+    # Reset rate limiter buckets to avoid cross-test 429s
+    for mw in app.user_middleware:
+        if hasattr(mw, 'cls') and mw.cls.__name__ == 'RateLimitMiddleware':
+            break
+    # Clear buckets on the actual middleware instance in the ASGI stack
+    _reset_rate_limiter()
+
     return TestClient(app)
+
+
+def _reset_rate_limiter():
+    """Clear all rate limiter token buckets."""
+    from app.middleware.rate_limit import RateLimitMiddleware
+    # Walk the ASGI middleware stack to find the RateLimitMiddleware instance
+    middleware = app.middleware_stack
+    while middleware is not None:
+        if isinstance(middleware, RateLimitMiddleware):
+            middleware._global_buckets.clear()
+            middleware._expensive_buckets.clear()
+            return
+        middleware = getattr(middleware, 'app', None)
 
 
 # === Workflow Multi-Step Flows ===
@@ -55,16 +75,16 @@ def test_workflow_create_get_cancel_flow():
     """Create → Get (PENDING) → Cancel → Get (CANCELLED)."""
     client = _setup()
 
-    # Create
+    # Use W2 to avoid W1 auto-start (no runner for W2)
     resp = client.post("/api/v1/workflows", json={
-        "template": "W1",
+        "template": "W2",
         "query": "spaceflight anemia mechanisms",
         "budget": 3.0,
     })
     assert resp.status_code == 200
     wf_id = resp.json()["workflow_id"]
 
-    # Get — should be PENDING
+    # Get — should be PENDING (W2 has no auto-start)
     resp = client.get(f"/api/v1/workflows/{wf_id}")
     assert resp.status_code == 200
     assert resp.json()["state"] == "PENDING"
@@ -84,7 +104,7 @@ def test_inject_note_visible_in_status():
     client = _setup()
 
     resp = client.post("/api/v1/workflows", json={
-        "template": "W1", "query": "test",
+        "template": "W2", "query": "test",
     })
     wf_id = resp.json()["workflow_id"]
 
@@ -118,7 +138,7 @@ def test_step_checkpoint_pending_status():
     client = _setup()
 
     resp = client.post("/api/v1/workflows", json={
-        "template": "W1", "query": "test",
+        "template": "W2", "query": "test",
     })
     wf_id = resp.json()["workflow_id"]
 

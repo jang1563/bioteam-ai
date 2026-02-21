@@ -56,6 +56,9 @@ export interface StepHistoryEntry {
   step_id?: string;
   agent_id?: string;
   status?: string;
+  completed_at?: string;
+  result_summary?: string;
+  result_data?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -142,6 +145,29 @@ export interface UpdateNegativeResultRequest {
   source_id?: string;
   verification_status?: VerificationStatus;
   verified_by?: string;
+}
+
+// === Direct Query Types ===
+
+export interface DirectQueryRequest {
+  query: string;
+  seed_papers?: string[];
+}
+
+export interface DirectQueryResponse {
+  query: string;
+  classification_type: "simple_query" | "needs_workflow";
+  classification_reasoning: string;
+  target_agent: string | null;
+  workflow_type: string | null;
+  answer: string | null;
+  sources: Record<string, unknown>[];
+  memory_context: Record<string, unknown>[];
+  total_cost: number;
+  total_tokens: number;
+  model_versions: string[];
+  duration_ms: number;
+  timestamp: string;
 }
 
 // === SSE Types ===

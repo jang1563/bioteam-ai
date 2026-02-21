@@ -34,6 +34,7 @@ class WorkflowInstance(SQLModel, table=True):
 
     id: str = SQLField(default_factory=lambda: str(uuid4()), primary_key=True)
     template: str  # WorkflowTemplate
+    query: str = ""  # Original research query
     state: str = "PENDING"  # WorkflowState
     current_step: str = ""
     step_history: list[dict] = SQLField(default_factory=list, sa_column=Column(JSON))

@@ -61,10 +61,12 @@ async def lifespan(app: FastAPI):
         registry = create_registry(llm, memory)
         engine = WorkflowEngine()
 
+        from app.api.v1.sse import sse_hub
+
         # Wire up API modules
         set_agents_registry(registry)
         set_dq_registry(registry)
-        set_workflow_deps(registry, engine)
+        set_workflow_deps(registry, engine, sse_hub=sse_hub)
 
         # Wire up backup manager
         db_url = settings.database_url
