@@ -18,11 +18,15 @@ def test_health_status_model():
     from datetime import datetime, timezone
     status = HealthStatus(
         status="healthy",
-        checks={"llm_api": {"status": "ok"}},
+        version="0.5.0",
+        checks={"llm_api": {"status": "ok", "detail": "test"}},
+        dependencies={"llm_api": "ok"},
         timestamp=datetime.now(timezone.utc),
     )
     assert status.status == "healthy"
+    assert status.version == "0.5.0"
     assert "llm_api" in status.checks
+    assert status.dependencies["llm_api"] == "ok"
     print("  PASS: health_status_model")
 
 
@@ -34,12 +38,17 @@ def test_health_check_returns_status():
     result = asyncio.run(health_check())
     assert isinstance(result, HealthStatus)
     assert result.status in ("healthy", "degraded", "unhealthy")
+    assert result.version == "0.5.0"
     assert "llm_api" in result.checks
     assert "database" in result.checks
     assert "chromadb" in result.checks
     assert "pubmed" in result.checks
     assert "cost_tracker" in result.checks
     assert result.timestamp is not None
+    # dependencies should mirror checks
+    assert len(result.dependencies) == len(result.checks)
+    for name in result.checks:
+        assert name in result.dependencies
     print("  PASS: health_check_returns_status")
 
 
@@ -80,6 +89,8 @@ def test_health_endpoint_via_app():
     data = response.json()
     assert data["status"] in ("healthy", "degraded", "unhealthy")
     assert "checks" in data
+    assert "dependencies" in data
+    assert "version" in data
     assert "timestamp" in data
     print("  PASS: health_endpoint_via_app")
 

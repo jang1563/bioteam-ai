@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Send, Loader2, Brain, Workflow, Clock, DollarSign } from "lucide-react";
+import { Send, Loader2, Brain, Workflow, Clock, DollarSign, BookOpen } from "lucide-react";
 import { api } from "@/lib/api-client";
 import type { DirectQueryResponse } from "@/types/api";
 
@@ -229,6 +229,56 @@ function QueryResult({ result }: { result: DirectQueryResponse }) {
                   Primary agent: {result.target_agent}
                 </p>
               )}
+            </div>
+          </>
+        )}
+
+        {/* Sources */}
+        {result.sources && result.sources.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                <BookOpen className="h-3 w-3" />
+                Sources ({result.sources.length})
+              </p>
+              <div className="space-y-1.5">
+                {result.sources.map((src, i) => (
+                  <div key={i} className="rounded border border-border bg-accent/20 p-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        {src.title ? (
+                          <p className="text-xs font-medium truncate">
+                            {String(src.title)}
+                          </p>
+                        ) : null}
+                        {src.content_snippet ? (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {String(src.content_snippet)}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {src.year ? (
+                          <Badge variant="outline" className="text-xs">
+                            {String(src.year)}
+                          </Badge>
+                        ) : null}
+                        {src.source_type ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {String(src.source_type)}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                    {src.doi ? (
+                      <p className="text-xs text-muted-foreground mt-1 font-mono">
+                        DOI: {String(src.doi)}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}

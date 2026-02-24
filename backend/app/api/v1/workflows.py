@@ -225,10 +225,19 @@ async def _run_w1_background(
             async with _lock:
                 _save_instance(inst)
 
+        # Create LabKBEngine for NEGATIVE_CHECK step
+        lab_kb = None
+        try:
+            from app.engines.negative_results.lab_kb import LabKBEngine
+            lab_kb = LabKBEngine(session=Session(db_engine))
+        except Exception as e:
+            logger.warning("LabKBEngine init failed (non-fatal): %s", e)
+
         runner = W1LiteratureReviewRunner(
             registry=_registry,
             engine=_engine,
             sse_hub=_sse_hub,
+            lab_kb=lab_kb,
             persist_fn=_persist,
         )
 
@@ -324,10 +333,19 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
             async with _lock:
                 _save_instance(inst)
 
+        # Create LabKBEngine for NEGATIVE_CHECK step (resume path)
+        lab_kb = None
+        try:
+            from app.engines.negative_results.lab_kb import LabKBEngine
+            lab_kb = LabKBEngine(session=Session(db_engine))
+        except Exception as e:
+            logger.warning("LabKBEngine init failed (non-fatal): %s", e)
+
         runner = W1LiteratureReviewRunner(
             registry=_registry,
             engine=_engine,
             sse_hub=_sse_hub,
+            lab_kb=lab_kb,
             persist_fn=_persist,
         )
 
@@ -368,10 +386,15 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
 
 
 def _truncate_result(data: dict, max_len: int = 2000) -> dict:
-    """Truncate large result values for storage in step_history."""
+    """Truncate large result values for storage in step_history.
+
+    Also converts datetime objects to ISO strings for JSON serialization.
+    """
     truncated = {}
     for k, v in data.items():
-        if isinstance(v, str) and len(v) > max_len:
+        if isinstance(v, datetime):
+            truncated[k] = v.isoformat()
+        elif isinstance(v, str) and len(v) > max_len:
             truncated[k] = v[:max_len] + "..."
         elif isinstance(v, dict):
             truncated[k] = _truncate_result(v, max_len)

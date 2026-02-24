@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     default_max_retries: int = 2
     default_temperature: float = 0.0  # v4.2: deterministic by default for reproducibility
 
+    # Backup scheduling
+    backup_enabled: bool = True
+    backup_interval_hours: float = 24.0
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

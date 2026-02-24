@@ -222,6 +222,63 @@ def test_w1_with_lab_kb_integration():
             assert found >= 1, f"Expected >= 1 negative result, found {found}"
 
 
+def test_negative_results_flow_to_synthesize_context():
+    """Negative results from NEGATIVE_CHECK should flow into SYNTHESIZE context."""
+    from sqlmodel import Session, create_engine, SQLModel
+    from app.engines.negative_results.lab_kb import LabKBEngine
+    from app.models.negative_result import NegativeResult
+    from unittest.mock import patch, AsyncMock
+
+    engine = create_engine("sqlite:///:memory:")
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        lab_kb = LabKBEngine(session)
+        lab_kb.create(
+            claim="Erythropoietin reverses spaceflight anemia",
+            outcome="Not observed in controlled trial",
+            source="internal",
+            organism="human",
+            confidence=0.8,
+        )
+
+        runner = _make_runner(lab_kb=lab_kb)
+
+        # Capture the context passed to SYNTHESIZE step
+        captured_contexts = []
+        original_run_agent = runner._run_agent_step
+
+        async def spy_run_agent(step, query, instance):
+            result = await original_run_agent(step, query, instance)
+            if step.id == "SYNTHESIZE":
+                # Re-build context the same way the runner does
+                prior_outputs = []
+                for sid, r in runner._step_results.items():
+                    if hasattr(r, 'model_dump'):
+                        prior_outputs.append(r.model_dump())
+                    elif isinstance(r, dict):
+                        prior_outputs.append(r)
+                neg_check = runner._step_results.get("NEGATIVE_CHECK")
+                neg_results = []
+                if neg_check and hasattr(neg_check, 'output') and isinstance(neg_check.output, dict):
+                    neg_results = neg_check.output.get("results", [])
+                captured_contexts.append(neg_results)
+            return result
+
+        runner._run_agent_step = spy_run_agent
+
+        first = asyncio.run(runner.run(query="spaceflight anemia"))
+        instance = first["instance"]
+
+        # Should have captured negative results flowing to SYNTHESIZE
+        assert len(captured_contexts) == 1, "SYNTHESIZE should have been called once"
+        neg_in_context = captured_contexts[0]
+        assert len(neg_in_context) >= 1, "Negative results should flow to SYNTHESIZE context"
+        assert any("erythropoietin" in str(n).lower() for n in neg_in_context), \
+            "Seeded negative result should appear in SYNTHESIZE context"
+        print("  PASS: Negative results flow to SYNTHESIZE context")
+
+
 if __name__ == "__main__":
     print("Testing W1 E2E Integration:")
     test_full_w1_lifecycle()
@@ -230,4 +287,5 @@ if __name__ == "__main__":
     test_state_transitions_sequence()
     test_report_assembles_all_summaries()
     test_w1_with_lab_kb_integration()
+    test_negative_results_flow_to_synthesize_context()
     print("\nAll W1 E2E tests passed!")

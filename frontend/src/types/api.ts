@@ -215,10 +215,64 @@ export interface SSEEvent {
   timestamp: string | null;
 }
 
+// === Cold Start Types ===
+
+export interface ColdStartRequest {
+  seed_queries?: string[];
+  pubmed_max_results?: number;
+  s2_limit?: number;
+  run_smoke_test?: boolean;
+}
+
+export interface SeedStepResult {
+  source: string;
+  query: string;
+  papers_fetched: number;
+  papers_stored: number;
+  papers_skipped: number;
+  errors: string[];
+}
+
+export interface SmokeCheckResult {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface ColdStartResponse {
+  mode: "full" | "quick";
+  success: boolean;
+  seed_results: SeedStepResult[];
+  smoke_checks: SmokeCheckResult[];
+  collection_counts: Record<string, number>;
+  total_papers_stored: number;
+  duration_ms: number;
+  timestamp: string;
+  message: string;
+}
+
+export interface ColdStartStatus {
+  is_initialized: boolean;
+  agents_registered: number;
+  critical_agents_healthy: boolean;
+  collection_counts: Record<string, number>;
+  total_documents: number;
+  has_literature: boolean;
+  has_lab_kb: boolean;
+  timestamp: string;
+}
+
 // === Health ===
+
+export interface HealthCheck {
+  status: string;
+  detail: string;
+}
 
 export interface HealthResponse {
   status: string;
   version: string;
+  checks: Record<string, HealthCheck>;
   dependencies: Record<string, string>;
+  timestamp: string;
 }

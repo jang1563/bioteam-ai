@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
+from app.api.v1.cold_start import router as cold_start_router
 from app.api.v1.direct_query import router as dq_router
 from app.api.v1.sse import router as sse_router
 from app.api.v1.agents import router as agents_router
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
 
     # Initialize agent registry (graceful — doesn't fail if API key is test/missing)
+    backup_scheduler = None
     try:
         from app.config import settings
         from app.llm.layer import LLMLayer
@@ -63,10 +65,13 @@ async def lifespan(app: FastAPI):
 
         from app.api.v1.sse import sse_hub
 
+        from app.api.v1.cold_start import set_dependencies as set_cold_start_deps
+
         # Wire up API modules
         set_agents_registry(registry)
         set_dq_registry(registry)
         set_workflow_deps(registry, engine, sse_hub=sse_hub)
+        set_cold_start_deps(registry, memory)
 
         # Wire up backup manager
         db_url = settings.database_url
@@ -78,12 +83,24 @@ async def lifespan(app: FastAPI):
         )
         set_backup_manager(backup_mgr)
 
+        # Start automated backup scheduler
+        from app.backup.scheduler import BackupScheduler
+        backup_scheduler = BackupScheduler(
+            manager=backup_mgr,
+            interval_hours=settings.backup_interval_hours,
+            enabled=settings.backup_enabled,
+        )
+        await backup_scheduler.start()
+
         logger.info("Agent registry initialized with %d agents", len(registry.list_agents()))
     except Exception as e:
         logger.warning("Registry init skipped (non-fatal): %s", e)
 
     yield
-    # Shutdown: cleanup if needed
+
+    # Shutdown: stop backup scheduler
+    if backup_scheduler is not None:
+        backup_scheduler.stop()
 
 
 app = FastAPI(
@@ -126,6 +143,7 @@ app.include_router(agents_router)
 app.include_router(workflows_router)
 app.include_router(backup_router)
 app.include_router(nr_router)
+app.include_router(cold_start_router)
 
 
 @app.get("/")
