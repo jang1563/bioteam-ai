@@ -124,6 +124,43 @@ class RCMXTScore(BaseModel):
         return self.composite
 
 
+class AxisExplanation(BaseModel):
+    """Per-axis scoring explanation from LLM."""
+
+    axis: Literal["R", "C", "M", "X", "T"]
+    score: float = Field(ge=0.0, le=1.0)
+    reasoning: str = Field(description="2-3 sentence justification for this score", min_length=10)
+    key_evidence: list[str] = Field(
+        default_factory=list,
+        description="Source DOIs or PMIDs supporting this score",
+    )
+
+
+class LLMRCMXTResponse(BaseModel):
+    """Structured LLM output for RCMXT scoring.
+
+    Used as response_model for LLMLayer.complete_structured().
+    Includes per-axis explanations for audit trails and calibration.
+    """
+
+    claim_text: str = Field(description="The claim being scored (echoed back)")
+    axes: list[AxisExplanation] = Field(
+        min_length=4,
+        max_length=5,
+        description="Scores for each axis. 4 axes (R,C,M,T) if X not applicable, 5 if applicable.",
+    )
+    x_applicable: bool = Field(
+        description="True if multi-omics data is available/relevant for this claim",
+    )
+    overall_assessment: str = Field(
+        description="1-2 sentence summary of overall evidence quality",
+    )
+    confidence_in_scoring: float = Field(
+        ge=0.0, le=1.0,
+        description="Self-assessed confidence in scoring accuracy",
+    )
+
+
 class OmicsLayerStatus(BaseModel):
     """Status of multi-omics evidence for a claim."""
 

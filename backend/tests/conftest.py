@@ -20,6 +20,7 @@ from app.agents.teams.t02_transcriptomics import (
 from app.agents.project_manager import ProjectStatus
 from app.llm.mock_layer import MockLLMLayer
 from app.memory.semantic import SemanticMemory
+from app.models.evidence import AxisExplanation, LLMRCMXTResponse
 
 from pydantic import BaseModel, Field
 
@@ -69,6 +70,18 @@ def _w1_mock_responses() -> dict:
             is_novel=True,
             novelty_score=0.8,
             reasoning="No prior study quantified splenic contribution specifically.",
+        ),
+        "sonnet:LLMRCMXTResponse": LLMRCMXTResponse(
+            claim_text="Focus on splenic hemolysis pathway",
+            axes=[
+                AxisExplanation(axis="R", score=0.7, reasoning="Replicated across ISS missions with consistent findings."),
+                AxisExplanation(axis="C", score=0.5, reasoning="Condition-specific to microgravity exposure."),
+                AxisExplanation(axis="M", score=0.75, reasoning="Well-designed studies with proper controls and DEXA validation."),
+                AxisExplanation(axis="T", score=0.65, reasoning="Established finding over multiple missions spanning decades."),
+            ],
+            x_applicable=False,
+            overall_assessment="Well-supported spaceflight physiology finding with moderate confidence.",
+            confidence_in_scoring=0.8,
         ),
     }
 

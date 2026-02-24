@@ -145,12 +145,16 @@ class W1LiteratureReviewRunner:
         sse_hub: SSEHub | None = None,
         lab_kb=None,  # LabKBEngine — optional, for NEGATIVE_CHECK
         persist_fn=None,  # async callable(WorkflowInstance) → None
+        rcmxt_mode: str = "heuristic",  # "heuristic" | "llm" | "hybrid"
+        llm_layer=None,  # LLMLayer — required for llm/hybrid RCMXT scoring
     ) -> None:
         self.registry = registry
         self.engine = engine or WorkflowEngine()
         self.sse_hub = sse_hub
         self.lab_kb = lab_kb
         self._persist_fn = persist_fn
+        self._rcmxt_mode = rcmxt_mode
+        self._llm_layer = llm_layer
         self.async_runner = AsyncWorkflowRunner(
             engine=self.engine,
             registry=self.registry,
@@ -254,7 +258,7 @@ class W1LiteratureReviewRunner:
 
         return {
             "instance": instance,
-            "step_results": {k: v.model_dump() if hasattr(v, 'model_dump') else v
+            "step_results": {k: v.model_dump(mode="json") if hasattr(v, 'model_dump') else v
                              for k, v in self._step_results.items()},
             "paused_at": instance.current_step if instance.state == "WAITING_HUMAN" else None,
         }
@@ -324,7 +328,7 @@ class W1LiteratureReviewRunner:
 
         return {
             "instance": instance,
-            "step_results": {k: v.model_dump() if hasattr(v, 'model_dump') else v
+            "step_results": {k: v.model_dump(mode="json") if hasattr(v, 'model_dump') else v
                              for k, v in self._step_results.items()},
             "completed": instance.state == "COMPLETED",
         }
@@ -353,9 +357,16 @@ class W1LiteratureReviewRunner:
             elif isinstance(result, dict):
                 prior_outputs.append(result)
 
+        # Extract negative results from NEGATIVE_CHECK for downstream steps
+        negative_results: list[dict] = []
+        neg_check = self._step_results.get("NEGATIVE_CHECK")
+        if neg_check and hasattr(neg_check, 'output') and isinstance(neg_check.output, dict):
+            negative_results = neg_check.output.get("results", [])
+
         context = ContextPackage(
             task_description=query,
             prior_step_outputs=prior_outputs,
+            negative_results=negative_results,
         )
 
         # Call the specific method on the agent
@@ -380,7 +391,7 @@ class W1LiteratureReviewRunner:
         elif step.id == "CITATION_CHECK":
             return self._citation_check()
         elif step.id == "RCMXT_SCORE":
-            return self._rcmxt_score()
+            return await self._rcmxt_score()
         elif step.id == "REPORT":
             return self._generate_report(query, instance)
         return AgentOutput(agent_id="code_only", error=f"Unknown code step: {step.id}")
@@ -459,11 +470,11 @@ class W1LiteratureReviewRunner:
             summary=f"Citations: {report.verified}/{report.total_citations} verified ({report.verification_rate:.0%})",
         )
 
-    def _rcmxt_score(self) -> AgentOutput:
-        """Score key findings using RCMXT heuristics."""
+    async def _rcmxt_score(self) -> AgentOutput:
+        """Score key findings using RCMXT (heuristic, LLM, or hybrid)."""
         from app.engines.rcmxt_scorer import RCMXTScorer
 
-        scorer = RCMXTScorer()
+        scorer = RCMXTScorer(mode=self._rcmxt_mode, llm_layer=self._llm_layer)
 
         # Load data from prior steps
         search_output = None
@@ -483,7 +494,12 @@ class W1LiteratureReviewRunner:
             synthesis_output = synth_result.output
 
         scorer.load_step_data(search_output, extract_output, synthesis_output)
-        scores = scorer.score_all()
+
+        if self._rcmxt_mode in ("llm", "hybrid"):
+            scores = await scorer.score_all_async()
+        else:
+            scores = scorer.score_all()
+
         scores_dicts = [s.model_dump(mode="json") for s in scores]
 
         return AgentOutput(
