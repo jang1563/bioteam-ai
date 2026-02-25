@@ -163,6 +163,24 @@ TopicProfile (queries + sources)
 
 **Cost**: ~$0.005 per run (Haiku model). All 6 APIs are free.
 
+### Real Run Output (Feb 25, 2026)
+
+Single run with topic "AI in Biology Research" — 3 queries across PubMed + arXiv:
+
+```
+39 entries fetched (9 PubMed, 30 arXiv)
+6 highlights generated with real paper URLs
+Pipeline time: ~23 seconds
+LLM cost: $0.026
+```
+
+**Sample highlight from real data:**
+> **scKGBERT: a knowledge-enhanced foundation model for single-cell transcriptomics** (PubMed)
+> Foundation model integrating 41M single-cell RNA-seq profiles with 8.9M protein-protein
+> interactions using Gaussian attention for superior biomarker identification.
+
+All papers link to real PubMed/arXiv URLs with full abstracts, authors, and relevance scores.
+
 ## Testing
 
 ```bash
