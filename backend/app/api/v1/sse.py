@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from typing import AsyncGenerator
 
 from app.models.messages import SSEEvent
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["sse"])
 
@@ -61,6 +64,10 @@ class SSEHub:
         """
         if len(self._subscribers) >= self.MAX_SUBSCRIBERS:
             # Evict oldest subscriber before adding new one
+            logger.warning(
+                "SSE hub at capacity (%d/%d), evicting oldest subscriber",
+                len(self._subscribers), self.MAX_SUBSCRIBERS,
+            )
             oldest = self._subscribers.pop(0)
             try:
                 oldest.put_nowait(None)
@@ -186,7 +193,7 @@ def _format_sse(event: SSEEvent) -> str:
         "payload": event.payload,
         "timestamp": event.timestamp.isoformat() if event.timestamp else None,
     }
-    return f"event: {event.event_type}\ndata: {json.dumps(data)}\n\n"
+    return f"event: {event.event_type}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
 # === Singleton hub instance ===

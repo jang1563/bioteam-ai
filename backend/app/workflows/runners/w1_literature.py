@@ -19,6 +19,7 @@ from typing import Any
 from app.agents.base import observe
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
+from app.config import settings
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
@@ -417,7 +418,48 @@ class W1LiteratureReviewRunner:
                 error=f"Agent {agent_id} has no method {method_name}",
             )
 
-        return await method(context)
+        result = await method(context)
+
+        # Apply iterative refinement at SYNTHESIZE step
+        if step.id == "SYNTHESIZE" and result.is_success:
+            result, refine_cost = await self._maybe_refine(
+                agent, context, result, instance,
+            )
+
+        return result
+
+    async def _maybe_refine(
+        self,
+        agent,
+        context: ContextPackage,
+        output: AgentOutput,
+        instance: WorkflowInstance,
+    ) -> tuple[AgentOutput, float]:
+        """Apply iterative refinement if enabled. Returns (output, extra_cost)."""
+        if not settings.refinement_enabled:
+            return output, 0.0
+
+        llm = self._llm_layer or (agent.llm if hasattr(agent, "llm") else None)
+        if llm is None:
+            return output, 0.0
+
+        from app.workflows.refinement import RefinementLoop, config_from_settings
+
+        loop = RefinementLoop(llm=llm, config=config_from_settings())
+        refined_output, result_meta = await loop.refine(
+            agent=agent, context=context, initial_output=output,
+        )
+        if result_meta.total_cost > 0:
+            self.engine.deduct_budget(instance, result_meta.total_cost)
+        logger.info(
+            "W1 refinement: %d iterations, score %.2f→%.2f, cost $%.4f, stopped: %s",
+            result_meta.iterations_used,
+            result_meta.quality_scores[0] if result_meta.quality_scores else 0,
+            result_meta.quality_scores[-1] if result_meta.quality_scores else 0,
+            result_meta.total_cost,
+            result_meta.stopped_reason,
+        )
+        return refined_output, result_meta.total_cost
 
     async def _run_code_step(
         self,

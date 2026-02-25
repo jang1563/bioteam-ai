@@ -22,6 +22,7 @@ from app.agents.teams.t02_transcriptomics import (
 )
 from app.llm.mock_layer import MockLLMLayer
 from app.models.evidence import AxisExplanation, LLMRCMXTResponse
+from app.models.refinement import QualityCritique
 from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
 from pydantic import BaseModel, Field
 
@@ -80,6 +81,12 @@ def _base_mock_responses() -> dict:
             x_applicable=False,
             overall_assessment="Well-supported finding.",
             confidence_in_scoring=0.8,
+        ),
+        # High-quality critique so refinement loop skips immediately
+        "haiku:QualityCritique": QualityCritique(
+            rigor_score=0.9, completeness_score=0.85, clarity_score=0.9,
+            accuracy_score=0.9, overall_score=0.88,
+            strengths=["Well-structured analysis"],
         ),
     }
 

@@ -178,7 +178,6 @@ class BaseAgent(ABC):
         input_tokens: int = 0,
         output_tokens: int = 0,
         cached_input_tokens: int = 0,
-        **kwargs: Any,
     ) -> AgentOutput:
         """Helper to construct AgentOutput with cost estimation.
 
@@ -206,7 +205,6 @@ class BaseAgent(ABC):
                 output_tokens=llm_response.output_tokens,
                 cached_input_tokens=llm_response.cached_input_tokens,
                 cost=llm_response.cost,
-                **kwargs,
             )
         # Fallback: manual token counts (backward compatibility)
         cost = self.llm.estimate_cost(
@@ -225,7 +223,6 @@ class BaseAgent(ABC):
             output_tokens=output_tokens,
             cached_input_tokens=cached_input_tokens,
             cost=cost,
-            **kwargs,
         )
 
     @classmethod

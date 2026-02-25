@@ -164,6 +164,6 @@ class CitationValidator:
     @staticmethod
     def _extract_pmids(text: str) -> list[str]:
         """Extract PMID patterns from text."""
-        # Match "PMID: 12345678" or "PMID:12345678"
-        pattern = r'PMID:\s*(\d{7,8})'
+        # Match "PMID: 12345678" or "PMID:12345678" (7-9 digits; modern PMIDs can be 9 digits)
+        pattern = r'PMID:\s*(\d{7,9})'
         return re.findall(pattern, text, re.IGNORECASE)

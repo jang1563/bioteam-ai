@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     digest_check_interval_minutes: float = 60.0
     github_token: str = ""  # Optional, for higher GitHub API rate limits
 
+    # Iterative refinement (Self-Refine loop)
+    refinement_enabled: bool = True
+    refinement_max_iterations: int = 2
+    refinement_quality_threshold: float = 0.7
+    refinement_budget_cap: float = 1.0  # $ per refinement cycle
+    refinement_min_improvement: float = 0.05  # Δscore threshold for diminishing returns
+    refinement_scorer_model: str = "haiku"
+
     # Celery / Redis (Phase 2 task queue)
     celery_broker_url: str = ""  # Empty = Celery disabled (uses asyncio fallback)
     celery_result_backend: str = ""

@@ -24,6 +24,7 @@ from app.agents.teams.t02_transcriptomics import (
 )
 from app.api.v1.sse import SSEHub
 from app.llm.mock_layer import MockLLMLayer
+from app.models.refinement import QualityCritique
 from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
 from pydantic import BaseModel, Field
 
@@ -69,6 +70,12 @@ def _make_mock_responses() -> dict:
             finding="Splenic hemolysis increases by 54% in microgravity",
             is_novel=True, novelty_score=0.8,
             reasoning="No prior study quantified splenic contribution.",
+        ),
+        # High-quality critique so refinement loop skips immediately
+        "haiku:QualityCritique": QualityCritique(
+            rigor_score=0.9, completeness_score=0.85, clarity_score=0.9,
+            accuracy_score=0.9, overall_score=0.88,
+            strengths=["Well-structured analysis"],
         ),
     }
 

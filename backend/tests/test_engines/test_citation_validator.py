@@ -95,6 +95,24 @@ def test_extract_pmids_none():
     print("  PASS: extract_pmids_none")
 
 
+def test_extract_pmids_9_digit():
+    """Modern PMIDs can be 9 digits (e.g., 100000000+)."""
+    text = "See PMID: 123456789 for the latest study."
+    pmids = CitationValidator._extract_pmids(text)
+    assert len(pmids) == 1
+    assert "123456789" in pmids
+    print("  PASS: extract_pmids_9_digit")
+
+
+def test_extract_pmids_7_digit():
+    """Older PMIDs can be 7 digits."""
+    text = "See PMID: 1234567 for the classic paper."
+    pmids = CitationValidator._extract_pmids(text)
+    assert len(pmids) == 1
+    assert "1234567" in pmids
+    print("  PASS: extract_pmids_7_digit")
+
+
 # === Source Registration Tests ===
 
 

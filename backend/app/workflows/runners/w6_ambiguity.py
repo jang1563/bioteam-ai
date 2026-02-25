@@ -15,6 +15,7 @@ from typing import Any
 from app.agents.base import observe
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
+from app.config import settings
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
@@ -148,6 +149,23 @@ class W6AmbiguityRunner:
                 await self._persist(instance)
             elif step.id in _METHOD_MAP:
                 result = await self._run_agent_step(step, query, instance)
+
+                # Apply refinement at RESOLUTION_HYPOTHESES step
+                if step.id == "RESOLUTION_HYPOTHESES" and result.is_success:
+                    agent = self.registry.get(_METHOD_MAP[step.id][0])
+                    if agent is not None:
+                        context = ContextPackage(
+                            task_description=query,
+                            prior_step_outputs=[
+                                r.model_dump() if hasattr(r, "model_dump") else r
+                                for r in self._step_results.values()
+                            ],
+                            constraints={"workflow_id": instance.id},
+                        )
+                        result, extra_cost = await self._maybe_refine(
+                            agent, context, result, instance,
+                        )
+
                 self._step_results[step.id] = result
 
                 if not result.is_success:
@@ -194,6 +212,39 @@ class W6AmbiguityRunner:
             },
             "completed": instance.state == "COMPLETED",
         }
+
+    async def _maybe_refine(
+        self,
+        agent,
+        context: ContextPackage,
+        output: AgentOutput,
+        instance: WorkflowInstance,
+    ) -> tuple[AgentOutput, float]:
+        """Apply iterative refinement if enabled. Returns (output, extra_cost)."""
+        if not settings.refinement_enabled:
+            return output, 0.0
+
+        llm = agent.llm if hasattr(agent, "llm") else None
+        if llm is None:
+            return output, 0.0
+
+        from app.workflows.refinement import RefinementLoop, config_from_settings
+
+        loop = RefinementLoop(llm=llm, config=config_from_settings())
+        refined_output, result_meta = await loop.refine(
+            agent=agent, context=context, initial_output=output,
+        )
+        if result_meta.total_cost > 0:
+            self.engine.deduct_budget(instance, result_meta.total_cost)
+        logger.info(
+            "W6 refinement: %d iterations, score %.2f→%.2f, cost $%.4f, stopped: %s",
+            result_meta.iterations_used,
+            result_meta.quality_scores[0] if result_meta.quality_scores else 0,
+            result_meta.quality_scores[-1] if result_meta.quality_scores else 0,
+            result_meta.total_cost,
+            result_meta.stopped_reason,
+        )
+        return refined_output, result_meta.total_cost
 
     async def _run_agent_step(
         self,
