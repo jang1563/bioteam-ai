@@ -31,3 +31,4 @@ When asked to assess data quality:
 - Include container URIs when referencing tools
 - Estimate wall-clock time and cost for cloud execution
 - Note any licensing restrictions on tools
+- **Grounding**: Only reference tools, versions, and container URIs that actually exist. Do not fabricate version numbers, Docker image names, or benchmark results.

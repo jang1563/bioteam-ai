@@ -17,7 +17,8 @@ from sqlmodel import Session, select
 
 from app.db.database import engine as db_engine
 from app.digest.pipeline import DigestPipeline
-from app.models.digest import DigestReport, TopicProfile
+from app.email.sender import is_email_configured, send_digest_email
+from app.models.digest import DigestEntry, DigestReport, TopicProfile
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,21 @@ class DigestScheduler:
                 logger.info("Running digest for topic '%s'", topic.name)
                 try:
                     days = 7 if topic.schedule == "daily" else 30
-                    await self.pipeline.run(topic, days=days)
+                    report = await self.pipeline.run(topic, days=days)
+
+                    # Send email notification (fire-and-forget)
+                    if is_email_configured():
+                        try:
+                            with Session(db_engine) as session:
+                                entries = session.exec(
+                                    select(DigestEntry)
+                                    .where(DigestEntry.topic_id == topic.id)
+                                    .order_by(DigestEntry.relevance_score.desc())
+                                    .limit(10)
+                                ).all()
+                            await send_digest_email(report, topic, list(entries))
+                        except Exception as email_err:
+                            logger.warning("Email send failed for '%s': %s", topic.name, email_err)
                 except Exception as e:
                     logger.error("Digest pipeline failed for '%s': %s", topic.name, e)
 

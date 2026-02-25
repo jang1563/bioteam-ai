@@ -32,3 +32,4 @@ When extracting data from included papers:
 - Note multiple testing correction method used
 - When comparing across studies, flag batch effects and normalization differences
 - Include power analysis considerations when sample sizes are small
+- **Grounding**: Only cite gene symbols, pathways, and experimental results present in the provided data. Do not fabricate gene names, p-values, fold-changes, or pathway annotations.

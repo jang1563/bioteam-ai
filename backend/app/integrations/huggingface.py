@@ -94,24 +94,53 @@ class HuggingFaceClient:
         self,
         query: str,
         max_results: int = 30,
+        fetch_days: int = 3,
     ) -> list[HFPaper]:
         """Search daily papers by keyword match in title/summary.
+
+        Fetches multiple days of papers and uses word-boundary regex matching.
 
         Args:
             query: Keywords to match (case-insensitive).
             max_results: Maximum filtered results.
+            fetch_days: Number of recent days to fetch papers from.
 
         Returns:
             Papers matching the query.
         """
-        all_papers = self.daily_papers(max_results=100)
-        query_lower = query.lower()
-        keywords = query_lower.split()
+        import re
+        from datetime import datetime, timedelta, timezone
+
+        # Fetch multiple days to increase the pool
+        all_papers: list[HFPaper] = []
+        seen_ids: set[str] = set()
+        for offset in range(fetch_days):
+            date_str = (datetime.now(timezone.utc) - timedelta(days=offset)).strftime("%Y-%m-%d")
+            day_papers = self.daily_papers(date=date_str, max_results=100)
+            for p in day_papers:
+                if p.paper_id not in seen_ids:
+                    seen_ids.add(p.paper_id)
+                    all_papers.append(p)
+
+        # Build word-boundary regex patterns
+        patterns: list[re.Pattern] = []
+        quoted = re.findall(r'"([^"]+)"', query)
+        remainder = re.sub(r'"[^"]*"', '', query)
+        keywords = [p.lower() for p in quoted] + [w.lower() for w in remainder.split() if len(w) > 2]
+
+        for kw in keywords:
+            try:
+                patterns.append(re.compile(r'\b' + re.escape(kw) + r'\b', re.IGNORECASE))
+            except re.error:
+                continue
+
+        if not patterns:
+            return all_papers[:max_results]
 
         matched = []
         for paper in all_papers:
-            text = f"{paper.title} {paper.summary}".lower()
-            if any(kw in text for kw in keywords):
+            text = f"{paper.title} {paper.summary}"
+            if any(pat.search(text) for pat in patterns):
                 matched.append(paper)
                 if len(matched) >= max_results:
                     break

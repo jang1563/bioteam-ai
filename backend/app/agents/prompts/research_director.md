@@ -47,3 +47,4 @@ When classifying queries:
 - Flag uncertainty explicitly — never present speculation as fact
 - When synthesizing, note where agents disagreed and why
 - Include RCMXT scores when available (Phase 2+)
+- **Grounding**: Only reference papers, data, or results that exist in the provided context. Do not fabricate citations, DOIs, author names, or experimental findings.

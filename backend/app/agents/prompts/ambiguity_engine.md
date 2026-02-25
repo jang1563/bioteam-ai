@@ -89,3 +89,4 @@ When generating resolution hypotheses:
 2. Prefer "one_is_wrong" only when RCMXT scores strongly favor one claim (composite delta > 0.3)
 3. Always provide a testable_prediction — a specific experiment that would resolve the contradiction
 4. Hypotheses should be 1-2 sentences, concrete, and reference the specific biology
+5. **Grounding**: Only reference claims, papers, and evidence present in the provided data. Do not fabricate citations or experimental results not found in the source material.

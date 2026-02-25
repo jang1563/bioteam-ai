@@ -164,7 +164,9 @@ class DigestPipeline:
             return [p.to_dict() for p in papers]
 
         elif source == SOURCE_GITHUB:
-            repos = self._clients[SOURCE_GITHUB].trending_ai_bio(days=days, max_results=20)
+            repos = self._clients[SOURCE_GITHUB].trending_ai_bio(
+                query=query, days=days, max_results=20
+            )
             return [r.to_dict() for r in repos]
 
         elif source == SOURCE_HUGGINGFACE:

@@ -38,3 +38,4 @@ When computing replication counts for RCMXT R-axis:
 - Report total found → screened → included counts
 - Flag when a topic has few relevant papers (< 5)
 - Note publication recency — flag if most evidence is > 5 years old
+- **Grounding**: Only cite papers with valid DOIs/PMIDs from the search results. Do not fabricate citations, author names, or experimental findings not present in the provided data.

@@ -109,6 +109,9 @@ class BiorxivClient:
     ) -> list[BiorxivPaper]:
         """Fetch recent papers and filter by keyword match in title/abstract.
 
+        Uses word-boundary regex matching to avoid false positives
+        (e.g. "rna" won't match "journal").
+
         Args:
             query: Keywords to match (case-insensitive).
             days: Number of days to look back.
@@ -118,15 +121,32 @@ class BiorxivClient:
         Returns:
             Papers matching the query keywords.
         """
+        import re
+
         # Fetch a larger pool, then filter
-        all_papers = self.search_recent(days=days, server=server, max_results=max_results * 5)
-        query_lower = query.lower()
-        keywords = query_lower.split()
+        pool_size = max(max_results * 10, 300)
+        all_papers = self.search_recent(days=days, server=server, max_results=pool_size)
+
+        # Build word-boundary regex patterns
+        patterns: list[re.Pattern] = []
+        # Extract quoted phrases first
+        quoted = re.findall(r'"([^"]+)"', query)
+        remainder = re.sub(r'"[^"]*"', '', query)
+        keywords = [p.lower() for p in quoted] + [w.lower() for w in remainder.split() if len(w) > 2]
+
+        for kw in keywords:
+            try:
+                patterns.append(re.compile(r'\b' + re.escape(kw) + r'\b', re.IGNORECASE))
+            except re.error:
+                continue
+
+        if not patterns:
+            return all_papers[:max_results]
 
         matched = []
         for paper in all_papers:
-            text = f"{paper.title} {paper.abstract}".lower()
-            if any(kw in text for kw in keywords):
+            text = f"{paper.title} {paper.abstract}"
+            if any(pat.search(text) for pat in patterns):
                 matched.append(paper)
                 if len(matched) >= max_results:
                     break

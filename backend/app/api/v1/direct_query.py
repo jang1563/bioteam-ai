@@ -334,8 +334,10 @@ async def run_direct_query(
                     f"Relevant knowledge base context:\n{context_text}\n\n"
                     f"Provide a concise, evidence-based answer to the research question. "
                     f"Cite specific sources using [N] notation when available. "
+                    f"CRITICAL: Only cite papers, DOIs, and facts that appear in the knowledge base context above. "
+                    f"Do not fabricate citations, author names, or experimental results. "
                     f"If the context is insufficient, clearly state what is known "
-                    f"and what knowledge gaps remain."
+                    f"and what knowledge gaps remain rather than guessing."
                 ),
             })
 
@@ -561,8 +563,10 @@ async def direct_query_stream(
                     f"Relevant knowledge base context:\n{context_text}\n\n"
                     f"Provide a concise, evidence-based answer to the research question. "
                     f"Cite specific sources using [N] notation when available. "
+                    f"CRITICAL: Only cite papers, DOIs, and facts that appear in the knowledge base context above. "
+                    f"Do not fabricate citations, author names, or experimental results. "
                     f"If the context is insufficient, clearly state what is known "
-                    f"and what knowledge gaps remain."
+                    f"and what knowledge gaps remain rather than guessing."
                 ),
             })
             system_prompt = specialist_prompt if specialist_prompt else None

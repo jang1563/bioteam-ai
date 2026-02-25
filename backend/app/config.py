@@ -1,5 +1,6 @@
 """BioTeam-AI configuration — settings, model tiers, budgets."""
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Literal
 
@@ -61,6 +62,13 @@ class Settings(BaseSettings):
     digest_enabled: bool = True
     digest_check_interval_minutes: float = 60.0
     github_token: str = ""  # Optional, for higher GitHub API rate limits
+
+    # Email / SMTP (for digest report delivery)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""  # Gmail address
+    smtp_password: str = ""  # Gmail App Password
+    digest_recipients: str = ""  # Comma-separated email addresses
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

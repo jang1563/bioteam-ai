@@ -27,6 +27,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db.database import engine as db_engine
+from app.email.sender import is_email_configured, send_digest_email
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
 
 router = APIRouter(prefix="/api/v1/digest", tags=["digest"])
@@ -290,6 +291,22 @@ async def run_digest(topic_id: str) -> ReportResponse:
     _running_topics.add(topic_id)
     try:
         report = await _pipeline.run(topic, days=7)
+
+        # Fire-and-forget email delivery
+        if is_email_configured():
+            try:
+                import asyncio
+                with Session(db_engine) as session:
+                    entries = session.exec(
+                        select(DigestEntry)
+                        .where(DigestEntry.topic_id == topic_id)
+                        .order_by(DigestEntry.relevance_score.desc())
+                        .limit(10)
+                    ).all()
+                asyncio.create_task(send_digest_email(report, topic, list(entries)))
+            except Exception:
+                pass  # Never fail the API response due to email
+
         return _report_response(report)
     finally:
         _running_topics.discard(topic_id)

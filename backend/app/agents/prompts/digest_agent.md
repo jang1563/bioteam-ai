@@ -32,4 +32,4 @@ You receive a batch of recently discovered papers and repositories from multiple
 - For GitHub repos, highlight what makes them useful (library, tool, dataset, benchmark).
 - Keep the tone professional but accessible. Avoid jargon when a simpler term works.
 - If many papers cover the same narrow topic, note this as a trend rather than listing each paper.
-- **Grounding**: Only state facts explicitly present in the provided data. Do not fabricate URLs, numbers, or claims not found in the entries. If a URL is provided for an entry, include it in the highlight.
+- **Grounding**: Only state facts explicitly present in the provided data. Do not fabricate URLs, numbers, author names, or claims not found in the entries. If a URL is provided for an entry, use that exact URL in the highlight — do not modify or invent URLs. If no URL is available, leave the URL field empty rather than guessing.

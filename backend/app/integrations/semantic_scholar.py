@@ -11,12 +11,15 @@ Uses the official semanticscholar Python client.
 from __future__ import annotations
 
 import logging
-import os
+import time
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
 from semanticscholar import SemanticScholar
+
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = [2, 4, 8]  # seconds
 
 
 @dataclass
@@ -65,10 +68,11 @@ class SemanticScholarClient:
         citing = client.get_citations("10.1038/s41586-020-2521-4", limit=5)
     """
 
-    def __init__(self, timeout: int = 15) -> None:
-        api_key = os.environ.get("S2_API_KEY", "")
+    def __init__(self, timeout: int = 15, api_key: str = "") -> None:
+        from app.config import settings
+        key = api_key or getattr(settings, "s2_api_key", "")
         self.sch = SemanticScholar(
-            api_key=api_key if api_key else None,
+            api_key=key if key else None,
             timeout=timeout,
         )
 
@@ -81,6 +85,8 @@ class SemanticScholarClient:
     ) -> list[S2Paper]:
         """Search for papers by query string.
 
+        Retries up to 3 times on rate limit errors.
+
         Args:
             query: Natural language search query.
             limit: Maximum number of results.
@@ -90,24 +96,36 @@ class SemanticScholarClient:
         Returns:
             List of S2Paper objects.
         """
-        results = self.sch.search_paper(
-            query,
-            limit=limit,
-            year=year,
-            fields_of_study=fields_of_study,
-            fields=[
-                "paperId", "title", "authors", "year", "abstract",
-                "externalIds", "citationCount", "influentialCitationCount",
-                "venue", "url", "tldr",
-            ],
-        )
+        for attempt in range(_MAX_RETRIES):
+            try:
+                results = self.sch.search_paper(
+                    query,
+                    limit=limit,
+                    year=year,
+                    fields_of_study=fields_of_study,
+                    fields=[
+                        "paperId", "title", "authors", "year", "abstract",
+                        "externalIds", "citationCount", "influentialCitationCount",
+                        "venue", "url", "tldr",
+                    ],
+                )
 
-        papers = []
-        for item in results:
-            paper = self._to_s2paper(item)
-            if paper:
-                papers.append(paper)
-        return papers
+                papers = []
+                for item in results:
+                    paper = self._to_s2paper(item)
+                    if paper:
+                        papers.append(paper)
+                return papers
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("429" in err_str or "rate" in err_str) and attempt < _MAX_RETRIES - 1:
+                    wait = _RETRY_BACKOFF[attempt]
+                    logger.warning("S2 rate limited (attempt %d), retrying in %ds", attempt + 1, wait)
+                    time.sleep(wait)
+                    continue
+                logger.warning("S2 search failed: %s", e)
+                return []
+        return []
 
     def get_paper(self, paper_id: str) -> S2Paper | None:
         """Get details for a specific paper by DOI or S2 paper ID.

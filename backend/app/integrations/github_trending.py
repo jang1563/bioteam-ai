@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = [2, 4, 8]  # seconds
 
 
 @dataclass
@@ -60,6 +64,8 @@ class GithubTrendingClient:
     ) -> list[GithubRepo]:
         """Search repositories via GitHub Search API.
 
+        Retries up to 3 times on 403/429 (rate limit) with exponential backoff.
+
         Args:
             query: Search query keywords.
             sort: Sort field — "stars", "forks", "updated".
@@ -84,17 +90,31 @@ class GithubTrendingClient:
             "per_page": min(max_results, 100),
         }
 
-        try:
-            resp = requests.get(
-                f"{self.BASE_URL}/search/repositories",
-                headers=headers,
-                params=params,
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.warning("GitHub search error: %s", e)
+        for attempt in range(_MAX_RETRIES):
+            try:
+                resp = requests.get(
+                    f"{self.BASE_URL}/search/repositories",
+                    headers=headers,
+                    params=params,
+                    timeout=15,
+                )
+                if resp.status_code in (403, 429) and attempt < _MAX_RETRIES - 1:
+                    wait = _RETRY_BACKOFF[attempt]
+                    logger.warning("GitHub rate limited (attempt %d), retrying in %ds", attempt + 1, wait)
+                    time.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except requests.exceptions.HTTPError:
+                if attempt < _MAX_RETRIES - 1:
+                    continue
+                logger.warning("GitHub search failed after %d attempts", _MAX_RETRIES)
+                return []
+            except Exception as e:
+                logger.warning("GitHub search error: %s", e)
+                return []
+        else:
             return []
 
         repos: list[GithubRepo] = []
@@ -107,21 +127,25 @@ class GithubTrendingClient:
 
     def trending_ai_bio(
         self,
+        query: str = "",
         days: int = 7,
         max_results: int = 20,
     ) -> list[GithubRepo]:
         """Search for trending AI + biology repos created in the last N days.
 
         Args:
+            query: Custom search query. If empty, uses a broad OR-based default.
             days: Look back period in days.
             max_results: Maximum results.
 
         Returns:
             Trending repos matching AI + biology topics.
         """
+        if not query:
+            query = '"AI biology" OR "machine learning genomics" OR bioinformatics OR "computational biology"'
         created_after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         return self.search_repos(
-            query="AI biology machine-learning genomics bioinformatics",
+            query=query,
             sort="stars",
             created_after=created_after,
             max_results=max_results,
