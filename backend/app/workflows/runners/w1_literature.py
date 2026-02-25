@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.agents.base import observe
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
@@ -187,6 +188,7 @@ class W1LiteratureReviewRunner:
         if self._persist_fn:
             await self._persist_fn(instance)
 
+    @observe(name="workflow.w1_literature_review")
     async def run(
         self,
         query: str,
@@ -282,6 +284,7 @@ class W1LiteratureReviewRunner:
             "paused_at": instance.current_step if instance.state == "WAITING_HUMAN" else None,
         }
 
+    @observe(name="workflow.w1_literature_review.resume")
     async def resume_after_human(
         self,
         instance: WorkflowInstance,

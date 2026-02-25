@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.agents.base import observe
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
@@ -108,6 +109,7 @@ class W6AmbiguityRunner:
         if self._persist_fn:
             await self._persist_fn(instance)
 
+    @observe(name="workflow.w6_ambiguity_resolution")
     async def run(
         self,
         query: str,

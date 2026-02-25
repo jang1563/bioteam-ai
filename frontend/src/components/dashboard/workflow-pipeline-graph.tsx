@@ -36,6 +36,54 @@ const W1_STEPS: StepDef[] = [
   { id: "REPORT", label: "Final Report", short: "Report" },
 ];
 
+const W2_STEPS: StepDef[] = [
+  { id: "CONTEXTUALIZE", label: "Context Building", short: "Context" },
+  { id: "GENERATE", label: "Hypothesis Generation", short: "Generate" },
+  { id: "NEGATIVE_FILTER", label: "Negative Filter", short: "NR Filter" },
+  { id: "DEBATE", label: "QA Debate", short: "Debate" },
+  { id: "RANK", label: "Ranking", short: "Rank", human: true },
+  { id: "EVOLVE", label: "Refinement", short: "Evolve" },
+  { id: "RCMXT_PROFILE", label: "Evidence Profile", short: "RCMXT" },
+  { id: "PRESENT", label: "Present Results", short: "Present" },
+];
+
+const W3_STEPS: StepDef[] = [
+  { id: "INGEST", label: "Data Ingestion", short: "Ingest" },
+  { id: "QC", label: "Quality Control", short: "QC" },
+  { id: "PLAN", label: "Analysis Plan", short: "Plan", human: true },
+  { id: "EXECUTE", label: "Execution", short: "Execute" },
+  { id: "INTEGRATE", label: "Integration", short: "Integrate" },
+  { id: "VALIDATE", label: "Validation", short: "Validate" },
+  { id: "PLAUSIBILITY", label: "Plausibility", short: "Plausible" },
+  { id: "INTERPRET", label: "Interpretation", short: "Interpret" },
+  { id: "CONTRADICTION_CHECK", label: "Contradiction", short: "Contradict" },
+  { id: "AUDIT", label: "Audit", short: "Audit" },
+  { id: "REPORT", label: "Final Report", short: "Report" },
+];
+
+const W4_STEPS: StepDef[] = [
+  { id: "OUTLINE", label: "Outline", short: "Outline", human: true },
+  { id: "ASSEMBLE", label: "Reference Assembly", short: "Assemble" },
+  { id: "DRAFT", label: "Manuscript Draft", short: "Draft" },
+  { id: "FIGURES", label: "Figures", short: "Figures" },
+  { id: "STATISTICAL_REVIEW", label: "Stats Review", short: "Stats" },
+  { id: "PLAUSIBILITY_REVIEW", label: "Plausibility", short: "Plausible" },
+  { id: "REPRODUCIBILITY_CHECK", label: "Reproducibility", short: "Reprod." },
+  { id: "REVISION", label: "Revision", short: "Revision" },
+  { id: "REPORT", label: "Final Report", short: "Report" },
+];
+
+const W5_STEPS: StepDef[] = [
+  { id: "OPPORTUNITY", label: "Opportunity", short: "Opp." },
+  { id: "SPECIFIC_AIMS", label: "Specific Aims", short: "Aims", human: true },
+  { id: "STRATEGY", label: "Strategy", short: "Strategy" },
+  { id: "PRELIMINARY_DATA", label: "Preliminary Data", short: "Prelim" },
+  { id: "BUDGET_PLAN", label: "Budget Plan", short: "Budget" },
+  { id: "MOCK_REVIEW", label: "Mock Review", short: "Review" },
+  { id: "REVISION", label: "Revision", short: "Revision" },
+  { id: "REPORT", label: "Final Report", short: "Report" },
+];
+
 const W6_STEPS: StepDef[] = [
   { id: "EVIDENCE_LANDSCAPE", label: "Evidence Landscape", short: "Landscape" },
   { id: "CLASSIFY", label: "Contradiction Classification", short: "Classify" },
@@ -46,6 +94,10 @@ const W6_STEPS: StepDef[] = [
 
 const WORKFLOW_STEP_DEFS: Record<string, StepDef[]> = {
   W1: W1_STEPS,
+  W2: W2_STEPS,
+  W3: W3_STEPS,
+  W4: W4_STEPS,
+  W5: W5_STEPS,
   W6: W6_STEPS,
 };
 

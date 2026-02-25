@@ -57,18 +57,69 @@ const STEP_LABELS: Record<string, string> = {
   RCMXT_SCORE: "Evidence Scoring (RCMXT)",
   NOVELTY_CHECK: "Novelty Assessment",
   REPORT: "Final Report",
+  // W2 steps
+  CONTEXTUALIZE: "Context Building",
+  GENERATE: "Hypothesis Generation (Parallel)",
+  NEGATIVE_FILTER: "Negative Results Filter",
+  DEBATE: "QA Debate (Parallel)",
+  RANK: "Ranking (Human Checkpoint)",
+  EVOLVE: "Hypothesis Refinement",
+  RCMXT_PROFILE: "RCMXT Evidence Profile",
+  PRESENT: "Present Results",
+  // W3 steps
+  INGEST: "Data Ingestion",
+  QC: "Quality Control",
+  PLAN: "Analysis Plan (Human Checkpoint)",
+  EXECUTE: "Statistical Execution",
+  INTEGRATE: "Multi-omics Integration",
+  VALIDATE: "Statistical Validation",
+  PLAUSIBILITY: "Biological Plausibility",
+  INTERPRET: "Interpretation",
+  AUDIT: "Reproducibility Audit",
+  // W4 steps
+  OUTLINE: "Manuscript Outline (Human Checkpoint)",
+  ASSEMBLE: "Reference Assembly",
+  DRAFT: "Manuscript Draft",
+  FIGURES: "Figure Descriptions",
+  STATISTICAL_REVIEW: "Statistical Review",
+  PLAUSIBILITY_REVIEW: "Plausibility Review",
+  REPRODUCIBILITY_CHECK: "Reproducibility Check",
+  REVISION: "Revision",
+  // W5 steps
+  OPPORTUNITY: "Funding Opportunity",
+  SPECIFIC_AIMS: "Specific Aims (Human Checkpoint)",
+  STRATEGY: "Research Strategy",
+  PRELIMINARY_DATA: "Preliminary Data",
+  BUDGET_PLAN: "Budget Plan",
+  MOCK_REVIEW: "Mock Review (Parallel)",
   // W6 steps
   EVIDENCE_LANDSCAPE: "Evidence Landscape",
   CLASSIFY: "Contradiction Classification",
   MINE_NEGATIVES: "Negative Results Mining",
   RESOLUTION_HYPOTHESES: "Resolution Hypotheses",
-  PRESENT: "Present Results",
 };
 
 const WORKFLOW_STEPS: Record<string, string[]> = {
   W1: [
     "SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK", "SYNTHESIZE",
     "CONTRADICTION_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT",
+  ],
+  W2: [
+    "CONTEXTUALIZE", "GENERATE", "NEGATIVE_FILTER", "DEBATE", "RANK",
+    "EVOLVE", "RCMXT_PROFILE", "PRESENT",
+  ],
+  W3: [
+    "INGEST", "QC", "PLAN", "EXECUTE", "INTEGRATE", "VALIDATE",
+    "PLAUSIBILITY", "INTERPRET", "CONTRADICTION_CHECK", "AUDIT", "REPORT",
+  ],
+  W4: [
+    "OUTLINE", "ASSEMBLE", "DRAFT", "FIGURES",
+    "STATISTICAL_REVIEW", "PLAUSIBILITY_REVIEW", "REPRODUCIBILITY_CHECK",
+    "REVISION", "REPORT",
+  ],
+  W5: [
+    "OPPORTUNITY", "SPECIFIC_AIMS", "STRATEGY", "PRELIMINARY_DATA",
+    "BUDGET_PLAN", "MOCK_REVIEW", "REVISION", "REPORT",
   ],
   W6: [
     "EVIDENCE_LANDSCAPE", "CLASSIFY", "MINE_NEGATIVES", "RESOLUTION_HYPOTHESES", "PRESENT",
@@ -238,7 +289,7 @@ export function WorkflowDetailSheet() {
               <Separator />
 
               {/* Pipeline Graph */}
-              {(workflow.template === "W1" || workflow.template === "W6") && (
+              {WORKFLOW_STEPS[workflow.template] && (
                 <WorkflowPipelineGraph workflow={workflow} />
               )}
 

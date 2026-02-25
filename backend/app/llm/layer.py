@@ -24,6 +24,26 @@ import instructor
 from app.config import MODEL_MAP, ModelTier, settings
 from pydantic import BaseModel
 
+# Langfuse import with graceful fallback (same pattern as agents/base.py)
+try:
+    from langfuse.decorators import langfuse_context, observe
+    LANGFUSE_AVAILABLE = True
+except ImportError:
+    LANGFUSE_AVAILABLE = False
+
+    def observe(*args, **kwargs):  # type: ignore[misc]
+        def wrapper(fn):
+            return fn
+        if args and callable(args[0]):
+            return args[0]
+        return wrapper
+
+    class _NoopContext:
+        def update_current_observation(self, **kwargs):
+            pass
+
+    langfuse_context = _NoopContext()  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -158,6 +178,7 @@ class LLMLayer:
         self.client = instructor.from_anthropic(self.raw_client)
         self.circuit_breaker = CircuitBreaker(failure_threshold=5, reset_timeout=60.0)
 
+    @observe(as_type="generation", name="llm.complete_structured")
     async def complete_structured(
         self,
         messages: list[dict],
@@ -200,8 +221,10 @@ class LLMLayer:
         )
 
         meta = self._extract_metadata(raw_response, model_tier)
+        self._tag_langfuse_generation(meta, response_model.__name__)
         return result, meta
 
+    @observe(as_type="generation", name="llm.complete_raw")
     async def complete_raw(
         self,
         messages: list[dict],
@@ -242,8 +265,10 @@ class LLMLayer:
         )
 
         meta = self._extract_metadata(response, model_tier)
+        self._tag_langfuse_generation(meta)
         return response, meta
 
+    # Note: @observe doesn't support async generators, so we tag manually inside
     async def complete_stream(
         self,
         messages: list[dict],
@@ -293,6 +318,7 @@ class LLMLayer:
             self.circuit_breaker.record_failure()
             raise
 
+    @observe(name="llm.complete_with_tools")
     async def complete_with_tools(
         self,
         messages: list[dict],
@@ -366,7 +392,32 @@ class LLMLayer:
             stop_reason=responses[-1].stop_reason if responses else "",
             cost=self.estimate_cost(model_tier, total_input, total_output, total_cached),
         )
+        self._tag_langfuse_generation(aggregated)
         return responses, aggregated
+
+    def _tag_langfuse_generation(
+        self,
+        meta: LLMResponse,
+        output_schema: str = "",
+    ) -> None:
+        """Tag the current Langfuse observation with LLM generation metadata."""
+        if not LANGFUSE_AVAILABLE or not settings.langfuse_public_key:
+            return
+        langfuse_context.update_current_observation(
+            model=meta.model_version,
+            usage={
+                "input": meta.input_tokens,
+                "output": meta.output_tokens,
+                "total": meta.input_tokens + meta.output_tokens,
+                "unit": "TOKENS",
+            },
+            metadata={
+                "cached_input_tokens": meta.cached_input_tokens,
+                "cost_usd": meta.cost,
+                "stop_reason": meta.stop_reason,
+                **({"output_schema": output_schema} if output_schema else {}),
+            },
+        )
 
     def _extract_metadata(
         self, response: anthropic.types.Message, model_tier: ModelTier

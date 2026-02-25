@@ -10,6 +10,7 @@ v5.1: SQLite persistence for workflow state (survives server restarts).
 v5.2: Added list endpoint for dashboard.
 v5.3: Auto-execute W1 pipeline on creation via asyncio.create_task.
 v6.0: Celery dispatch with asyncio fallback (Phase 2 task queue).
+v6.1: Generic dispatch for W1-W6 (all workflow templates).
 """
 
 from __future__ import annotations
@@ -188,11 +189,11 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
     async with _lock:
         _save_instance(instance)
 
-    # Auto-start W1 pipeline in background (Celery or asyncio fallback)
-    if request.template == "W1" and _registry is not None:
-        _dispatch_w1(instance.id, request.query, request.budget)
-    elif request.template == "W1":
-        logger.warning("W1 created but _registry is None — cannot auto-start")
+    # Auto-start pipeline in background (Celery or asyncio fallback)
+    if request.template in _SUPPORTED_TEMPLATES and _registry is not None:
+        _dispatch_workflow(instance.id, request.template, request.query, request.budget)
+    elif request.template in _SUPPORTED_TEMPLATES:
+        logger.warning("%s created but _registry is None — cannot auto-start", request.template)
 
     return CreateWorkflowResponse(
         workflow_id=instance.id,
@@ -202,44 +203,91 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
     )
 
 
-def _dispatch_w1(workflow_id: str, query: str, budget: float) -> None:
-    """Dispatch W1 workflow execution via Celery or asyncio fallback."""
+# Templates that auto-start on creation
+_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6"}
+
+
+def _get_runner(template: str, registry, engine, sse_hub, lab_kb, persist_fn):
+    """Factory: return the correct runner for a workflow template."""
+    if template == "W1":
+        from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
+        return W1LiteratureReviewRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+        )
+    elif template == "W2":
+        from app.workflows.runners.w2_hypothesis import W2HypothesisRunner
+        return W2HypothesisRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+        )
+    elif template == "W3":
+        from app.workflows.runners.w3_data_analysis import W3DataAnalysisRunner
+        return W3DataAnalysisRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+        )
+    elif template == "W4":
+        from app.workflows.runners.w4_manuscript import W4ManuscriptRunner
+        return W4ManuscriptRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+        )
+    elif template == "W5":
+        from app.workflows.runners.w5_grant import W5GrantProposalRunner
+        return W5GrantProposalRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+        )
+    elif template == "W6":
+        from app.workflows.runners.w6_ambiguity import W6AmbiguityRunner
+        return W6AmbiguityRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
+        )
+    return None
+
+
+def _dispatch_workflow(workflow_id: str, template: str, query: str, budget: float) -> None:
+    """Dispatch workflow execution via Celery or asyncio fallback."""
     from app.celery_app import is_celery_enabled
 
     if is_celery_enabled():
-        from app.tasks.workflow_tasks import run_w1_workflow
-        logger.info("Dispatching W1 %s via Celery", workflow_id)
-        run_w1_workflow.delay(workflow_id, query, budget)
+        from app.tasks.workflow_tasks import run_workflow
+        logger.info("Dispatching %s %s via Celery", template, workflow_id)
+        run_workflow.delay(workflow_id, template, query, budget)
     else:
-        logger.info("Dispatching W1 %s via asyncio (Celery not configured)", workflow_id)
-        task = asyncio.create_task(_run_w1_background(workflow_id, query, budget))
+        logger.info("Dispatching %s %s via asyncio (Celery not configured)", template, workflow_id)
+        task = asyncio.create_task(_run_workflow_background(workflow_id, template, query, budget))
         task.add_done_callback(
-            lambda t: logger.error("W1 task exception: %s", t.exception())
+            lambda t: logger.error("%s task exception: %s", template, t.exception())
             if t.exception() else None
         )
 
 
-def _dispatch_w1_resume(workflow_id: str, query: str) -> None:
-    """Dispatch W1 resume via Celery or asyncio fallback."""
+def _dispatch_workflow_resume(workflow_id: str, template: str, query: str) -> None:
+    """Dispatch workflow resume via Celery or asyncio fallback."""
     from app.celery_app import is_celery_enabled
 
     if is_celery_enabled():
-        from app.tasks.workflow_tasks import resume_w1_workflow
-        logger.info("Dispatching W1 resume %s via Celery", workflow_id)
-        resume_w1_workflow.delay(workflow_id, query)
+        from app.tasks.workflow_tasks import resume_workflow
+        logger.info("Dispatching %s resume %s via Celery", template, workflow_id)
+        resume_workflow.delay(workflow_id, template, query)
     else:
-        logger.info("Dispatching W1 resume %s via asyncio", workflow_id)
-        asyncio.create_task(_resume_w1_background(workflow_id, query))
+        logger.info("Dispatching %s resume %s via asyncio", template, workflow_id)
+        asyncio.create_task(_resume_workflow_background(workflow_id, template, query))
 
 
-async def _run_w1_background(
+# Backward-compatible aliases for Celery task imports
+def _dispatch_w1(workflow_id: str, query: str, budget: float) -> None:
+    _dispatch_workflow(workflow_id, "W1", query, budget)
+
+
+def _dispatch_w1_resume(workflow_id: str, query: str) -> None:
+    _dispatch_workflow_resume(workflow_id, "W1", query)
+
+
+async def _run_workflow_background(
     workflow_id: str,
+    template: str,
     query: str,
     budget: float,
 ) -> None:
-    """Execute W1 pipeline as a background task with SSE updates."""
-    from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
-
+    """Execute any workflow pipeline as a background task with SSE updates."""
     try:
         instance = _get_instance(workflow_id)
 
@@ -247,7 +295,7 @@ async def _run_w1_background(
             async with _lock:
                 _save_instance(inst)
 
-        # Create LabKBEngine for NEGATIVE_CHECK step
+        # Create LabKBEngine for steps that need negative results
         lab_kb = None
         try:
             from app.engines.negative_results.lab_kb import LabKBEngine
@@ -255,20 +303,17 @@ async def _run_w1_background(
         except Exception as e:
             logger.warning("LabKBEngine init failed (non-fatal): %s", e)
 
-        runner = W1LiteratureReviewRunner(
-            registry=_registry,
-            engine=_engine,
-            sse_hub=_sse_hub,
-            lab_kb=lab_kb,
-            persist_fn=_persist,
-        )
+        runner = _get_runner(template, _registry, _engine, _sse_hub, lab_kb, _persist)
+        if runner is None:
+            logger.error("No runner for template %s", template)
+            return
 
         # Broadcast start event
         if _sse_hub:
             await _sse_hub.broadcast_dict(
                 event_type="workflow.started",
                 workflow_id=workflow_id,
-                payload={"template": "W1", "query": query[:200]},
+                payload={"template": template, "query": query[:200]},
             )
 
         result = await runner.run(
@@ -319,16 +364,15 @@ async def _run_w1_background(
                 _save_instance(instance)
 
         logger.info(
-            "W1 workflow %s reached state %s (%d steps)",
-            workflow_id, instance.state, len(instance.step_history),
+            "%s workflow %s reached state %s (%d steps)",
+            template, workflow_id, instance.state, len(instance.step_history),
         )
 
     except Exception as e:
-        logger.error("W1 background task failed for %s: %s", workflow_id, e, exc_info=True)
+        logger.error("%s background task failed for %s: %s", template, workflow_id, e, exc_info=True)
         try:
             instance = _get_instance(workflow_id)
             if instance.state not in ("FAILED", "CANCELLED", "COMPLETED"):
-                # Must be in RUNNING to fail; if still PENDING, start first
                 if instance.state == "PENDING":
                     _engine.start(instance)
                 _engine.fail(instance, str(e))
@@ -344,10 +388,13 @@ async def _run_w1_background(
             logger.error("Failed to mark workflow %s as FAILED", workflow_id, exc_info=True)
 
 
-async def _resume_w1_background(workflow_id: str, query: str) -> None:
-    """Resume W1 pipeline after human approval (NOVELTY_CHECK + REPORT)."""
-    from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
+# Backward-compatible aliases for existing Celery task imports
+async def _run_w1_background(workflow_id: str, query: str, budget: float) -> None:
+    await _run_workflow_background(workflow_id, "W1", query, budget)
 
+
+async def _resume_workflow_background(workflow_id: str, template: str, query: str) -> None:
+    """Resume any workflow pipeline after human approval."""
     try:
         instance = _get_instance(workflow_id)
 
@@ -355,7 +402,6 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
             async with _lock:
                 _save_instance(inst)
 
-        # Create LabKBEngine for NEGATIVE_CHECK step (resume path)
         lab_kb = None
         try:
             from app.engines.negative_results.lab_kb import LabKBEngine
@@ -363,13 +409,10 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
         except Exception as e:
             logger.warning("LabKBEngine init failed (non-fatal): %s", e)
 
-        runner = W1LiteratureReviewRunner(
-            registry=_registry,
-            engine=_engine,
-            sse_hub=_sse_hub,
-            lab_kb=lab_kb,
-            persist_fn=_persist,
-        )
+        runner = _get_runner(template, _registry, _engine, _sse_hub, lab_kb, _persist)
+        if runner is None:
+            logger.error("No runner for template %s", template)
+            return
 
         if _sse_hub:
             await _sse_hub.broadcast_dict(
@@ -393,10 +436,10 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
                 },
             )
 
-        logger.info("W1 workflow %s resumed → %s", workflow_id, instance.state)
+        logger.info("%s workflow %s resumed → %s", template, workflow_id, instance.state)
 
     except Exception as e:
-        logger.error("W1 resume failed for %s: %s", workflow_id, e, exc_info=True)
+        logger.error("%s resume failed for %s: %s", template, workflow_id, e, exc_info=True)
         try:
             instance = _get_instance(workflow_id)
             if instance.state not in ("FAILED", "CANCELLED", "COMPLETED"):
@@ -405,6 +448,11 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
                     _save_instance(instance)
         except Exception:
             logger.error("Failed to mark workflow %s as FAILED", workflow_id, exc_info=True)
+
+
+# Backward-compatible alias for existing Celery task imports
+async def _resume_w1_background(workflow_id: str, query: str) -> None:
+    await _resume_workflow_background(workflow_id, "W1", query)
 
 
 def _truncate_result(data: dict, max_len: int = 2000) -> dict:
@@ -484,10 +532,10 @@ async def intervene(workflow_id: str, request: InterveneRequest) -> InterveneRes
             elif request.action == "resume":
                 engine.resume(instance)
                 detail = "Workflow resumed"
-                # If resuming from WAITING_HUMAN, continue W1 pipeline
-                if instance.template == "W1" and _registry is not None:
+                # If resuming from WAITING_HUMAN, continue pipeline
+                if instance.template in _SUPPORTED_TEMPLATES and _registry is not None:
                     _save_instance(instance)
-                    _dispatch_w1_resume(workflow_id, instance.query)
+                    _dispatch_workflow_resume(workflow_id, instance.template, instance.query)
             elif request.action == "cancel":
                 engine.cancel(instance)
                 detail = "Workflow cancelled"

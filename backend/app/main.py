@@ -42,11 +42,51 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 
+def _configure_langfuse() -> bool:
+    """Initialize Langfuse tracing if configured. Returns True if enabled."""
+    from app.config import settings as _s
+
+    if not _s.langfuse_public_key or not _s.langfuse_secret_key:
+        logger.info("Langfuse not configured (no keys). Tracing disabled.")
+        return False
+
+    try:
+        from langfuse.decorators import langfuse_context
+
+        langfuse_context.configure(
+            public_key=_s.langfuse_public_key,
+            secret_key=_s.langfuse_secret_key,
+            host=_s.langfuse_host,
+        )
+        logger.info("Langfuse tracing enabled → %s", _s.langfuse_host)
+        return True
+    except ImportError:
+        logger.info("langfuse package not installed. Tracing disabled.")
+        return False
+    except Exception as e:
+        logger.warning("Langfuse init failed (non-fatal): %s", e)
+        return False
+
+
+def _shutdown_langfuse() -> None:
+    """Flush pending Langfuse events on shutdown."""
+    try:
+        from langfuse.decorators import langfuse_context
+
+        langfuse_context.flush()
+        logger.info("Langfuse flushed on shutdown.")
+    except Exception:
+        pass  # Best-effort
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown."""
     # Startup: create tables
     create_db_and_tables()
+
+    # Initialize Langfuse observability
+    langfuse_enabled = _configure_langfuse()
 
     # Initialize agent registry (graceful — doesn't fail if API key is test/missing)
     backup_scheduler = None
@@ -117,11 +157,13 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: stop schedulers
+    # Shutdown: stop schedulers and flush observability
     if backup_scheduler is not None:
         backup_scheduler.stop()
     if digest_scheduler is not None:
         digest_scheduler.stop()
+    if langfuse_enabled:
+        _shutdown_langfuse()
 
 
 app = FastAPI(

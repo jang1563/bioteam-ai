@@ -99,16 +99,16 @@ def test_inject_note_modify_query():
     assert resp.status_code == 200
 
 
-def test_cancel_pending_workflow():
-    """Create W2 (PENDING) → cancel → verify CANCELLED."""
+def test_cancel_workflow():
+    """Create W2 → cancel → verify CANCELLED."""
     client = _setup()
     wf_id = _create_workflow(client)
 
-    # Verify PENDING
+    # State may have changed due to auto-start (v6.1: all templates auto-start)
     resp = client.get(f"/api/v1/workflows/{wf_id}")
-    assert resp.json()["state"] == "PENDING"
+    assert resp.json()["state"] in ("PENDING", "RUNNING", "WAITING_HUMAN", "FAILED", "COMPLETED")
 
-    # Cancel
+    # Cancel — works from any non-terminal state
     resp = client.post(f"/api/v1/workflows/{wf_id}/intervene", json={
         "action": "cancel",
     })
@@ -204,7 +204,7 @@ if __name__ == "__main__":
     print("Testing Intervention E2E:")
     test_inject_note_add_paper()
     test_inject_note_modify_query()
-    test_cancel_pending_workflow()
+    test_cancel_workflow()
     test_double_cancel_idempotent()
     test_inject_multiple_notes()
     test_intervene_nonexistent_workflow()
