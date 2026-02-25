@@ -25,6 +25,7 @@ from app.models.memory import EpisodicEvent  # noqa: F401, E402
 from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401, E402
 from app.models.negative_result import NegativeResult  # noqa: F401, E402
 from app.models.task import Project, Task  # noqa: F401, E402
+from app.models.integrity import AuditFinding, AuditRun  # noqa: F401, E402
 from app.models.workflow import StepCheckpoint, WorkflowInstance  # noqa: F401, E402
 
 target_metadata = SQLModel.metadata
