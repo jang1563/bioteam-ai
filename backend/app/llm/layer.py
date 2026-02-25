@@ -17,13 +17,12 @@ import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 import anthropic
 import instructor
-from pydantic import BaseModel
-from typing import Any, Literal
-
 from app.config import MODEL_MAP, ModelTier, settings
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +133,7 @@ async def _retry_with_backoff(
                 await asyncio.sleep(delay)
             else:
                 raise
-        except Exception as e:
+        except Exception:
             # Non-retryable errors (auth, bad request, etc.)
             if circuit_breaker:
                 circuit_breaker.record_failure()
@@ -287,10 +286,10 @@ class LLMLayer:
                 self.circuit_breaker.record_success()
                 meta = self._extract_metadata(response, model_tier)
                 yield "", meta
-        except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError) as e:
+        except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError):
             self.circuit_breaker.record_failure()
             raise
-        except Exception as e:
+        except Exception:
             self.circuit_breaker.record_failure()
             raise
 

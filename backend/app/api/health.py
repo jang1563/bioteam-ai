@@ -91,7 +91,7 @@ async def health_check() -> HealthStatus:
         }
         if remaining <= 0:
             has_warning = True
-    except Exception as e:
+    except Exception:
         checks["cost_tracker"] = {"status": "ok", "detail": f"default (${50.0:.2f} budget)"}
 
     # Build simplified dependencies map for frontend

@@ -8,9 +8,10 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from unittest.mock import patch
-from fastapi.testclient import TestClient
-from app.main import app
+
 from app.db.database import create_db_and_tables
+from app.main import app
+from fastapi.testclient import TestClient
 
 
 def _client():
@@ -59,8 +60,8 @@ def test_valid_token_passes():
         client = _client()
         # Wire up registry first
         from app.agents.registry import create_registry
-        from app.llm.mock_layer import MockLLMLayer
         from app.api.v1.agents import set_registry
+        from app.llm.mock_layer import MockLLMLayer
         set_registry(create_registry(MockLLMLayer()))
         resp = client.get("/api/v1/agents", headers={"Authorization": "Bearer my-secret"})
         assert resp.status_code == 200
@@ -100,8 +101,8 @@ def test_bearer_prefix_required():
 
 def _sse_auth_client():
     """Create a test app with auth middleware and a simple /api/v1/sse endpoint."""
-    from fastapi import FastAPI
     from app.middleware.auth import APIKeyAuthMiddleware
+    from fastapi import FastAPI
 
     test_app = FastAPI()
     test_app.add_middleware(APIKeyAuthMiddleware)

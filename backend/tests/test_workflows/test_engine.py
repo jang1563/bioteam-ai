@@ -9,10 +9,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.models.workflow import WorkflowInstance
 from app.workflows.engine import (
-    WorkflowEngine,
     IllegalTransitionError,
-    LEGAL_TRANSITIONS,
-    TERMINAL_STATES,
+    WorkflowEngine,
 )
 
 

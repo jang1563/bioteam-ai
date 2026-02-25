@@ -17,7 +17,6 @@ from pathlib import Path
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 
-
 CHROMA_DIR = Path(os.environ.get("CHROMA_DIR", "data/chroma"))
 COLLECTION_NAMES = ["literature", "synthesis", "lab_kb"]
 

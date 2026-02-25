@@ -2,14 +2,12 @@
 
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from sqlmodel import SQLModel, Session, create_engine
-from app.models.cost import CostRecord
-from app.cost.tracker import CostTracker, WORKFLOW_BUDGETS
+from app.cost.tracker import CostTracker
+from sqlmodel import Session, SQLModel, create_engine
 
 
 def _setup_db():

@@ -11,9 +11,8 @@ from datetime import datetime, timezone
 from typing import Sequence
 from uuid import uuid4
 
-from sqlmodel import Session, select
-
 from app.models.negative_result import NegativeResult
+from sqlmodel import Session, select
 
 
 class LabKBEngine:
@@ -91,7 +90,6 @@ class LabKBEngine:
 
     def search(self, query: str, limit: int = 20) -> Sequence[NegativeResult]:
         """Search negative results by claim or outcome text (SQL LIKE)."""
-        pattern = f"%{query}%"
         statement = (
             select(NegativeResult)
             .where(

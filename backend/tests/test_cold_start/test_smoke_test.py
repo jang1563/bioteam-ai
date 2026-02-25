@@ -1,8 +1,8 @@
 """Tests for Cold Start Smoke Test."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
@@ -10,8 +10,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.agents.registry import create_registry
 from app.agents.research_director import QueryClassification
-from app.llm.mock_layer import MockLLMLayer
 from app.cold_start.smoke_test import SmokeTest, SmokeTestResult
+from app.llm.mock_layer import MockLLMLayer
 
 
 def _make_smoke_test() -> SmokeTest:

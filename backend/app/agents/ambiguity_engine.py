@@ -21,16 +21,16 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
-
 from app.agents.base import BaseAgent
 from app.engines.ambiguity.contradiction_detector import ContradictionDetector
 from app.engines.rcmxt_scorer import RCMXTScorer
 from app.models.agent import AgentOutput
-from app.models.evidence import ContradictionEntry, ContradictionType, RCMXTScore
+from app.models.evidence import ContradictionEntry, RCMXTScore
 from app.models.messages import ContextPackage
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from app.llm.layer import LLMResponse
     from app.memory.semantic import SemanticMemory
 
 logger = logging.getLogger(__name__)
@@ -207,7 +207,6 @@ class AmbiguityEngineAgent(BaseAgent):
         total_input_tokens = 0
         total_output_tokens = 0
         total_cost = 0.0
-        model_version = ""
         pairs_classified = 0
 
         for claim_a, claim_b, similarity in candidate_pairs[:MAX_CLASSIFY_CALLS]:
@@ -218,7 +217,6 @@ class AmbiguityEngineAgent(BaseAgent):
                 total_input_tokens += meta.input_tokens
                 total_output_tokens += meta.output_tokens
                 total_cost += meta.cost
-                model_version = meta.model_version
                 pairs_classified += 1
 
                 if not classification.is_genuine_contradiction:
@@ -297,7 +295,6 @@ class AmbiguityEngineAgent(BaseAgent):
         similarity: float,
     ) -> tuple[ContradictionClassification, "LLMResponse"]:
         """Classify a single pair via LLM structured output."""
-        from app.llm.layer import LLMResponse
 
         messages = [
             {
@@ -340,7 +337,6 @@ class AmbiguityEngineAgent(BaseAgent):
         classification: ContradictionClassification,
     ) -> tuple[ResolutionOutput, "LLMResponse"]:
         """Generate resolution hypotheses for a confirmed contradiction."""
-        from app.llm.layer import LLMResponse
 
         types_str = ", ".join(classification.types) if classification.types else "unknown"
         messages = [

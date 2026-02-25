@@ -16,11 +16,11 @@ What goes where:
 from __future__ import annotations
 
 import os
-from sqlmodel import SQLModel, create_engine, Session
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
 
 from app.config import settings
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlmodel import Session, SQLModel, create_engine
 
 
 def get_database_url() -> str:

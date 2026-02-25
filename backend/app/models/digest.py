@@ -12,7 +12,8 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import Index, UniqueConstraint
-from sqlmodel import SQLModel, Field as SQLField, Column, JSON
+from sqlmodel import JSON, Column, SQLModel
+from sqlmodel import Field as SQLField
 
 
 class TopicProfile(SQLModel, table=True):

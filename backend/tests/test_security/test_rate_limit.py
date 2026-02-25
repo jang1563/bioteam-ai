@@ -7,8 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.middleware.rate_limit import TokenBucket, RateLimitMiddleware
-
+from app.middleware.rate_limit import RateLimitMiddleware, TokenBucket
 
 # === TokenBucket tests ===
 
@@ -51,9 +50,9 @@ def test_token_bucket_rate():
 
 def test_rate_limit_health_exempt():
     """Health endpoint should be exempt from rate limiting."""
-    from fastapi.testclient import TestClient
-    from app.main import app
     from app.db.database import create_db_and_tables
+    from app.main import app
+    from fastapi.testclient import TestClient
 
     create_db_and_tables()
     client = TestClient(app)

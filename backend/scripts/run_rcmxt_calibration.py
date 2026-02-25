@@ -25,7 +25,6 @@ import asyncio
 import json
 import statistics
 import sys
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.engines.rcmxt_scorer import RCMXTScorer
 from app.llm.layer import LLMLayer
-
 
 BENCHMARKS_DIR = Path(__file__).parent.parent / "app" / "cold_start" / "benchmarks"
 
@@ -132,7 +130,7 @@ async def run_calibration(
         x_runs.append(run_x)
 
     # Compute metrics
-    print(f"\n--- Computing calibration metrics ---")
+    print("\n--- Computing calibration metrics ---")
     results: dict = {
         "metadata": {
             "n_claims": n_claims,

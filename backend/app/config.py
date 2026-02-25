@@ -1,9 +1,8 @@
 """BioTeam-AI configuration — settings, model tiers, budgets."""
 
-from pydantic import Field
-from pydantic_settings import BaseSettings
 from typing import Literal
 
+from pydantic_settings import BaseSettings
 
 # Claude model ID mapping
 MODEL_MAP: dict[str, str] = {

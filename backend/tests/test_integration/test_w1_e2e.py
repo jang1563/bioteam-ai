@@ -12,22 +12,20 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 import asyncio
-import tempfile
 
-from pydantic import BaseModel, Field
-
+from app.agents.knowledge_manager import NoveltyAssessment
 from app.agents.registry import create_registry
 from app.agents.research_director import QueryClassification, SynthesisReport
-from app.agents.knowledge_manager import LiteratureSearchResult, NoveltyAssessment
 from app.agents.teams.t02_transcriptomics import (
-    ScreeningResult, ScreeningDecision, ExtractionResult, ExtractedPaperData,
+    ExtractedPaperData,
+    ExtractionResult,
+    ScreeningDecision,
+    ScreeningResult,
 )
-from app.llm.mock_layer import MockLLMLayer
-from app.models.workflow import WorkflowInstance
-from app.workflows.runners.w1_literature import W1LiteratureReviewRunner, W1_STEPS
-from app.workflows.engine import WorkflowEngine
 from app.api.v1.sse import SSEHub
-
+from app.llm.mock_layer import MockLLMLayer
+from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
+from pydantic import BaseModel, Field
 
 # === Mock Helpers ===
 
@@ -183,9 +181,8 @@ def test_report_assembles_all_summaries():
 
 def test_w1_with_lab_kb_integration():
     """NEGATIVE_CHECK should find results when LabKB is wired with seed data."""
-    from sqlmodel import Session, create_engine, SQLModel
     from app.engines.negative_results.lab_kb import LabKBEngine
-    from app.models.negative_result import NegativeResult
+    from sqlmodel import Session, SQLModel, create_engine
 
     # Create in-memory SQLite for the test
     engine = create_engine("sqlite:///:memory:")
@@ -204,7 +201,7 @@ def test_w1_with_lab_kb_integration():
 
         runner = _make_runner(lab_kb=lab_kb)
         first = asyncio.run(runner.run(query="spaceflight anemia"))
-        instance = first["instance"]
+        first["instance"]
 
         neg_check = first["step_results"].get("NEGATIVE_CHECK")
         assert neg_check is not None
@@ -225,10 +222,9 @@ def test_w1_with_lab_kb_integration():
 
 def test_negative_results_flow_to_synthesize_context():
     """Negative results from NEGATIVE_CHECK should flow into SYNTHESIZE context."""
-    from sqlmodel import Session, create_engine, SQLModel
+
     from app.engines.negative_results.lab_kb import LabKBEngine
-    from app.models.negative_result import NegativeResult
-    from unittest.mock import patch, AsyncMock
+    from sqlmodel import Session, SQLModel, create_engine
 
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
@@ -269,7 +265,7 @@ def test_negative_results_flow_to_synthesize_context():
         runner._run_agent_step = spy_run_agent
 
         first = asyncio.run(runner.run(query="spaceflight anemia"))
-        instance = first["instance"]
+        first["instance"]
 
         # Should have captured negative results flowing to SYNTHESIZE
         assert len(captured_contexts) == 1, "SYNTHESIZE should have been called once"

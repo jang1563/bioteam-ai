@@ -21,8 +21,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
-
 from app.config import ModelTier, settings
 from app.llm.layer import LLMLayer, LLMResponse
 from app.models.agent import AgentOutput, AgentSpec, AgentStatus
@@ -30,7 +28,7 @@ from app.models.messages import ContextPackage
 
 # Langfuse import with graceful fallback
 try:
-    from langfuse.decorators import observe, langfuse_context
+    from langfuse.decorators import langfuse_context, observe
     LANGFUSE_AVAILABLE = True
 except ImportError:
     LANGFUSE_AVAILABLE = False

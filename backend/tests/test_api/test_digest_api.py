@@ -2,19 +2,18 @@
 
 import os
 import sys
-from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
+from app.api.v1.digest import router as digest_router
+from app.db.database import create_db_and_tables
+from app.db.database import engine as db_engine
+from app.models.digest import DigestEntry, DigestReport, TopicProfile
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session
-
-from app.api.v1.digest import router as digest_router
-from app.db.database import engine as db_engine, create_db_and_tables
-from app.models.digest import TopicProfile, DigestEntry, DigestReport
 
 
 def _client():

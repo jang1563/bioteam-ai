@@ -1,28 +1,31 @@
 """Tests for W1 Literature Review Runner — step definitions, pipeline execution, human checkpoint."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from pydantic import BaseModel, Field
-
-from app.agents.base import BaseAgent
+from app.agents.ambiguity_engine import ContradictionClassification
+from app.agents.knowledge_manager import NoveltyAssessment
 from app.agents.registry import create_registry
-from app.agents.research_director import QueryClassification, SynthesisReport
-from app.agents.knowledge_manager import LiteratureSearchResult, NoveltyAssessment
-from app.agents.ambiguity_engine import ContradictionClassification, ResolutionOutput
+from app.agents.research_director import SynthesisReport
 from app.agents.teams.t02_transcriptomics import (
-    ScreeningResult, ScreeningDecision, ExtractionResult, ExtractedPaperData,
+    ExtractedPaperData,
+    ExtractionResult,
+    ScreeningDecision,
+    ScreeningResult,
 )
 from app.llm.mock_layer import MockLLMLayer
-from app.models.workflow import WorkflowInstance
 from app.workflows.runners.w1_literature import (
-    W1LiteratureReviewRunner, W1_STEPS, get_step_by_id, _METHOD_MAP,
+    _METHOD_MAP,
+    W1_STEPS,
+    W1LiteratureReviewRunner,
+    get_step_by_id,
 )
+from pydantic import BaseModel, Field
 
 
 # Mock for KM's internal SearchTerms model (defined locally inside search_literature)
@@ -204,9 +207,9 @@ def test_negative_check_no_lab_kb():
     assert neg_check is not None
     # Should have output with 0 negative results
     if isinstance(neg_check, dict) and "output" in neg_check:
-        output = neg_check["output"]
+        neg_check["output"]
     else:
-        output = neg_check
+        pass
     # The output should indicate 0 negative results found
     print("  PASS: negative_check_no_lab_kb")
 

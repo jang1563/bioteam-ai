@@ -10,35 +10,34 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-
 from app.api.health import router as health_router
-from app.api.v1.cold_start import router as cold_start_router
-from app.api.v1.direct_query import router as dq_router
-from app.api.v1.sse import router as sse_router
 from app.api.v1.agents import router as agents_router
-from app.api.v1.workflows import router as workflows_router
 from app.api.v1.backup import router as backup_router
-from app.api.v1.negative_results import router as nr_router
-from app.api.v1.conversations import router as conversations_router
+from app.api.v1.cold_start import router as cold_start_router
 from app.api.v1.contradictions import router as contradictions_router
+from app.api.v1.conversations import router as conversations_router
 from app.api.v1.digest import router as digest_router
+from app.api.v1.direct_query import router as dq_router
+from app.api.v1.negative_results import router as nr_router
+from app.api.v1.sse import router as sse_router
+from app.api.v1.workflows import router as workflows_router
 from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.workflows.engine import WorkflowEngine
+from app.models.cost import CostRecord  # noqa: F401
+from app.models.digest import DigestEntry, DigestReport, TopicProfile  # noqa: F401
 
 # Import all SQL models so SQLModel metadata registers them
-from app.models.evidence import Evidence, ContradictionEntry, DataRegistry  # noqa: F401
-from app.models.negative_result import NegativeResult  # noqa: F401
-from app.models.workflow import WorkflowInstance, StepCheckpoint  # noqa: F401
-from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401
-from app.models.task import Project, Task  # noqa: F401
+from app.models.evidence import ContradictionEntry, DataRegistry, Evidence  # noqa: F401
 from app.models.memory import EpisodicEvent  # noqa: F401
-from app.models.cost import CostRecord  # noqa: F401
-from app.models.digest import TopicProfile, DigestEntry, DigestReport  # noqa: F401
+from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401
+from app.models.negative_result import NegativeResult  # noqa: F401
+from app.models.task import Project, Task  # noqa: F401
+from app.models.workflow import StepCheckpoint, WorkflowInstance  # noqa: F401
+from app.workflows.engine import WorkflowEngine
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -53,24 +52,23 @@ async def lifespan(app: FastAPI):
     backup_scheduler = None
     digest_scheduler = None
     try:
+        from app.agents.registry import create_registry
+        from app.api.v1.agents import set_registry as set_agents_registry
+        from app.api.v1.backup import set_backup_manager
+        from app.api.v1.direct_query import set_registry as set_dq_registry
+        from app.api.v1.workflows import set_dependencies as set_workflow_deps
+        from app.backup.manager import BackupManager
         from app.config import settings
         from app.llm.layer import LLMLayer
         from app.memory.semantic import SemanticMemory
-        from app.agents.registry import create_registry
-        from app.api.v1.agents import set_registry as set_agents_registry
-        from app.api.v1.direct_query import set_registry as set_dq_registry
-        from app.api.v1.workflows import set_dependencies as set_workflow_deps
-        from app.api.v1.backup import set_backup_manager
-        from app.backup.manager import BackupManager
 
         llm = LLMLayer()
         memory = SemanticMemory()
         registry = create_registry(llm, memory)
         engine = WorkflowEngine()
 
-        from app.api.v1.sse import sse_hub
-
         from app.api.v1.cold_start import set_dependencies as set_cold_start_deps
+        from app.api.v1.sse import sse_hub
 
         # Wire up API modules
         set_agents_registry(registry)
@@ -98,9 +96,9 @@ async def lifespan(app: FastAPI):
         await backup_scheduler.start()
 
         # Wire up digest pipeline + scheduler
+        from app.api.v1.digest import set_pipeline as set_digest_pipeline
         from app.digest.pipeline import DigestPipeline
         from app.digest.scheduler import DigestScheduler
-        from app.api.v1.digest import set_pipeline as set_digest_pipeline
 
         digest_agent = registry.get("digest_agent")
         digest_pipeline = DigestPipeline(digest_agent=digest_agent)
@@ -135,6 +133,7 @@ app = FastAPI(
 
 # Middleware (order matters: first added = outermost)
 from app.config import settings as _settings
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _settings.cors_origins.split(",") if o.strip()],

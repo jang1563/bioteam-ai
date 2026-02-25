@@ -12,13 +12,11 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
-
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
 
 from app.agents.registry import AgentRegistry
 from app.memory.semantic import SemanticMemory
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

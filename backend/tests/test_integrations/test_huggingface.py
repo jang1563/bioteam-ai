@@ -9,8 +9,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.integrations.huggingface import HuggingFaceClient, HFPaper
-
+from app.integrations.huggingface import HFPaper, HuggingFaceClient
 
 # === Dataclass Tests ===
 

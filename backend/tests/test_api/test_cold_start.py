@@ -6,26 +6,27 @@ Uses MockLLMLayer — no real API calls.
 
 import os
 import sys
-import asyncio
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.agents.base import BaseAgent
-from app.agents.registry import AgentRegistry
-from app.agents.research_director import ResearchDirectorAgent, QueryClassification
 from app.agents.knowledge_manager import KnowledgeManagerAgent
 from app.agents.project_manager import ProjectManagerAgent
+from app.agents.registry import AgentRegistry
+from app.agents.research_director import QueryClassification, ResearchDirectorAgent
 from app.api.v1.cold_start import (
-    router, set_dependencies, ColdStartResponse, ColdStartStatus,
+    ColdStartResponse,
+    ColdStartStatus,
+    router,
+    set_dependencies,
 )
 from app.llm.mock_layer import MockLLMLayer
 from app.memory.semantic import SemanticMemory
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 def _make_test_deps():

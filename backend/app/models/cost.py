@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from pydantic import BaseModel
-from sqlmodel import SQLModel, Field as SQLField
+from sqlmodel import Field as SQLField
+from sqlmodel import SQLModel
 
 
 class CostRecord(SQLModel, table=True):

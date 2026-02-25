@@ -1,18 +1,16 @@
 """Tests for LLMLayer (estimate_cost, build_cached_system) and MockLLMLayer."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from pydantic import BaseModel
-
-from app.llm.layer import LLMResponse, LLMLayer
+from app.llm.layer import LLMLayer, LLMResponse
 from app.llm.mock_layer import MockLLMLayer, _MockMessage
-
+from pydantic import BaseModel
 
 # === LLMResponse Tests ===
 

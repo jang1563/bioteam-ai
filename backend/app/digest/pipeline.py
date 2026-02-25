@@ -14,18 +14,17 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from sqlmodel import Session, select
-
 from app.config import settings
 from app.db.database import engine as db_engine
-from app.integrations.biorxiv import BiorxivClient
 from app.integrations.arxiv_client import ArxivClient
+from app.integrations.biorxiv import BiorxivClient
 from app.integrations.github_trending import GithubTrendingClient
 from app.integrations.huggingface import HuggingFaceClient
 from app.integrations.pubmed import PubMedClient
 from app.integrations.semantic_scholar import SemanticScholarClient
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
 from app.models.messages import ContextPackage
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 

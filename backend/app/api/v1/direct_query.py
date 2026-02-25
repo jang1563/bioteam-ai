@@ -21,12 +21,11 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
-
 from app.agents.registry import AgentRegistry
 from app.models.messages import ContextPackage
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -160,8 +159,8 @@ def _load_conversation_history(conversation_id: str | None) -> list[dict]:
         return []
     try:
         from app.db.database import engine
-        from sqlmodel import Session, select
         from app.models.messages import ConversationTurn
+        from sqlmodel import Session, select
 
         with Session(engine) as session:
             stmt = (
@@ -198,8 +197,8 @@ def _save_conversation_turn(
         return None
     try:
         from app.db.database import engine
-        from sqlmodel import Session
         from app.models.messages import Conversation, ConversationTurn
+        from sqlmodel import Session
 
         with Session(engine) as session:
             if conversation_id:

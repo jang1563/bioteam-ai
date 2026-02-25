@@ -5,11 +5,11 @@ v4.2: Updated to return (result, LLMResponse) tuples matching real LLMLayer.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
 from typing import Any
 
 from app.config import ModelTier
 from app.llm.layer import LLMResponse
+from pydantic import BaseModel
 
 
 class MockLLMLayer:
@@ -148,7 +148,7 @@ def _build_default(model: type[BaseModel]) -> BaseModel:
     for name, field_info in model.model_fields.items():
         if field_info.is_required():
             annotation = field_info.annotation
-            if annotation is str or (hasattr(annotation, '__origin__') is False and annotation == str):
+            if annotation is str or (not hasattr(annotation, '__origin__') and annotation is str):
                 defaults[name] = ""
             elif annotation is int:
                 defaults[name] = 0

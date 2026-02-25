@@ -11,19 +11,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test_conversations.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
+from app.agents.base import BaseAgent
+from app.agents.knowledge_manager import KnowledgeManagerAgent
+from app.agents.registry import AgentRegistry
+from app.agents.research_director import QueryClassification, ResearchDirectorAgent
+from app.api.v1.conversations import router as conv_router
+from app.api.v1.direct_query import router as dq_router
+from app.api.v1.direct_query import set_registry
+from app.db.database import engine
+from app.llm.mock_layer import MockLLMLayer
+from app.models.messages import Conversation, ConversationTurn  # noqa: F401
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel
-
-from app.api.v1.conversations import router as conv_router
-from app.api.v1.direct_query import router as dq_router, set_registry
-from app.db.database import engine
-from app.models.messages import Conversation, ConversationTurn  # noqa: F401
-from app.agents.base import BaseAgent
-from app.agents.research_director import ResearchDirectorAgent, QueryClassification
-from app.agents.knowledge_manager import KnowledgeManagerAgent
-from app.agents.registry import AgentRegistry
-from app.llm.mock_layer import MockLLMLayer
 
 
 def _create_app():
@@ -123,7 +123,7 @@ def test_continue_conversation():
     assert conv_data["turn_count"] == 2
     assert conv_data["turns"][0]["query"] == "What is spaceflight anemia?"
     assert conv_data["turns"][1]["query"] == "How is it treated?"
-    print(f"  PASS: Continue conversation (2 turns)")
+    print("  PASS: Continue conversation (2 turns)")
     set_registry(None)
 
 
@@ -161,7 +161,7 @@ def test_rename_conversation():
     })
     assert patch.status_code == 200
     assert patch.json()["title"] == "Renamed Conversation"
-    print(f"  PASS: Rename conversation")
+    print("  PASS: Rename conversation")
     set_registry(None)
 
 
@@ -180,7 +180,7 @@ def test_delete_conversation():
     # Verify gone
     get = client.get(f"/api/v1/conversations/{conv_id}")
     assert get.status_code == 404
-    print(f"  PASS: Delete conversation")
+    print("  PASS: Delete conversation")
     set_registry(None)
 
 
@@ -200,7 +200,7 @@ def test_conversation_cost_tracking():
 
     r1 = client.post("/api/v1/direct-query", json={"query": "First question"})
     conv_id = r1.json()["conversation_id"]
-    r2 = client.post("/api/v1/direct-query", json={
+    client.post("/api/v1/direct-query", json={
         "query": "Second question",
         "conversation_id": conv_id,
     })

@@ -8,8 +8,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 import asyncio
-from app.api.health import health_check, HealthStatus
 
+from app.api.health import HealthStatus, health_check
 
 # === HealthStatus Model Tests ===
 

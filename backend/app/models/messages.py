@@ -7,14 +7,13 @@ ContextPackage (Pydantic), SSEEvent (Pydantic).
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
-from sqlmodel import SQLModel, Field as SQLField, Column, JSON
-
 from app.models.evidence import RCMXTScore
-from app.models.negative_result import NegativeResult
+from pydantic import BaseModel, Field
+from sqlmodel import JSON, Column, SQLModel
+from sqlmodel import Field as SQLField
 
 
 class AgentMessage(SQLModel, table=True):

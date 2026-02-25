@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.models.agent import AgentOutput
-from app.models.evidence import SessionManifest, PRISMAFlow
+from app.models.evidence import PRISMAFlow, SessionManifest
 from app.models.workflow import WorkflowInstance
 
 

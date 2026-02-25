@@ -21,14 +21,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import func
-from sqlmodel import Session, select
-
 from app.db.database import engine as db_engine
 from app.email.sender import is_email_configured, send_digest_email
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import func
+from sqlmodel import Session, select
 
 router = APIRouter(prefix="/api/v1/digest", tags=["digest"])
 

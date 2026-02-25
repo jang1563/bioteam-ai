@@ -7,10 +7,8 @@ and illegal transition enforcement.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
-from app.models.workflow import WorkflowInstance, WorkflowState, WorkflowStepDef
-
+from app.models.workflow import WorkflowInstance
 
 # === State Transition Table ===
 # Key: (from_state, to_state) → guard description

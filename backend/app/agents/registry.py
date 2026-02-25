@@ -123,12 +123,12 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
     - TranscriptomicsAgent (domain_expert, optional)
     - DataEngineeringAgent (domain_expert, optional)
     """
+    from app.agents.ambiguity_engine import AmbiguityEngineAgent
     from app.agents.base import BaseAgent
-    from app.agents.research_director import ResearchDirectorAgent
+    from app.agents.digest_agent import DigestAgent
     from app.agents.knowledge_manager import KnowledgeManagerAgent
     from app.agents.project_manager import ProjectManagerAgent
-    from app.agents.ambiguity_engine import AmbiguityEngineAgent
-    from app.agents.digest_agent import DigestAgent
+    from app.agents.research_director import ResearchDirectorAgent
     from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
     from app.agents.teams.t10_data_eng import DataEngineeringAgent
 

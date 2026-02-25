@@ -9,6 +9,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from pathlib import Path
+
 from app.backup.manager import BackupManager
 
 
@@ -70,11 +71,11 @@ def test_list_backups():
     """list_backups should return backups sorted newest first."""
     mgr, _ = _make_manager()
     import time
-    p1 = mgr.create_backup(label="first")
+    mgr.create_backup(label="first")
     time.sleep(0.01)
-    p2 = mgr.create_backup(label="second")
+    mgr.create_backup(label="second")
     time.sleep(0.01)
-    p3 = mgr.create_backup(label="third")
+    mgr.create_backup(label="third")
 
     backups = mgr.list_backups()
     assert len(backups) == 3

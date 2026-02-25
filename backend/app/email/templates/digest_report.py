@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
 
-
 # Source badge colors (matching frontend)
 SOURCE_COLORS = {
     "pubmed": "#3b82f6",

@@ -7,12 +7,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from datetime import datetime, timezone
 
+from app.db.database import create_db_and_tables
+from app.db.database import engine as db_engine
+from app.models.digest import DigestEntry, DigestReport, TopicProfile
 from sqlmodel import Session
-
-from app.db.database import engine as db_engine, create_db_and_tables
-from app.models.digest import TopicProfile, DigestEntry, DigestReport
 
 
 def setup_module():

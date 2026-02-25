@@ -1,8 +1,8 @@
 """Tests for BackupScheduler — automated periodic backups."""
 
+import asyncio
 import os
 import sys
-import asyncio
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))

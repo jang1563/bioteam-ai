@@ -15,13 +15,11 @@ import asyncio
 import tempfile
 
 import pytest
-
+from app.agents.registry import create_registry
 from app.cold_start.seeder import ColdStartSeeder
 from app.cold_start.smoke_test import SmokeTest
-from app.memory.semantic import SemanticMemory
-from app.agents.registry import create_registry
 from app.llm.mock_layer import MockLLMLayer
-
+from app.memory.semantic import SemanticMemory
 
 # === Skip conditions ===
 
@@ -94,7 +92,7 @@ def test_papers_searchable_after_pubmed_seed(seeder, live_memory):
 def test_seed_deduplication(seeder, live_memory):
     """Seeding twice with same query should not duplicate papers."""
     try:
-        r1 = seeder.seed_from_pubmed("spaceflight anemia", max_results=3)
+        seeder.seed_from_pubmed("spaceflight anemia", max_results=3)
         count_after_first = live_memory.count("literature")
 
         r2 = seeder.seed_from_pubmed("spaceflight anemia", max_results=3)

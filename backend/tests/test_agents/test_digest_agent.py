@@ -1,19 +1,18 @@
 """Tests for DigestAgent."""
 
-import os
-import sys
 import asyncio
 import json
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.agents.digest_agent import DigestAgent, DigestSummary, DigestHighlight
+from app.agents.digest_agent import DigestAgent, DigestHighlight, DigestSummary
 from app.llm.mock_layer import MockLLMLayer
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
-
 
 # === Fixtures ===
 

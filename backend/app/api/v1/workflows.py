@@ -18,14 +18,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
-from sqlmodel import Session, select
-
 from app.agents.registry import AgentRegistry
 from app.db.database import engine as db_engine
-from app.models.workflow import WorkflowInstance, DirectorNote
-from app.workflows.engine import WorkflowEngine, IllegalTransitionError
+from app.models.workflow import DirectorNote, WorkflowInstance
+from app.workflows.engine import IllegalTransitionError, WorkflowEngine
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +174,7 @@ async def list_workflows() -> list[WorkflowStatusResponse]:
 @router.post("/workflows", response_model=CreateWorkflowResponse)
 async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowResponse:
     """Create a new workflow instance and auto-start execution."""
-    engine = _get_engine()
+    _get_engine()
 
     instance = WorkflowInstance(
         template=request.template,
@@ -356,7 +355,7 @@ async def _resume_w1_background(workflow_id: str, query: str) -> None:
                 payload={"state": instance.state},
             )
 
-        result = await runner.resume_after_human(instance, query)
+        await runner.resume_after_human(instance, query)
 
         async with _lock:
             _save_instance(instance)

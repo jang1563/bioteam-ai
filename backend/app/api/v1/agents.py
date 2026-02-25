@@ -6,10 +6,9 @@ GET /api/v1/agents/{agent_id} — full spec + runtime status
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
-
 from app.agents.registry import AgentRegistry
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1", tags=["agents"])
 

@@ -11,14 +11,13 @@ from __future__ import annotations
 
 import logging
 
-from pydantic import BaseModel, Field
-
 from app.agents.base import BaseAgent
-from app.models.agent import AgentOutput
-from app.models.messages import ContextPackage
-from app.memory.semantic import SemanticMemory
 from app.integrations.pubmed import PubMedClient
 from app.integrations.semantic_scholar import SemanticScholarClient
+from app.memory.semantic import SemanticMemory
+from app.models.agent import AgentOutput
+from app.models.messages import ContextPackage
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

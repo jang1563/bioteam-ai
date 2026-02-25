@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal
 from uuid import uuid4
 
-from sqlmodel import SQLModel, Field as SQLField
+from sqlmodel import Field as SQLField
+from sqlmodel import SQLModel
 
 
 class Project(SQLModel, table=True):

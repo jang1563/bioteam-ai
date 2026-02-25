@@ -7,11 +7,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from sqlmodel import Session, select
-
-from app.db.database import engine, create_db_and_tables
+from app.api.v1.workflows import _get_instance, _save_instance
+from app.db.database import create_db_and_tables, engine
 from app.models.workflow import WorkflowInstance
-from app.api.v1.workflows import _save_instance, _get_instance
+from sqlmodel import Session, select
 
 
 def setup_module():

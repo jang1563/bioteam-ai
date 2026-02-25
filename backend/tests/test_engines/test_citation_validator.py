@@ -7,8 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.engines.citation_validator import CitationValidator, CitationReport, CitationIssue
-
+from app.engines.citation_validator import CitationReport, CitationValidator
 
 # === DOI Normalization Tests ===
 

@@ -1,8 +1,8 @@
 """Tests for Knowledge Manager agent."""
 
+import asyncio
 import os
 import sys
-import asyncio
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -12,8 +12,6 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 from app.agents.base import BaseAgent
 from app.agents.knowledge_manager import (
     KnowledgeManagerAgent,
-    LiteratureSearchResult,
-    MemoryRetrievalResult,
     NoveltyAssessment,
 )
 from app.llm.mock_layer import MockLLMLayer
@@ -106,7 +104,7 @@ def test_search_all_collections():
     """search_all should merge results from multiple collections."""
     tmpdir = tempfile.mkdtemp()
     memory = SemanticMemory(persist_dir=tmpdir)
-    agent = make_agent(memory=memory)
+    make_agent(memory=memory)
 
     memory.add("literature", "lit1", "Space anemia paper")
     memory.add("synthesis", "synth1", "Agent synthesis about anemia")
@@ -121,9 +119,9 @@ def test_search_all_collections():
 
 def test_llm_search_terms():
     """KM should use LLM to generate optimized search terms and call real APIs."""
-    from pydantic import BaseModel, Field
     from app.integrations.pubmed import PubMedPaper
     from app.integrations.semantic_scholar import S2Paper
+    from pydantic import BaseModel, Field
 
     class SearchTerms(BaseModel):
         pubmed_query: str = "spaceflight[MeSH] AND anemia[MeSH]"

@@ -7,12 +7,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-import pytest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
-from app.email.sender import is_email_configured, get_recipients, send_digest_email
-from app.models.digest import DigestReport, TopicProfile, DigestEntry
+import pytest
+from app.email.sender import get_recipients, is_email_configured, send_digest_email
+from app.models.digest import DigestEntry, DigestReport, TopicProfile
 
 
 def _make_report() -> DigestReport:
@@ -130,7 +130,7 @@ class TestSendDigestEmail:
     @pytest.mark.asyncio
     async def test_returns_false_on_smtp_error(self):
         with patch("app.email.sender.settings") as mock_settings, \
-             patch("aiosmtplib.send", new_callable=AsyncMock, side_effect=Exception("SMTP error")) as mock_send:
+             patch("aiosmtplib.send", new_callable=AsyncMock, side_effect=Exception("SMTP error")):
             mock_settings.smtp_user = "user@gmail.com"
             mock_settings.smtp_password = "pass"
             mock_settings.smtp_host = "smtp.gmail.com"

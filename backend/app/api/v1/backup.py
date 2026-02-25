@@ -6,10 +6,9 @@ GET /api/v1/backups — list available backups
 
 from __future__ import annotations
 
+from app.backup.manager import BackupManager
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-from app.backup.manager import BackupManager
 
 router = APIRouter(prefix="/api/v1", tags=["backup"])
 

@@ -13,12 +13,11 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlmodel import Session, select
-
 from app.db.database import engine as db_engine
 from app.digest.pipeline import DigestPipeline
 from app.email.sender import is_email_configured, send_digest_email
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,7 @@ class DigestScheduler:
 
         with Session(db_engine) as session:
             topics = session.exec(
-                select(TopicProfile).where(TopicProfile.is_active == True)
+                select(TopicProfile).where(TopicProfile.is_active)
             ).all()
 
         for topic in topics:

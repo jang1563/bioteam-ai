@@ -1,8 +1,8 @@
 """Tests for Project Manager agent."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
@@ -10,8 +10,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.agents.base import BaseAgent
 from app.agents.project_manager import ProjectManagerAgent, ProjectStatus, TaskSummary
-from app.models.messages import ContextPackage
 from app.llm.mock_layer import MockLLMLayer
+from app.models.messages import ContextPackage
 
 
 def test_generate_status():

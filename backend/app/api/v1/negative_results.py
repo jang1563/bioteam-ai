@@ -9,15 +9,13 @@ DELETE /api/v1/negative-results/{id} — delete entry
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Literal
-
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import Session, select
+from datetime import datetime
 
 from app.db.database import engine as db_engine
 from app.models.negative_result import NegativeResult
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 router = APIRouter(prefix="/api/v1", tags=["negative-results"])
 

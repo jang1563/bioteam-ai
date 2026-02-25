@@ -17,14 +17,12 @@
 from __future__ import annotations
 
 import pytest
-
 from app.agents.ambiguity_engine import (
+    MAX_CLASSIFY_CALLS,
     AmbiguityEngineAgent,
-    ContradictionAnalysis,
     ContradictionClassification,
     ResolutionHypothesis,
     ResolutionOutput,
-    MAX_CLASSIFY_CALLS,
 )
 from app.agents.base import BaseAgent
 from app.llm.mock_layer import MockLLMLayer

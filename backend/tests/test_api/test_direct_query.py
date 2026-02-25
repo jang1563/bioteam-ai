@@ -6,10 +6,10 @@ using MockLLMLayer (no real API calls).
 v6: Updated tests for answer generation pipeline, timeout, cost cap.
 """
 
+import asyncio
 import json
 import os
 import sys
-import asyncio
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -17,14 +17,18 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.agents.base import BaseAgent
-from app.agents.research_director import ResearchDirectorAgent, QueryClassification
 from app.agents.knowledge_manager import KnowledgeManagerAgent
-from app.api.v1.direct_query import (
-    run_direct_query, DirectQueryResponse,
-    _build_context_text, _extract_sources, _resolve_specialist,
-    DIRECT_QUERY_TIMEOUT, DIRECT_QUERY_COST_CAP,
-)
 from app.agents.registry import AgentRegistry
+from app.agents.research_director import QueryClassification, ResearchDirectorAgent
+from app.api.v1.direct_query import (
+    DIRECT_QUERY_COST_CAP,
+    DIRECT_QUERY_TIMEOUT,
+    DirectQueryResponse,
+    _build_context_text,
+    _extract_sources,
+    _resolve_specialist,
+    run_direct_query,
+)
 from app.llm.mock_layer import MockLLMLayer
 from app.memory.semantic import SemanticMemory
 
@@ -132,7 +136,7 @@ def test_workflow_query_e2e():
     assert len(response.memory_context) == 0, "Workflow queries skip memory retrieval"
     assert response.answer is None, "Workflow queries don't generate answers"
     assert len(response.sources) == 0, "Workflow queries don't have sources"
-    print(f"  PASS: Workflow query E2E → W1")
+    print("  PASS: Workflow query E2E → W1")
 
 
 def test_response_metadata():
@@ -180,7 +184,7 @@ def test_answer_generation_with_empty_memory():
     # Answer should still be generated (from LLM knowledge)
     assert response.answer is not None, "Answer should be generated even without memory"
     assert len(response.sources) == 0, "No sources when memory is empty"
-    print(f"  PASS: Answer generated with empty memory")
+    print("  PASS: Answer generated with empty memory")
 
 
 def test_build_context_text():
@@ -254,9 +258,9 @@ def test_timeout_constant():
 
 def test_fastapi_endpoint():
     """Test the FastAPI endpoint responds (503 without agent registry)."""
-    from fastapi.testclient import TestClient
     from app.api.v1.direct_query import router
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     app = FastAPI()
     app.include_router(router)
@@ -272,10 +276,10 @@ def test_fastapi_endpoint():
 
 def test_fastapi_endpoint_with_registry():
     """Test endpoint with registry wired up returns 200."""
-    from fastapi.testclient import TestClient
-    from app.api.v1.direct_query import router, set_registry
     from app.agents.registry import AgentRegistry
+    from app.api.v1.direct_query import router, set_registry
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     rd, km = setup_agents()
     registry = AgentRegistry()
@@ -377,7 +381,7 @@ def test_specialist_unavailable_falls_back():
     assert response.routed_agent is None, "Should be None when specialist unavailable"
     assert response.target_agent == "t03_proteomics", "Classification target should still be reported"
     assert response.answer is not None, "Answer should still be generated"
-    print(f"  PASS: Specialist unavailable fallback (routed_agent=None)")
+    print("  PASS: Specialist unavailable fallback (routed_agent=None)")
 
 
 def test_resolve_specialist_helper():
@@ -414,9 +418,9 @@ def test_resolve_specialist_helper():
 
 def test_stream_endpoint_emits_events():
     """SSE streaming endpoint should emit classification → memory → token(s) → done."""
-    from fastapi.testclient import TestClient
     from app.api.v1.direct_query import router, set_registry
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     rd, km = setup_agents()
     registry = AgentRegistry()
@@ -462,9 +466,9 @@ def test_stream_endpoint_emits_events():
 
 def test_stream_workflow_returns_done_immediately():
     """Workflow queries should emit classification + done, no tokens."""
-    from fastapi.testclient import TestClient
     from app.api.v1.direct_query import router, set_registry
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     classification = QueryClassification(
         type="needs_workflow",
@@ -505,15 +509,15 @@ def test_stream_workflow_returns_done_immediately():
 
     done_data = next(e for e in events if e["event"] == "done")["data"]
     assert done_data["classification_type"] == "needs_workflow"
-    print(f"  PASS: Stream workflow done immediately")
+    print("  PASS: Stream workflow done immediately")
     set_registry(None)
 
 
 def test_stream_no_registry_returns_503():
     """Streaming endpoint without registry should return 503."""
-    from fastapi.testclient import TestClient
     from app.api.v1.direct_query import router, set_registry
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     set_registry(None)
     app = FastAPI()
@@ -527,10 +531,10 @@ def test_stream_no_registry_returns_503():
 
 def test_routed_agent_in_api_response():
     """routed_agent field should appear in the FastAPI JSON response."""
-    from fastapi.testclient import TestClient
+    from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
     from app.api.v1.direct_query import router, set_registry
     from fastapi import FastAPI
-    from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
+    from fastapi.testclient import TestClient
 
     classification = QueryClassification(
         type="simple_query",
@@ -564,7 +568,7 @@ def test_routed_agent_in_api_response():
     data = response.json()
     assert data["routed_agent"] == "t02_transcriptomics"
     assert data["target_agent"] == "t02_transcriptomics"
-    print(f"  PASS: routed_agent in API response")
+    print("  PASS: routed_agent in API response")
 
     set_registry(None)
 

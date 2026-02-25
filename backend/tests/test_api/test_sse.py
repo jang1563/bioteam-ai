@@ -1,15 +1,15 @@
 """Tests for SSE hub."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.models.messages import SSEEvent
 from app.api.v1.sse import SSEHub, _format_sse
+from app.models.messages import SSEEvent
 
 
 def test_subscribe_unsubscribe():
@@ -150,8 +150,8 @@ def test_disconnect_all():
 
 def test_fastapi_endpoint():
     """SSE endpoint should be registered and return StreamingResponse."""
-    from fastapi import FastAPI
     from app.api.v1.sse import router
+    from fastapi import FastAPI
 
     app = FastAPI()
     app.include_router(router)

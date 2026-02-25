@@ -1,16 +1,16 @@
 """Tests for BaseAgent — retry logic, error handling, build_output, load_spec."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.agents.base import BaseAgent
-from app.llm.mock_layer import MockLLMLayer
 from app.llm.layer import LLMResponse
+from app.llm.mock_layer import MockLLMLayer
 from app.models.agent import AgentOutput, AgentSpec
 from app.models.messages import ContextPackage
 

@@ -12,11 +12,11 @@ from typing import Any
 from uuid import uuid4
 
 from app.agents.registry import AgentRegistry
+from app.api.v1.sse import SSEHub
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
-from app.models.workflow import WorkflowInstance, StepCheckpoint, WorkflowStepDef
+from app.models.workflow import StepCheckpoint, WorkflowInstance, WorkflowStepDef
 from app.workflows.engine import WorkflowEngine
-from app.api.v1.sse import SSEHub
 
 
 class AllAgentsFailedError(Exception):

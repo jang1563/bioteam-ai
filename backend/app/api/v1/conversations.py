@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from sqlmodel import Session, select
-
 from app.db.database import get_session
 from app.models.messages import Conversation, ConversationTurn
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 router = APIRouter(prefix="/api/v1", tags=["conversations"])
 

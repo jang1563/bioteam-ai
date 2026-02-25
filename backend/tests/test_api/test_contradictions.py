@@ -8,13 +8,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
+from app.api.v1.contradictions import router as contradictions_router
+from app.db.database import create_db_and_tables
+from app.db.database import engine as db_engine
+from app.models.evidence import ContradictionEntry
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session
-
-from app.api.v1.contradictions import router as contradictions_router
-from app.db.database import engine as db_engine, create_db_and_tables
-from app.models.evidence import ContradictionEntry
 
 
 def _client():

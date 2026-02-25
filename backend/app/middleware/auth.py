@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import logging
 import secrets
+
+from app.config import settings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 

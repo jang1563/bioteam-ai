@@ -1,8 +1,8 @@
 """Tests for Research Director agent."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
@@ -10,8 +10,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.agents.base import BaseAgent
 from app.agents.research_director import (
-    ResearchDirectorAgent,
     QueryClassification,
+    ResearchDirectorAgent,
     SynthesisReport,
 )
 from app.llm.mock_layer import MockLLMLayer

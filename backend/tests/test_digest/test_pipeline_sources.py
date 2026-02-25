@@ -2,19 +2,16 @@
 
 import os
 import sys
-import re
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 from app.integrations.biorxiv import BiorxivClient, BiorxivPaper
-from app.integrations.github_trending import GithubTrendingClient, GithubRepo
-from app.integrations.huggingface import HuggingFaceClient, HFPaper
-
+from app.integrations.github_trending import GithubTrendingClient
+from app.integrations.huggingface import HFPaper, HuggingFaceClient
 
 # === bioRxiv Tests ===
 
@@ -143,7 +140,7 @@ class TestHuggingFaceMultiDay:
             self._make_papers("day2"),
         ]
         client = HuggingFaceClient()
-        results = client.search_papers("biology", max_results=30, fetch_days=3)
+        client.search_papers("biology", max_results=30, fetch_days=3)
         assert mock_daily.call_count == 3
 
     @patch.object(HuggingFaceClient, "daily_papers")
@@ -194,7 +191,7 @@ class TestPipelineSourceDispatch:
             sources=["github"],
         )
 
-        result = pipeline._fetch_sync("github", topic, 7)
+        pipeline._fetch_sync("github", topic, 7)
         mock_client.trending_ai_bio.assert_called_once()
         call_kwargs = mock_client.trending_ai_bio.call_args
         assert "machine learning biology" in str(call_kwargs)

@@ -11,11 +11,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlmodel import Session, select
-
 from app.config import settings
-from app.models.cost import CostRecord, CostAccuracyReport
-
+from app.models.cost import CostAccuracyReport, CostRecord
+from sqlmodel import Session, select
 
 # Default budget per workflow template
 WORKFLOW_BUDGETS: dict[str, float] = {

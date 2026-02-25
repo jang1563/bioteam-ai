@@ -1,8 +1,8 @@
 """Tests for Data Engineering Agent (Team 10) — run, assess_quality."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
@@ -11,9 +11,9 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 from app.agents.base import BaseAgent
 from app.agents.teams.t10_data_eng import (
     DataEngineeringAgent,
+    DataQualityReport,
     PipelineSpec,
     PipelineStep,
-    DataQualityReport,
     QualityMetric,
 )
 from app.llm.mock_layer import MockLLMLayer

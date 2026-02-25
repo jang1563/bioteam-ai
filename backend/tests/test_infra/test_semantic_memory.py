@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.memory.semantic import SemanticMemory, COLLECTION_NAMES
+from app.memory.semantic import COLLECTION_NAMES, SemanticMemory
 
 
 def _make_memory() -> SemanticMemory:

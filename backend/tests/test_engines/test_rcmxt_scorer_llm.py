@@ -7,10 +7,9 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.engines.rcmxt_scorer import RCMXTScorer, RCMXT_SCORING_RUBRIC, ScoringMode
+from app.engines.rcmxt_scorer import RCMXT_SCORING_RUBRIC, RCMXTScorer
 from app.llm.mock_layer import MockLLMLayer
 from app.models.evidence import AxisExplanation, LLMRCMXTResponse, RCMXTScore
-
 
 # === Fixtures ===
 

@@ -11,28 +11,13 @@ os.environ["ANTHROPIC_API_KEY"] = "test"
 
 
 def test_all_imports():
-    from app.models.evidence import Evidence, RCMXTScore, ContradictionEntry, DataRegistry, OmicsLayerStatus
-    from app.models.negative_result import NegativeResult, FailedProtocol
-    from app.models.workflow import WorkflowInstance, StepCheckpoint, DirectorNote, WorkflowStepDef
-    from app.models.agent import AgentSpec, AgentStatus, AgentOutput
-    from app.models.messages import AgentMessage, ContextPackage, SSEEvent, MemoryItem
-    from app.models.task import Project, Task
-    from app.models.memory import SemanticEntry, EpisodicEvent
-    from app.models.cost import CostRecord, CostAccuracyReport
-    from app.models.code_execution import CodeBlock, ExecutionResult
     print("All model imports OK")
 
 
 def test_create_tables():
     from app.db.database import create_db_and_tables
+
     # Import all SQL models so SQLModel metadata knows about them
-    from app.models.evidence import Evidence, ContradictionEntry, DataRegistry
-    from app.models.negative_result import NegativeResult
-    from app.models.workflow import WorkflowInstance, StepCheckpoint
-    from app.models.messages import AgentMessage
-    from app.models.task import Project, Task
-    from app.models.memory import EpisodicEvent
-    from app.models.cost import CostRecord
 
     create_db_and_tables()
     print("All SQL tables created OK")

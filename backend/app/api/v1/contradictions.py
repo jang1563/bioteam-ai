@@ -12,12 +12,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import Session, select
-
 from app.db.database import engine as db_engine
 from app.models.evidence import ContradictionEntry
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 router = APIRouter(prefix="/api/v1", tags=["contradictions"])
 

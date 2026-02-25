@@ -1,23 +1,21 @@
 """Tests for W6 Ambiguity Resolution Runner."""
 
+import asyncio
 import os
 import sys
-import asyncio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 from app.agents.ambiguity_engine import ContradictionClassification, ResolutionOutput
-from app.agents.knowledge_manager import MemoryRetrievalResult
 from app.agents.registry import create_registry
 from app.llm.mock_layer import MockLLMLayer
-from app.models.workflow import WorkflowInstance
 from app.workflows.runners.w6_ambiguity import (
-    W6AmbiguityRunner,
-    W6_STEPS,
-    get_step_by_id,
     _METHOD_MAP,
+    W6_STEPS,
+    W6AmbiguityRunner,
+    get_step_by_id,
 )
 
 

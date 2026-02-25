@@ -7,12 +7,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.agents.registry import create_registry
-from app.llm.mock_layer import MockLLMLayer
 from app.api.v1.agents import set_registry
+from app.llm.mock_layer import MockLLMLayer
+from app.main import app
+from fastapi.testclient import TestClient
 
 
 def _setup():

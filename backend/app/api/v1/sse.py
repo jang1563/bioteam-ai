@@ -11,13 +11,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
-from typing import Any, AsyncGenerator
-
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+from typing import AsyncGenerator
 
 from app.models.messages import SSEEvent
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/api/v1", tags=["sse"])
 

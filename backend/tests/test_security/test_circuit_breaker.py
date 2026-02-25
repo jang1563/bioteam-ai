@@ -9,8 +9,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 import asyncio
 import time
-from app.llm.layer import CircuitBreaker, CircuitBreakerOpenError, _retry_with_backoff
 
+from app.llm.layer import CircuitBreaker, CircuitBreakerOpenError, _retry_with_backoff
 
 # === CircuitBreaker unit tests ===
 
@@ -140,12 +140,12 @@ def test_sse_hub_max_subscribers():
     hub.MAX_SUBSCRIBERS = 3  # Small cap for testing
 
     q1 = hub.subscribe()
-    q2 = hub.subscribe()
-    q3 = hub.subscribe()
+    hub.subscribe()
+    hub.subscribe()
     assert hub.subscriber_count == 3
 
     # 4th subscriber should evict oldest (q1)
-    q4 = hub.subscribe()
+    hub.subscribe()
     assert hub.subscriber_count == 3
     assert q1 not in hub._subscribers
     # q1 should have received None terminator

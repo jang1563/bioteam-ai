@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.integrations.semantic_scholar import SemanticScholarClient, S2Paper
+from app.integrations.semantic_scholar import S2Paper, SemanticScholarClient
 
 
 def test_search_basic():

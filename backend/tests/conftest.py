@@ -2,7 +2,6 @@
 
 import os
 import sys
-import tempfile
 
 import pytest
 
@@ -11,17 +10,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
+from app.agents.knowledge_manager import NoveltyAssessment
+from app.agents.project_manager import ProjectStatus
 from app.agents.registry import create_registry
 from app.agents.research_director import QueryClassification, SynthesisReport
-from app.agents.knowledge_manager import LiteratureSearchResult, NoveltyAssessment
 from app.agents.teams.t02_transcriptomics import (
-    ScreeningResult, ScreeningDecision, ExtractionResult, ExtractedPaperData,
+    ExtractedPaperData,
+    ExtractionResult,
+    ScreeningDecision,
+    ScreeningResult,
 )
-from app.agents.project_manager import ProjectStatus
 from app.llm.mock_layer import MockLLMLayer
 from app.memory.semantic import SemanticMemory
 from app.models.evidence import AxisExplanation, LLMRCMXTResponse
-
 from pydantic import BaseModel, Field
 
 

@@ -3,14 +3,14 @@
 import os
 import sys
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.memory.semantic import SemanticMemory
 from app.cold_start.seeder import ColdStartSeeder, SeedResult
+from app.memory.semantic import SemanticMemory
 
 
 def _make_seeder() -> ColdStartSeeder:

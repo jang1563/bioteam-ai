@@ -13,8 +13,9 @@ This tests:
 import asyncio
 import os
 import sys
-from pydantic import BaseModel, Field
 from typing import Literal
+
+from pydantic import BaseModel, Field
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -138,7 +139,7 @@ async def test_instructor_with_system_cache():
             response_model=SimpleClassification,
         )
         assert isinstance(result, SimpleClassification)
-        print(f"  PASS: Instructor works with cache_control system blocks")
+        print("  PASS: Instructor works with cache_control system blocks")
         print(f"  category={result.category}, confidence={result.confidence}")
         return True
     except Exception as e:

@@ -7,10 +7,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from sqlmodel import SQLModel, Session, create_engine
-
 from app.engines.negative_results.lab_kb import LabKBEngine
-from app.models.negative_result import NegativeResult
+from sqlmodel import Session, SQLModel, create_engine
 
 
 def _make_engine():

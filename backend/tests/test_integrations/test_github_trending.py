@@ -9,8 +9,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from app.integrations.github_trending import GithubTrendingClient, GithubRepo
-
+from app.integrations.github_trending import GithubRepo, GithubTrendingClient
 
 # === Dataclass Tests ===
 
