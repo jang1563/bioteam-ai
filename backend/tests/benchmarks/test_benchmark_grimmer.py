@@ -278,7 +278,66 @@ class TestGRIMMERPercentEdgeCases:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 7. GRIMMER Text Extraction
+# 7. scrutiny R package pigs5 dataset
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestGRIMMERScrutinyPigs5:
+    """Validate against scrutiny R package pigs5 dataset (SD test only).
+
+    Source: https://github.com/lhdjung/scrutiny (pigs5)
+    12 rows of (mean, sd, n) with decimals=2.
+
+    NOTE: scrutiny's grimmer_test() checks GRIM of the mean AND SD
+    together, but our grimmer_sd_test() only checks SD. With large n
+    (30-38) and 2-decimal SDs, SSD ranges are wide so most SDs will
+    be consistent. This test validates internal consistency of our
+    SSD range algorithm against our own reference implementation.
+    """
+
+    # (mean, sd, n)
+    PIGS5_DATA = [
+        (7.22, 5.30, 38),
+        (4.74, 6.55, 31),
+        (5.23, 2.55, 35),
+        (2.57, 2.57, 30),
+        (6.77, 2.18, 33),
+        (2.68, 2.59, 34),
+        (7.01, 6.68, 35),
+        (7.38, 3.65, 32),
+        (3.14, 5.32, 33),
+        (6.89, 4.18, 37),
+        (5.00, 2.18, 31),
+        (0.24, 6.43, 34),
+    ]
+
+    @pytest.mark.parametrize(
+        "mean, sd, n",
+        PIGS5_DATA,
+        ids=[f"x={m}_sd={s}_n={n}" for m, s, n in PIGS5_DATA],
+    )
+    def test_pigs5_internal_consistency(self, mean: float, sd: float, n: int):
+        """Our grimmer_sd_test should agree with reference _is_valid_ssd."""
+        ours = StatisticalChecker.grimmer_sd_test(sd, n, 2).is_consistent
+        ref = _is_valid_ssd(sd, n, 2)
+        assert ours == ref, (
+            f"pigs5: sd={sd}, n={n}: our result={ours}, reference={ref}"
+        )
+
+    def test_pigs5_large_n_relaxation(self):
+        """With n=30-38, most 2-decimal SDs should be consistent."""
+        consistent_count = sum(
+            1 for _, sd, n in self.PIGS5_DATA
+            if StatisticalChecker.grimmer_sd_test(sd, n, 2).is_consistent
+        )
+        # Large n makes SSD ranges wide; expect most/all consistent
+        assert consistent_count >= 10, (
+            f"Expected ≥10 of 12 consistent with large n, got {consistent_count}"
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
+# 8. GRIMMER Text Extraction
 # ══════════════════════════════════════════════════════════════════
 
 

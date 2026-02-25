@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioTeam-AI — Application Reference</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --card: #22263a;
+    --border: #2e3348;
+    --text: #e1e4ed;
+    --text-dim: #8b91a8;
+    --accent: #6c8aff;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --cyan: #22d3ee;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 4rem 2rem 3rem;
+    background: linear-gradient(135deg, #1a1d27 0%, #1e2640 50%, #1a1d27 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: 0.5rem; }
+  .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero .subtitle { font-size: 1.15rem; color: var(--text-dim); max-width: 600px; margin: 0 auto 1.5rem; }
+  .hero .badges { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.85rem; border-radius: 999px; font-size: 0.82rem; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .badge.green { background: rgba(52,211,153,.12); color: var(--green); border-color: rgba(52,211,153,.3); }
+  .badge.blue { background: rgba(108,138,255,.12); color: var(--accent); border-color: rgba(108,138,255,.3); }
+  .badge.purple { background: rgba(167,139,250,.12); color: var(--accent2); border-color: rgba(167,139,250,.3); }
+  .badge.amber { background: rgba(251,191,36,.12); color: var(--amber); border-color: rgba(251,191,36,.3); }
+
+  /* Section */
+  section { padding: 3rem 0; }
+  section h2 {
+    font-size: 1.6rem; font-weight: 700; margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.6rem;
+  }
+  section h2 .icon { font-size: 1.4rem; }
+
+  /* Cards Grid */
+  .grid { display: grid; gap: 1rem; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent); }
+  .card p { font-size: 0.88rem; color: var(--text-dim); }
+  .card .tag {
+    display: inline-block; font-size: 0.72rem; padding: 0.15rem 0.5rem;
+    border-radius: 4px; font-weight: 600; margin-right: 0.3rem; margin-top: 0.4rem;
+  }
+  .tag-tier1 { background: rgba(108,138,255,.15); color: var(--accent); }
+  .tag-tier2 { background: rgba(167,139,250,.15); color: var(--accent2); }
+  .tag-tier3 { background: rgba(52,211,153,.15); color: var(--green); }
+  .tag-engine { background: rgba(34,211,238,.15); color: var(--cyan); }
+  .tag-code { background: rgba(251,191,36,.15); color: var(--amber); }
+
+  /* Stats Row */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.2rem; text-align: center;
+  }
+  .stat-box .num { font-size: 2rem; font-weight: 800; }
+  .stat-box .label { font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { padding: 0.65rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { font-weight: 700; color: var(--text-dim); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  tr:hover td { background: rgba(108,138,255,.04); }
+  .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.82rem; }
+
+  /* Scorecard */
+  .scorecard {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.5rem; overflow-x: auto;
+  }
+  .scorecard table { margin-top: 0.5rem; }
+  .scorecard th { background: var(--card); }
+  .score-perfect { color: var(--green); font-weight: 700; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: ''; position: absolute; left: 0.5rem; top: 0; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .timeline-item { position: relative; margin-bottom: 1.2rem; }
+  .timeline-item::before {
+    content: ''; position: absolute; left: -1.65rem; top: 0.4rem;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+  }
+  .timeline-item .hash { font-family: monospace; font-size: 0.78rem; color: var(--accent); }
+  .timeline-item .msg { font-size: 0.88rem; }
+
+  /* Architecture Diagram */
+  .arch-diagram {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 2rem; font-family: monospace; font-size: 0.82rem; line-height: 1.7;
+    overflow-x: auto; white-space: pre;
+    color: var(--text-dim);
+  }
+  .arch-diagram .hl { color: var(--accent); font-weight: 700; }
+  .arch-diagram .hl2 { color: var(--accent2); font-weight: 700; }
+  .arch-diagram .hlg { color: var(--green); font-weight: 700; }
+  .arch-diagram .hla { color: var(--amber); font-weight: 700; }
+  .arch-diagram .hlc { color: var(--cyan); font-weight: 700; }
+
+  /* Workflow pills */
+  .wf-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .wf-pill {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.5rem 0.9rem; font-size: 0.82rem; display: flex; flex-direction: column;
+  }
+  .wf-pill strong { color: var(--accent); font-size: 0.88rem; }
+  .wf-pill span { color: var(--text-dim); font-size: 0.75rem; }
+
+  /* Footer */
+  footer {
+    text-align: center; padding: 2rem; margin-top: 2rem;
+    border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ HERO ═══════════ -->
+<div class="hero">
+  <h1><span>BioTeam-AI</span></h1>
+  <p class="subtitle">Personal AI Science Team for biology research — 21 LLM agents, 8 workflow pipelines, integrity engines, and a real-time dashboard.</p>
+  <div class="badges">
+    <span class="badge green">1,804 Tests Passing</span>
+    <span class="badge blue">128 Backend Modules</span>
+    <span class="badge purple">51 Frontend Components</span>
+    <span class="badge amber">6 Integrity Checkers @ F1=1.0</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════ STATS ═══════════ -->
+<section>
+  <div class="stats">
+    <div class="stat-box"><div class="num" style="color:var(--accent)">21</div><div class="label">LLM Agents</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--accent2)">8</div><div class="label">Workflows</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--green)">1,804</div><div class="label">Tests Pass</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--cyan)">12</div><div class="label">API Endpoints</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--amber)">386</div><div class="label">Benchmark Tests</div></div>
+    <div class="stat-box"><div class="num" style="color:var(--red)">45</div><div class="label">E2E Tests</div></div>
+  </div>
+</section>
+
+<!-- ═══════════ ARCHITECTURE ═══════════ -->
+<section>
+  <h2><span class="icon">&#9881;</span> System Architecture</h2>
+  <div class="arch-diagram">
+<span class="hl">┌─────────────────────────────────────────────────────────────────────────┐</span>
+<span class="hl">│                        Next.js 15 Dashboard                             │</span>
+<span class="hl">│</span>  Tailwind 4 + shadcn/ui + Zustand + React Flow + Playwright E2E       <span class="hl">│</span>
+<span class="hl">└────────────────────────────────┬────────────────────────────────────────┘</span>
+                                 │  REST + SSE
+<span class="hl2">┌────────────────────────────────┴────────────────────────────────────────┐</span>
+<span class="hl2">│                        FastAPI Backend                                  │</span>
+<span class="hl2">│</span>  Auth (Bearer+SSE) │ Rate Limit │ CORS │ Circuit Breaker               <span class="hl2">│</span>
+<span class="hl2">├─────────────────────────────────────────────────────────────────────────┤</span>
+<span class="hl2">│</span>  <span class="hla">12 API Routes</span>: agents, workflows, integrity, SSE, digest, backup...  <span class="hl2">│</span>
+<span class="hl2">└──────┬──────────────────┬───────────────────┬───────────────────────────┘</span>
+       │                  │                   │
+<span class="hlg">┌──────┴──────┐  ┌────────┴────────┐  ┌──────┴──────────────────────────┐</span>
+<span class="hlg">│ 21 Agents   │  │ Workflow Engine │  │ Integrity Engines              │</span>
+<span class="hlg">│</span> Tier 1: 3   <span class="hlg">│  │</span> 8 Runners       <span class="hlg">│  │</span> <span class="hlc">Gene Name</span> · <span class="hlc">Statistical</span>       <span class="hlg">│</span>
+<span class="hlg">│</span> Tier 2: 10  <span class="hlg">│  │</span> Human Checkpoint<span class="hlg">│  │</span> <span class="hlc">Retraction</span> · <span class="hlc">Metadata</span>        <span class="hlg">│</span>
+<span class="hlg">│</span> Tier 3: 8   <span class="hlg">│  │</span> SSE Progress    <span class="hlg">│  │</span> <span class="hlc">Image/ELA</span> · <span class="hlc">Citation</span>        <span class="hlg">│</span>
+<span class="hlg">└──────┬──────┘  └────────┬────────┘  └──────┬──────────────────────────┘</span>
+       │                  │                   │
+<span class="hla">┌──────┴──────────────────┴───────────────────┴───────────────────────────┐</span>
+<span class="hla">│</span>  LLM Layer (Anthropic SDK + Instructor) │ MockLLMLayer for tests       <span class="hla">│</span>
+<span class="hla">│</span>  ChromaDB Memory (3 collections) │ SQLite │ Langfuse Observability     <span class="hla">│</span>
+<span class="hla">│</span>  Celery + Redis (async tasks) │ PubMed / Semantic Scholar / Crossref  <span class="hla">│</span>
+<span class="hla">└─────────────────────────────────────────────────────────────────────────┘</span></div>
+</section>
+
+<!-- ═══════════ AGENTS ═══════════ -->
+<section>
+  <h2><span class="icon">&#129302;</span> Agent Registry (21 Agents)</h2>
+  <div class="grid grid-3">
+    <div class="card">
+      <h3>Tier 1 — Directors</h3>
+      <p>Strategic orchestration layer. Uses Claude Opus for complex synthesis and coordination.</p>
+      <div><span class="tag tag-tier1">Research Director</span><span class="tag tag-tier1">Knowledge Manager</span><span class="tag tag-tier1">Project Manager</span></div>
+    </div>
+    <div class="card">
+      <h3>Tier 2 — Specialist Teams</h3>
+      <p>Domain-specific analysis teams covering all major bioinformatics disciplines.</p>
+      <div>
+        <span class="tag tag-tier2">T01 Genomics</span><span class="tag tag-tier2">T02 Transcriptomics</span>
+        <span class="tag tag-tier2">T03 Proteomics</span><span class="tag tag-tier2">T04 Biostatistics</span>
+        <span class="tag tag-tier2">T05 ML/DL</span><span class="tag tag-tier2">T06 Systems Bio</span>
+        <span class="tag tag-tier2">T07 Structural Bio</span><span class="tag tag-tier2">T08 SciComm</span>
+        <span class="tag tag-tier2">T09 Grants</span><span class="tag tag-tier2">T10 Data Eng</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Tier 3 — Cross-cutting</h3>
+      <p>Specialized engines and QA agents for integrity, ambiguity, and quality assurance.</p>
+      <div>
+        <span class="tag tag-tier3">Ambiguity Engine</span><span class="tag tag-tier3">Data Integrity Auditor</span>
+        <span class="tag tag-tier3">Digest Agent</span><span class="tag tag-tier3">Experimental Designer</span>
+        <span class="tag tag-tier3">Integrative Biologist</span>
+        <span class="tag tag-tier3">QA Statistical</span><span class="tag tag-tier3">QA Reproducibility</span>
+        <span class="tag tag-tier3">QA Plausibility</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ WORKFLOWS ═══════════ -->
+<section>
+  <h2><span class="icon">&#9881;</span> Workflow Pipelines (8)</h2>
+  <div class="wf-list">
+    <div class="wf-pill"><strong>W1 Literature Review</strong><span>12 steps · SCOPE → SEARCH → SCREEN → EXTRACT → SYNTHESIZE → INTEGRITY_CHECK → REPORT</span></div>
+    <div class="wf-pill"><strong>W2 Hypothesis Gen</strong><span>Multi-agent hypothesis generation and ranking</span></div>
+    <div class="wf-pill"><strong>W3 Data Analysis</strong><span>Statistical analysis pipeline with QA checks</span></div>
+    <div class="wf-pill"><strong>W4 Manuscript</strong><span>Drafting, review, and revision pipeline</span></div>
+    <div class="wf-pill"><strong>W5 Grant Writing</strong><span>Specific aims, significance, approach</span></div>
+    <div class="wf-pill"><strong>W6 Ambiguity</strong><span>Contradiction detection + RCMXT scoring</span></div>
+    <div class="wf-pill"><strong>W7 Integrity</strong><span>Full audit: gene names, stats, retraction, metadata, images</span></div>
+    <div class="wf-pill"><strong>Async Runner</strong><span>Celery + Redis task dispatch with asyncio fallback</span></div>
+  </div>
+</section>
+
+<!-- ═══════════ INTEGRITY ENGINES ═══════════ -->
+<section>
+  <h2><span class="icon">&#128737;</span> Data Integrity Engines</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Gene Name Checker</h3>
+      <p>Detects Excel date-corrupted gene names across 5 families (MARCH, SEPT, DEC, OCT, FEB). Based on Ziemann et al. (2016, 2021).</p>
+      <span class="tag tag-engine">Regex-based</span><span class="tag tag-code">Deterministic</span>
+    </div>
+    <div class="card">
+      <h3>Statistical Checker</h3>
+      <p>GRIM (mean), GRIMMER (SD + percentage), p-value recalculation (t, F, chi2, r, Z, Q), Benford's Law. Based on Brown & Heathers (2017), Nuijten et al. (2016).</p>
+      <span class="tag tag-engine">scipy</span><span class="tag tag-code">6 sub-checks</span>
+    </div>
+    <div class="card">
+      <h3>Retraction Checker</h3>
+      <p>Crossref retraction/correction status + PubPeer commentary detection. Async API with mock support for testing.</p>
+      <span class="tag tag-engine">Crossref API</span><span class="tag tag-engine">PubPeer API</span>
+    </div>
+    <div class="card">
+      <h3>Metadata Validator</h3>
+      <p>GEO/SRA/dbGaP accession validation, genome build consistency, sample size cross-checks.</p>
+      <span class="tag tag-engine">Regex + NCBI</span>
+    </div>
+    <div class="card">
+      <h3>Image Checker</h3>
+      <p>Perceptual hashing for near-duplicate detection, Error Level Analysis (ELA) for manipulation, EXIF metadata anomalies.</p>
+      <span class="tag tag-engine">ImageHash</span><span class="tag tag-engine">PIL/ELA</span>
+    </div>
+    <div class="card">
+      <h3>Citation Validator</h3>
+      <p>DOI resolution, author name verification, journal impact cross-check, reference consistency.</p>
+      <span class="tag tag-engine">Crossref</span><span class="tag tag-code">DOI resolver</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ BENCHMARK SCORECARD ═══════════ -->
+<section>
+  <h2><span class="icon">&#128202;</span> Benchmark Scorecard — 6 Checkers</h2>
+  <p style="color:var(--text-dim); margin-bottom:1rem; font-size:0.9rem;">
+    Unified benchmark report from <code>test_benchmark_suite.py</code>. Each checker validated against external reference datasets.
+  </p>
+  <div class="scorecard">
+    <table>
+      <thead>
+        <tr>
+          <th>Checker</th><th>TP</th><th>FP</th><th>FN</th><th>TN</th><th>Precision</th><th>Recall</th><th>F1</th><th>External Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>GRIM</strong></td><td>3</td><td>0</td><td>0</td><td>7</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td class="mono" style="color:var(--text-dim)">scrutiny pigs1 + pysprite</td>
+        </tr>
+        <tr>
+          <td><strong>GRIMMER SD</strong></td><td>3</td><td>0</td><td>0</td><td>7</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td class="mono" style="color:var(--text-dim)">scrutiny pigs5 + sweep</td>
+        </tr>
+        <tr>
+          <td><strong>GRIMMER Pct</strong></td><td>3</td><td>0</td><td>0</td><td>7</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td class="mono" style="color:var(--text-dim)">systematic sweep N=2-20</td>
+        </tr>
+        <tr>
+          <td><strong>p-value</strong></td><td>7</td><td>0</td><td>0</td><td>5</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td class="mono" style="color:var(--text-dim)">Nuijten statcheck + scipy</td>
+        </tr>
+        <tr>
+          <td><strong>Gene Name</strong></td><td>5</td><td>0</td><td>0</td><td>7</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td class="mono" style="color:var(--text-dim)">Ziemann GeneNameErrors2020</td>
+        </tr>
+        <tr>
+          <td><strong>Retraction</strong></td><td>4</td><td>0</td><td>0</td><td>4</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td class="mono" style="color:var(--text-dim)">Retraction Watch patterns</td>
+        </tr>
+        <tr style="border-top:2px solid var(--accent); font-weight:700;">
+          <td>AGGREGATE</td><td>25</td><td>0</td><td>0</td><td>37</td>
+          <td class="score-perfect">1.000</td><td class="score-perfect">1.000</td><td class="score-perfect">1.000</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:1.5rem;">
+    <h3 style="font-size:1rem; margin-bottom:0.8rem; color:var(--accent2);">Extended Benchmark Details</h3>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>statcheck (30 cases)</h3>
+        <p>13 original + 17 extended: chi2, Z-test, Q-test, borderline, negative-t. Head-to-head: our system catches <strong>13/13</strong> errors vs statcheck Python's 1/13 (10 crashes).</p>
+      </div>
+      <div class="card">
+        <h3>GRIM (scrutiny pigs1)</h3>
+        <p>12-row dataset from scrutiny R package. Pre-computed: 4 consistent, 8 inconsistent. Cross-validated against pysprite with known banker's rounding divergences documented.</p>
+      </div>
+      <div class="card">
+        <h3>Gene Names (Ziemann)</h3>
+        <p>51 test cases: 28 true positives (all 5 families, reverse format, year suffix), 18 true negatives (non-gene months, out-of-range), table dedup, paragraph context.</p>
+      </div>
+      <div class="card">
+        <h3>Retraction (Mock Crossref)</h3>
+        <p>17 tests: retracted (critical), corrected (warning), EOC (error), PubPeer (info), clean DOIs, batch, multi-finding per DOI. Optional live Wakefield DOI test.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FRONTEND ═══════════ -->
+<section>
+  <h2><span class="icon">&#128421;</span> Dashboard (Next.js 15)</h2>
+  <div class="grid grid-3">
+    <div class="card">
+      <h3>Mission Control</h3>
+      <p>Agent grid with status indicators, workflow cards with progress bars, SSE-powered real-time activity feed.</p>
+    </div>
+    <div class="card">
+      <h3>React Flow Graphs</h3>
+      <p>W1-W7 dynamic pipeline visualization (8-11 nodes each). Real-time step highlighting via SSE updates.</p>
+    </div>
+    <div class="card">
+      <h3>Detail Sheets</h3>
+      <p>450px slide-over panels for agent/workflow details. Create workflow dialog, Lab KB CRUD table.</p>
+    </div>
+    <div class="card">
+      <h3>Security</h3>
+      <p>Bearer token auth, SSE query param fallback, CORS hardening, rate limit retry (429 + Retry-After).</p>
+    </div>
+    <div class="card">
+      <h3>Accessibility</h3>
+      <p>ARIA labels, keyboard navigation, focus management, error boundaries with recovery actions.</p>
+    </div>
+    <div class="card">
+      <h3>Testing</h3>
+      <p>45 Playwright E2E tests with mocked API routes. Loading skeletons, error states verified.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ TECH STACK ═══════════ -->
+<section>
+  <h2><span class="icon">&#128736;</span> Technology Stack</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Backend</h3>
+      <table>
+        <tr><td>Runtime</td><td class="mono">Python 3.13 + uv</td></tr>
+        <tr><td>Framework</td><td class="mono">FastAPI + uvicorn</td></tr>
+        <tr><td>LLM</td><td class="mono">Anthropic SDK + Instructor</td></tr>
+        <tr><td>Database</td><td class="mono">SQLite + SQLModel + Alembic</td></tr>
+        <tr><td>Memory</td><td class="mono">ChromaDB (3 collections)</td></tr>
+        <tr><td>Task Queue</td><td class="mono">Celery + Redis</td></tr>
+        <tr><td>SSE</td><td class="mono">sse-starlette</td></tr>
+        <tr><td>Observability</td><td class="mono">Langfuse @observe</td></tr>
+        <tr><td>Testing</td><td class="mono">pytest + pytest-asyncio</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Frontend</h3>
+      <table>
+        <tr><td>Framework</td><td class="mono">Next.js 15 (App Router)</td></tr>
+        <tr><td>Styling</td><td class="mono">Tailwind CSS 4 + shadcn/ui</td></tr>
+        <tr><td>State</td><td class="mono">Zustand</td></tr>
+        <tr><td>Visualization</td><td class="mono">React Flow</td></tr>
+        <tr><td>E2E Testing</td><td class="mono">Playwright (45 tests)</td></tr>
+        <tr><td>Deployment</td><td class="mono">Docker Compose (local)</td></tr>
+        <tr><td>CI/CD</td><td class="mono">GitHub Actions</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ API ENDPOINTS ═══════════ -->
+<section>
+  <h2><span class="icon">&#128279;</span> API Endpoints (12 Modules)</h2>
+  <div class="scorecard">
+    <table>
+      <thead><tr><th>Module</th><th>Path Prefix</th><th>Key Operations</th></tr></thead>
+      <tbody>
+        <tr><td><strong>agents</strong></td><td class="mono">/api/v1/agents</td><td>List, status, query, history</td></tr>
+        <tr><td><strong>workflows</strong></td><td class="mono">/api/v1/workflows</td><td>List, create, run, resume, status</td></tr>
+        <tr><td><strong>integrity</strong></td><td class="mono">/api/v1/integrity</td><td>Audit run, findings CRUD, scheduler</td></tr>
+        <tr><td><strong>contradictions</strong></td><td class="mono">/api/v1/contradictions</td><td>Detect, list, classify</td></tr>
+        <tr><td><strong>negative_results</strong></td><td class="mono">/api/v1/negative-results</td><td>CRUD for Lab Knowledge Base</td></tr>
+        <tr><td><strong>sse</strong></td><td class="mono">/api/v1/sse</td><td>Real-time event stream (token auth)</td></tr>
+        <tr><td><strong>digest</strong></td><td class="mono">/api/v1/digest</td><td>6-source fetch, LLM summary, email</td></tr>
+        <tr><td><strong>direct_query</strong></td><td class="mono">/api/v1/query</td><td>Ad-hoc agent queries</td></tr>
+        <tr><td><strong>conversations</strong></td><td class="mono">/api/v1/conversations</td><td>Chat history, context</td></tr>
+        <tr><td><strong>cold_start</strong></td><td class="mono">/api/v1/cold-start</td><td>Initial system bootstrap</td></tr>
+        <tr><td><strong>backup</strong></td><td class="mono">/api/v1/backup</td><td>Database backup/restore</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ SECURITY ═══════════ -->
+<section>
+  <h2><span class="icon">&#128274;</span> Security Architecture</h2>
+  <div class="grid grid-4">
+    <div class="card">
+      <h3>Auth</h3>
+      <p>Bearer token (BIOTEAM_API_KEY). SSE uses ?token= query param. secrets.compare_digest. Empty = dev mode.</p>
+    </div>
+    <div class="card">
+      <h3>CORS</h3>
+      <p>Config-driven via CORS_ORIGINS env var. Restricted methods: GET, POST, PUT, DELETE, OPTIONS.</p>
+    </div>
+    <div class="card">
+      <h3>Rate Limit</h3>
+      <p>Token bucket per-IP. 60 rpm global, 10 rpm expensive endpoints. Frontend auto-retry with Retry-After.</p>
+    </div>
+    <div class="card">
+      <h3>Circuit Breaker</h3>
+      <p>5 failures → OPEN (60s cooldown) → HALF_OPEN probe. Prevents cascade failures to external APIs.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ GIT TIMELINE ═══════════ -->
+<section>
+  <h2><span class="icon">&#128203;</span> Development Timeline</h2>
+  <div class="timeline">
+    <div class="timeline-item"><span class="hash">1ad9282</span> <span class="msg">Add GRIMMER SD/percentage tests and LLM multi-query search reformulation</span></div>
+    <div class="timeline-item"><span class="hash">9043fd5</span> <span class="msg">Add LAB-Bench LitQA2 literature search benchmark with multi-strategy comparison</span></div>
+    <div class="timeline-item"><span class="hash">f0c9d0f</span> <span class="msg">Fix APA regex bugs and add benchmark validation against pysprite/statcheck</span></div>
+    <div class="timeline-item"><span class="hash">074e5a7</span> <span class="msg">Add comprehensive edge case tests across all integrity checkers (251 new tests)</span></div>
+    <div class="timeline-item"><span class="hash">c6b0eb1</span> <span class="msg">Add Image/Figure Integrity Engine with perceptual hashing, ELA, and EXIF analysis</span></div>
+    <div class="timeline-item"><span class="hash">25a2b9d</span> <span class="msg">Add Alembic migration for audit_finding and audit_run tables</span></div>
+    <div class="timeline-item"><span class="hash">40b5993</span> <span class="msg">Add agent query/history APIs, director note injection, and SSE interventions</span></div>
+    <div class="timeline-item"><span class="hash">720325f</span> <span class="msg">Add Data Integrity Auditor: hybrid engine, W7 pipeline, W1 integration, CRUD API, and dashboard UI</span></div>
+    <div class="timeline-item"><span class="hash">19565d7</span> <span class="msg">Add iterative refinement loop and fix review issues (954 tests pass)</span></div>
+    <div class="timeline-item"><span class="hash">ae58a48</span> <span class="msg">Add W2-W5 runners, Alembic migrations, and Langfuse observability</span></div>
+    <div class="timeline-item"><span class="hash">b19c654</span> <span class="msg">Add React Flow graphs, E2E tests, and Redis+Celery task queue</span></div>
+    <div class="timeline-item"><span class="hash">5daaf82</span> <span class="msg">Implement all 18 planned agents (11 new) with 63 tests</span></div>
+    <div class="timeline-item"><span class="hash">8038ed9</span> <span class="msg">Add CI/CD pipeline and fix all lint issues</span></div>
+    <div class="timeline-item"><span class="hash">807feff</span> <span class="msg">Add data source fixes, email delivery, and anti-hallucination guardrails</span></div>
+    <div class="timeline-item"><span class="hash">335aac4</span> <span class="msg">Add Next.js 15 dashboard frontend (56 files, full UI)</span></div>
+    <div class="timeline-item"><span class="hash">f16f79b</span> <span class="msg">Security hardening Phase 2: a11y, error boundary, 106 fuzzing tests</span></div>
+    <div class="timeline-item"><span class="hash">2cf9a46</span> <span class="msg">Initial commit: Week 5 backend complete (139 files, tag: v0.5-week5)</span></div>
+  </div>
+</section>
+
+<!-- ═══════════ TEST BREAKDOWN ═══════════ -->
+<section>
+  <h2><span class="icon">&#9989;</span> Test Coverage Breakdown</h2>
+  <div class="scorecard">
+    <table>
+      <thead><tr><th>Category</th><th>Count</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Benchmarks</strong></td><td>386</td><td>GRIM, GRIMMER, statcheck, gene names, retraction — P/R/F1 scorecards</td></tr>
+        <tr><td><strong>Integrity Edge Cases</strong></td><td>251+</td><td>Gene name checker, statistical checker, image checker, retraction checker</td></tr>
+        <tr><td><strong>Agent Tests</strong></td><td>120+</td><td>All 21 agents: init, LLM mock, output validation, error handling</td></tr>
+        <tr><td><strong>Workflow Tests</strong></td><td>80+</td><td>W1-W7 step definitions, pipeline execution, human checkpoint, resume</td></tr>
+        <tr><td><strong>Integration Tests</strong></td><td>100+</td><td>E2E workflows, error recovery, tier1-tier3 integration chains</td></tr>
+        <tr><td><strong>Security / Fuzzing</strong></td><td>106</td><td>Auth bypass, CORS, rate limit, input validation, XSS, injection</td></tr>
+        <tr><td><strong>E2E (Playwright)</strong></td><td>45</td><td>Full UI flows with mocked API routes</td></tr>
+        <tr><td><strong>Celery / Redis</strong></td><td>25+</td><td>Task dispatch, async fallback, workflow orchestration</td></tr>
+        <tr style="font-weight:700; border-top:2px solid var(--accent);">
+          <td>TOTAL</td><td>1,804</td><td>9 skipped (optional live API tests)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ FILE STRUCTURE ═══════════ -->
+<section>
+  <h2><span class="icon">&#128193;</span> Project Structure</h2>
+  <div class="arch-diagram" style="font-size:0.78rem; line-height:1.5;">
+<span class="hl">backend/</span>
+├── <span class="hl">app/</span>
+│   ├── <span class="hl2">agents/</span>          21 agents + base + registry + specs/
+│   ├── <span class="hl2">api/v1/</span>          12 route modules
+│   ├── <span class="hl2">engines/</span>
+│   │   ├── ambiguity/     Contradiction detector, RCMXT scorer
+│   │   ├── integrity/     6 checkers + finding models + report builder
+│   │   └── negative_results/  Lab KB
+│   ├── <span class="hl2">workflows/</span>       Engine + 8 runners
+│   ├── <span class="hl2">integrations/</span>    PubMed, Semantic Scholar, Crossref, PubPeer, HGNC
+│   ├── <span class="hl2">llm/</span>             LLM layer + mock layer
+│   ├── <span class="hl2">memory/</span>          ChromaDB semantic memory (3 collections)
+│   ├── <span class="hl2">middleware/</span>       Auth, rate limit
+│   ├── <span class="hl2">models/</span>          Pydantic/SQLModel (evidence, workflow, agent, task, cost...)
+│   ├── <span class="hl2">cost/</span>            Token cost tracker
+│   └── <span class="hl2">backup/</span>          DB backup manager
+├── <span class="hlg">tests/</span>               130 test files, 1804 tests
+│   ├── benchmarks/       GRIM, GRIMMER, statcheck, gene names, retraction, unified suite
+│   ├── test_agents/      Agent unit tests
+│   ├── test_engines/     Engine unit + edge case tests
+│   ├── test_workflows/   Pipeline tests
+│   ├── test_integration/ E2E chains
+│   └── test_security/    Fuzzing + auth tests
+└── migrations/           Alembic (16 tables)
+
+<span class="hl">frontend/</span>
+├── <span class="hl">src/</span>
+│   ├── <span class="hl2">components/</span>      Dashboard, layout, React Flow graphs
+│   ├── <span class="hl2">hooks/</span>           use-agents, use-workflows, use-sse, use-negative-results
+│   ├── <span class="hl2">stores/</span>          Zustand app store
+│   ├── <span class="hl2">lib/</span>             API client (fetch + auth + 429 retry)
+│   ├── <span class="hl2">types/</span>           TypeScript API types
+│   └── <span class="hl2">app/</span>             Pages: /, /projects, /lab-kb, /settings
+└── <span class="hlg">e2e/</span>                 45 Playwright tests</div>
+</section>
+
+</div>
+
+<footer>
+  BioTeam-AI &mdash; JangKeun Kim, Weill Cornell Medicine &mdash; Built with Claude Code
+</footer>
+
+</body>
+</html>

@@ -193,7 +193,73 @@ class TestGRIMEdgeDivergence:
             assert ours == theirs, f"Divergence: mean={mean}, n={n}, dec={decimals}: ours={ours}, theirs={theirs}"
 
 
-# ── 5. Algorithm difference analysis ──
+# ── 5. scrutiny R package pigs1 dataset ──
+
+
+class TestGRIMScrutinyPigs1:
+    """Cross-validate against scrutiny R package pigs1 dataset.
+
+    Source: https://github.com/lhdjung/scrutiny (pigs1)
+    12 rows of (mean, n) with decimals=2.
+
+    Expected GRIM consistency pre-computed:
+    product = mean * n, tol = n * 0.01 / 2,
+    consistent = abs(product - round(product)) <= tol
+    """
+
+    # (mean, n, expected_consistent)
+    PIGS1_DATA = [
+        (7.22, 32, True),   # 231.04, nearest=231, diff=0.04, tol=0.16
+        (4.74, 25, False),  # 118.50, nearest=119, diff=0.50, tol=0.125
+        (5.23, 29, False),  # 151.67, nearest=152, diff=0.33, tol=0.145
+        (2.57, 24, False),  # 61.68,  nearest=62,  diff=0.32, tol=0.12
+        (6.77, 27, False),  # 182.79, nearest=183, diff=0.21, tol=0.135
+        (2.68, 28, True),   # 75.04,  nearest=75,  diff=0.04, tol=0.14
+        (7.01, 29, False),  # 203.29, nearest=203, diff=0.29, tol=0.145
+        (7.38, 26, True),   # 191.88, nearest=192, diff=0.12, tol=0.13
+        (3.14, 27, False),  # 84.78,  nearest=85,  diff=0.22, tol=0.135
+        (6.89, 31, False),  # 213.59, nearest=214, diff=0.41, tol=0.155
+        (5.00, 25, True),   # 125.00, nearest=125, diff=0.00, tol=0.125
+        (0.24, 28, False),  # 6.72,   nearest=7,   diff=0.28, tol=0.14
+    ]
+
+    @pytest.mark.parametrize(
+        "mean, n, expected",
+        PIGS1_DATA,
+        ids=[f"x={m}_n={n}" for m, n, _ in PIGS1_DATA],
+    )
+    def test_pigs1_case(self, mean: float, n: int, expected: bool):
+        """Each pigs1 row should match pre-computed expected consistency."""
+        result = StatisticalChecker.grim_test(mean, n, 2)
+        assert result.is_consistent == expected, (
+            f"pigs1: mean={mean}, n={n}: expected {expected}, got {result.is_consistent}. "
+            f"{result.explanation}"
+        )
+
+    def test_pigs1_cross_validate_pysprite(self):
+        """Cross-validate pigs1 against pysprite (allow banker's rounding divergence)."""
+        unexpected = []
+        for mean, n, expected in self.PIGS1_DATA:
+            ours, theirs = _compare(mean, n, 2)
+            if ours != theirs:
+                # Known: ours=True, pysprite=False at multiples of 8 (banker's rounding)
+                if ours is True and theirs is False and n % 8 == 0:
+                    continue
+                unexpected.append((mean, n, ours, theirs))
+
+        if unexpected:
+            pytest.fail(f"Unexpected pysprite divergences: {unexpected}")
+
+    def test_pigs1_summary(self):
+        """Summary: 4 consistent, 8 inconsistent."""
+        consistent_count = sum(
+            1 for m, n, _ in self.PIGS1_DATA
+            if StatisticalChecker.grim_test(m, n, 2).is_consistent
+        )
+        assert consistent_count == 4, f"Expected 4 consistent, got {consistent_count}"
+
+
+# ── 6. Algorithm difference analysis ──
 
 
 class TestGRIMAlgorithmDifferences:

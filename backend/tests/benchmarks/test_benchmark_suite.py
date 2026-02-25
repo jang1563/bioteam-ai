@@ -4,11 +4,13 @@ Runs every deterministic checker against ground-truth test cases and produces
 a per-checker precision / recall / F1 scorecard. Serves as a regression gate:
 if any checker drops below 85 % recall, the test fails.
 
-Checkers covered:
+Checkers covered (6):
   - GRIM (mean consistency)
   - GRIMMER SD (standard deviation consistency)
   - GRIMMER percentage (percentage consistency)
   - p-value recalculation (statcheck-equivalent)
+  - Gene name (Excel date corruption)
+  - Retraction (retracted/corrected/EOC/PubPeer)
   - Text extraction (SD, percentage, APA stats from realistic paragraphs)
 """
 
@@ -16,6 +18,9 @@ import math
 
 import pytest
 
+from app.engines.integrity.finding_models import PubPeerStatus, RetractionStatus
+from app.engines.integrity.gene_name_checker import GeneNameChecker
+from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
 
 
@@ -82,6 +87,35 @@ PVALUE_CASES = [
     ("t(30) = 2.04, p = .050", False, "borderline correct"),
 ]
 
+GENE_NAME_CASES = [
+    # (text, has_finding) — condensed from Ziemann corpus
+    ("1-Mar", True),    # MARCH1
+    ("7-Sep", True),    # SEPT7
+    ("1-Dec", True),    # DEC1
+    ("4-Oct", True),    # OCT4
+    ("1-Feb", True),    # FEB1
+    ("BRCA1", False),   # clean
+    ("TP53", False),    # clean
+    ("MARCHF1", False), # renamed (clean)
+    ("1-Jan", False),   # non-gene month
+    ("1-Apr", False),   # non-gene month
+    ("15-Mar", False),  # out of range (MARCH max=11)
+    ("3-Dec", False),   # out of range (DEC max=2)
+]
+
+# Retraction mock data for unified suite
+_RETRACTION_CASES_RAW = [
+    # (doi, mock_status, has_finding, description)
+    ("10.1234/ret1", {"is_retracted": True}, True, "retracted"),
+    ("10.1234/ret2", {"is_retracted": True}, True, "retracted"),
+    ("10.1234/cor1", {"is_corrected": True}, True, "corrected"),
+    ("10.1234/eoc1", {"has_expression_of_concern": True}, True, "EOC"),
+    ("10.1234/clean1", {}, False, "clean"),
+    ("10.1234/clean2", {}, False, "clean"),
+    ("10.1234/clean3", {}, False, "clean"),
+    ("10.1234/clean4", {}, False, "clean"),
+]
+
 TEXT_EXTRACTION_CASES = [
     # (text, expected_sd_flags, expected_pct_flags, expected_pval_flags, description)
     (
@@ -122,6 +156,28 @@ def _metrics(tp: int, fp: int, fn: int, tn: int) -> dict:
     recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
     return {"tp": tp, "fp": fp, "fn": fn, "tn": tn, "P": precision, "R": recall, "F1": f1}
+
+
+class _MockCrossrefClient:
+    """Minimal mock for unified suite retraction tests."""
+
+    def __init__(self, status_map: dict[str, RetractionStatus]):
+        self._map = status_map
+
+    async def check_retraction(self, doi: str) -> RetractionStatus:
+        return self._map.get(doi, RetractionStatus(doi=doi))
+
+
+def _build_retraction_checker() -> RetractionChecker:
+    """Build checker with mock crossref for unified suite."""
+    status_map: dict[str, RetractionStatus] = {}
+    for doi, kwargs, _, _ in _RETRACTION_CASES_RAW:
+        if kwargs:
+            status_map[doi] = RetractionStatus(doi=doi, **kwargs)
+    return RetractionChecker(
+        crossref_client=_MockCrossrefClient(status_map),
+        pubpeer_client=None,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -230,6 +286,59 @@ class TestPValueScorecard:
         assert m["P"] >= 0.85, f"P-value precision {m['P']:.3f} < 0.85"
 
 
+class TestGeneNameScorecard:
+    """Gene name checker precision/recall on Ziemann-derived cases."""
+
+    def test_gene_name_metrics(self):
+        checker = GeneNameChecker()
+        tp = fp = fn = tn = 0
+        for text, has_finding in GENE_NAME_CASES:
+            findings = checker.check_text(text)
+            detected = len(findings) > 0
+            if has_finding and detected:
+                tp += 1
+            elif has_finding and not detected:
+                fn += 1
+            elif not has_finding and detected:
+                fp += 1
+            else:
+                tn += 1
+
+        m = _metrics(tp, fp, fn, tn)
+        print(f"\n=== Gene Name Scorecard ===")
+        print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
+        print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
+        assert m["R"] >= 0.85, f"Gene name recall {m['R']:.3f} < 0.85"
+        assert m["P"] >= 0.85, f"Gene name precision {m['P']:.3f} < 0.85"
+
+
+class TestRetractionScorecard:
+    """Retraction checker precision/recall on mock cases."""
+
+    @pytest.mark.asyncio
+    async def test_retraction_metrics(self):
+        checker = _build_retraction_checker()
+        tp = fp = fn = tn = 0
+        for doi, _, has_finding, _ in _RETRACTION_CASES_RAW:
+            findings = await checker.check_doi(doi)
+            detected = len(findings) > 0
+            if has_finding and detected:
+                tp += 1
+            elif has_finding and not detected:
+                fn += 1
+            elif not has_finding and detected:
+                fp += 1
+            else:
+                tn += 1
+
+        m = _metrics(tp, fp, fn, tn)
+        print(f"\n=== Retraction Scorecard ===")
+        print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
+        print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
+        assert m["R"] >= 0.85, f"Retraction recall {m['R']:.3f} < 0.85"
+        assert m["P"] >= 0.85, f"Retraction precision {m['P']:.3f} < 0.85"
+
+
 # ══════════════════════════════════════════════════════════════════
 # Text extraction integration test
 # ══════════════════════════════════════════════════════════════════
@@ -274,8 +383,11 @@ class TestUnifiedReport:
     85 % recall, the entire suite fails.
     """
 
-    def test_combined_report(self):
-        checker = StatisticalChecker()
+    @pytest.mark.asyncio
+    async def test_combined_report(self):
+        stat_checker = StatisticalChecker()
+        gene_checker = GeneNameChecker()
+        retraction_checker = _build_retraction_checker()
         results: dict[str, dict] = {}
 
         # --- GRIM ---
@@ -323,7 +435,7 @@ class TestUnifiedReport:
         # --- p-value ---
         tp = fp = fn = tn = 0
         for text, is_error, desc in PVALUE_CASES:
-            detected = len(checker.extract_and_check_stats(text)) > 0
+            detected = len(stat_checker.extract_and_check_stats(text)) > 0
             if is_error and detected:
                 tp += 1
             elif is_error and not detected:
@@ -333,6 +445,34 @@ class TestUnifiedReport:
             else:
                 tn += 1
         results["p_value"] = _metrics(tp, fp, fn, tn)
+
+        # --- Gene name ---
+        tp = fp = fn = tn = 0
+        for text, has_finding in GENE_NAME_CASES:
+            detected = len(gene_checker.check_text(text)) > 0
+            if has_finding and detected:
+                tp += 1
+            elif has_finding and not detected:
+                fn += 1
+            elif not has_finding and detected:
+                fp += 1
+            else:
+                tn += 1
+        results["gene_name"] = _metrics(tp, fp, fn, tn)
+
+        # --- Retraction ---
+        tp = fp = fn = tn = 0
+        for doi, _, has_finding, _ in _RETRACTION_CASES_RAW:
+            detected = len(await retraction_checker.check_doi(doi)) > 0
+            if has_finding and detected:
+                tp += 1
+            elif has_finding and not detected:
+                fn += 1
+            elif not has_finding and detected:
+                fp += 1
+            else:
+                tn += 1
+        results["retraction"] = _metrics(tp, fp, fn, tn)
 
         # --- Print combined report ---
         print("\n" + "=" * 60)
