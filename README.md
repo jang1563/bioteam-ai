@@ -86,7 +86,7 @@ Every claim is scored on 5 axes, not a single confidence number:
 
 ```bash
 # Clone and install
-git clone https://github.com/your-username/bioteam-ai.git
+git clone https://github.com/jang1563/bioteam-ai.git
 cd bioteam-ai
 
 # Create virtual environment
