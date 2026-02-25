@@ -347,15 +347,14 @@ def _chi2_survival(x: float, df: int) -> float:
     Uses the regularized incomplete gamma function approximation.
     Falls back to scipy if available, otherwise uses a simple approximation.
     """
+    if df <= 0 or x <= 0:
+        return 1.0
+
     try:
         from scipy import stats as sp_stats
         return float(sp_stats.chi2.sf(x, df))
     except ImportError:
         pass
-
-    # Simple approximation using Wilson-Hilferty transformation
-    if df <= 0 or x <= 0:
-        return 1.0
 
     z = ((x / df) ** (1 / 3) - (1 - 2 / (9 * df))) / math.sqrt(2 / (9 * df))
 
