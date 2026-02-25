@@ -376,6 +376,7 @@ export interface DigestHighlight {
   source: string;
   one_liner: string;
   why_important?: string;
+  url?: string;
 }
 
 export interface DigestReport {

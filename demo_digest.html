@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Digest — BioTeam-AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --abyss:#060a14;
+  --deep:#0a0f1e;
+  --mid:#0f1729;
+  --surface:#141d33;
+  --glass:rgba(14,22,42,0.65);
+  --glass-border:rgba(0,212,170,0.12);
+  --teal:#00d4aa;
+  --teal-dim:rgba(0,212,170,0.15);
+  --teal-glow:rgba(0,212,170,0.4);
+  --cyan:#00b4d8;
+  --text:#e2e8f0;
+  --text-dim:#7a8ba7;
+  --text-muted:#4a5568;
+  --pubmed:#3b82f6;
+  --biorxiv:#f97316;
+  --arxiv:#ef4444;
+  --github:#a855f7;
+  --huggingface:#eab308;
+  --s2:#22c55e;
+  --font-display:'Outfit',sans-serif;
+  --font-body:'Noto Sans KR','Outfit',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{
+  background:var(--abyss);
+  color:var(--text);
+  font-family:var(--font-body);
+  line-height:1.7;
+  overflow-x:hidden;
+}
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--deep)}
+::-webkit-scrollbar-thumb{background:var(--teal-dim);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--teal-glow)}
+
+/* === BACKGROUND PARTICLES === */
+.bg-particles{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  overflow:hidden;
+}
+.particle{
+  position:absolute;
+  border-radius:50%;
+  background:radial-gradient(circle,var(--teal) 0%,transparent 70%);
+  opacity:0;
+  animation:float-particle linear infinite;
+}
+@keyframes float-particle{
+  0%{transform:translateY(100vh) scale(0);opacity:0}
+  10%{opacity:0.6}
+  90%{opacity:0.3}
+  100%{transform:translateY(-20vh) scale(1);opacity:0}
+}
+
+/* === MOLECULAR GRID === */
+.mol-grid{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(circle at 20% 30%,rgba(0,212,170,0.03) 0%,transparent 50%),
+    radial-gradient(circle at 80% 70%,rgba(0,180,216,0.03) 0%,transparent 50%),
+    radial-gradient(circle at 50% 50%,rgba(168,85,247,0.02) 0%,transparent 60%);
+}
+
+/* === LAYOUT === */
+.container{max-width:1200px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+/* === SCROLL REVEAL === */
+.reveal{
+  opacity:0;
+  transform:translateY(40px);
+  transition:opacity 0.8s cubic-bezier(0.16,1,0.3,1),transform 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:0.1s}
+.reveal-delay-2{transition-delay:0.2s}
+.reveal-delay-3{transition-delay:0.3s}
+.reveal-delay-4{transition-delay:0.4s}
+
+/* === SECTION === */
+section{padding:100px 0}
+section+section{border-top:1px solid rgba(0,212,170,0.06)}
+
+/* === HERO === */
+.hero{
+  min-height:100vh;
+  display:flex;align-items:center;
+  position:relative;
+  padding:60px 0;
+}
+.hero-content{text-align:center;width:100%}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 16px;
+  border:1px solid var(--glass-border);
+  border-radius:100px;
+  background:var(--glass);
+  backdrop-filter:blur(12px);
+  font-family:var(--font-mono);
+  font-size:0.75rem;
+  color:var(--teal);
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  margin-bottom:32px;
+  animation:badge-glow 3s ease-in-out infinite alternate;
+}
+@keyframes badge-glow{
+  0%{box-shadow:0 0 20px rgba(0,212,170,0.05)}
+  100%{box-shadow:0 0 30px rgba(0,212,170,0.15)}
+}
+.hero-badge .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--teal);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+h1{
+  font-family:var(--font-display);
+  font-size:clamp(2.5rem,6vw,4.5rem);
+  font-weight:800;
+  line-height:1.1;
+  letter-spacing:-0.03em;
+  margin-bottom:20px;
+}
+h1 .gradient{
+  background:linear-gradient(135deg,var(--teal) 0%,var(--cyan) 50%,#a78bfa 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero-sub{
+  font-size:clamp(1rem,2vw,1.25rem);
+  color:var(--text-dim);
+  max-width:600px;
+  margin:0 auto 48px;
+  font-weight:300;
+}
+
+/* === PIPELINE FLOW === */
+.pipeline{
+  display:flex;align-items:center;justify-content:center;
+  gap:0;flex-wrap:wrap;
+  margin:48px auto 0;
+  max-width:1000px;
+}
+.pipe-node{
+  display:flex;align-items:center;justify-content:center;
+  padding:10px 18px;
+  border-radius:10px;
+  font-size:0.8rem;
+  font-weight:500;
+  font-family:var(--font-mono);
+  white-space:nowrap;
+  position:relative;
+  animation:node-fade 0.6s ease both;
+}
+.pipe-node.input{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  color:var(--teal);
+  backdrop-filter:blur(8px);
+}
+.pipe-sources{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:6px;
+  padding:8px;
+}
+.pipe-src{
+  padding:6px 12px;
+  border-radius:8px;
+  font-size:0.7rem;
+  font-weight:600;
+  font-family:var(--font-mono);
+  border:1px solid;
+  animation:node-fade 0.6s ease both;
+}
+.pipe-arrow{
+  color:var(--teal);
+  font-size:1.2rem;
+  opacity:0.4;
+  margin:0 6px;
+  animation:arrow-pulse 2s ease-in-out infinite;
+}
+@keyframes arrow-pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+@keyframes node-fade{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
+.pipe-node.process{
+  background:linear-gradient(135deg,rgba(0,212,170,0.1),rgba(0,180,216,0.1));
+  border:1px solid rgba(0,212,170,0.2);
+  color:var(--cyan);
+}
+.pipe-node.output{
+  background:linear-gradient(135deg,rgba(0,212,170,0.15),rgba(0,212,170,0.05));
+  border:1px solid rgba(0,212,170,0.3);
+  color:var(--teal);
+  box-shadow:0 0 20px rgba(0,212,170,0.1);
+}
+
+/* === SECTION HEADERS === */
+.section-label{
+  font-family:var(--font-mono);
+  font-size:0.7rem;
+  text-transform:uppercase;
+  letter-spacing:0.15em;
+  color:var(--teal);
+  margin-bottom:8px;
+}
+h2{
+  font-family:var(--font-display);
+  font-size:clamp(1.8rem,4vw,2.8rem);
+  font-weight:700;
+  letter-spacing:-0.02em;
+  margin-bottom:16px;
+  line-height:1.2;
+}
+.section-desc{
+  color:var(--text-dim);
+  max-width:560px;
+  font-size:0.95rem;
+  margin-bottom:48px;
+}
+
+/* === GLASS CARD === */
+.card{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:16px;
+  backdrop-filter:blur(16px);
+  padding:28px;
+  transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;
+}
+.card:hover{
+  border-color:rgba(0,212,170,0.25);
+  box-shadow:0 8px 40px rgba(0,212,170,0.06);
+  transform:translateY(-2px);
+}
+
+/* === TOPIC CARD === */
+.topic-card{max-width:700px;margin:0 auto}
+.topic-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;
+}
+.topic-name{
+  font-family:var(--font-display);
+  font-size:1.5rem;
+  font-weight:700;
+}
+.schedule-badge{
+  padding:4px 14px;
+  border-radius:100px;
+  font-size:0.7rem;
+  font-weight:600;
+  font-family:var(--font-mono);
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  background:var(--teal-dim);
+  color:var(--teal);
+  border:1px solid rgba(0,212,170,0.2);
+}
+.topic-section{margin-bottom:20px}
+.topic-section-label{
+  font-size:0.75rem;
+  text-transform:uppercase;
+  letter-spacing:0.1em;
+  color:var(--text-muted);
+  margin-bottom:8px;
+  font-weight:500;
+}
+.query-tags{display:flex;flex-wrap:wrap;gap:6px}
+.query-tag{
+  padding:5px 12px;
+  border-radius:8px;
+  font-size:0.78rem;
+  background:rgba(0,180,216,0.08);
+  border:1px solid rgba(0,180,216,0.15);
+  color:var(--cyan);
+  font-family:var(--font-mono);
+}
+.source-badges{display:flex;flex-wrap:wrap;gap:6px}
+.source-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 12px;
+  border-radius:8px;
+  font-size:0.72rem;
+  font-weight:600;
+  font-family:var(--font-mono);
+  border:1px solid;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.source-badge:hover{transform:scale(1.05)}
+.source-badge .sdot{width:6px;height:6px;border-radius:50%}
+.sb-pubmed{border-color:rgba(59,130,246,0.3);background:rgba(59,130,246,0.08);color:var(--pubmed)}
+.sb-pubmed .sdot{background:var(--pubmed)}
+.sb-biorxiv{border-color:rgba(249,115,22,0.3);background:rgba(249,115,22,0.08);color:var(--biorxiv)}
+.sb-biorxiv .sdot{background:var(--biorxiv)}
+.sb-arxiv{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:var(--arxiv)}
+.sb-arxiv .sdot{background:var(--arxiv)}
+.sb-github{border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:var(--github)}
+.sb-github .sdot{background:var(--github)}
+.sb-hf{border-color:rgba(234,179,8,0.3);background:rgba(234,179,8,0.08);color:var(--huggingface)}
+.sb-hf .sdot{background:var(--huggingface)}
+.sb-s2{border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08);color:var(--s2)}
+.sb-s2 .sdot{background:var(--s2)}
+.cat-row{display:flex;gap:16px;flex-wrap:wrap}
+.cat-group{flex:1;min-width:200px}
+.cat-group-label{
+  font-size:0.72rem;font-weight:600;
+  margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.cat-chips{display:flex;flex-wrap:wrap;gap:4px}
+.cat-chip{
+  padding:3px 10px;
+  border-radius:6px;
+  font-size:0.68rem;
+  font-family:var(--font-mono);
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.06);
+  color:var(--text-dim);
+}
+
+/* === ENTRIES === */
+.entries-toolbar{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:24px;flex-wrap:wrap;
+}
+.filter-btn{
+  padding:6px 14px;
+  border-radius:100px;
+  font-size:0.72rem;
+  font-weight:600;
+  font-family:var(--font-mono);
+  border:1px solid rgba(255,255,255,0.08);
+  background:transparent;
+  color:var(--text-dim);
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.filter-btn:hover,.filter-btn.active{
+  color:var(--teal);
+  border-color:rgba(0,212,170,0.3);
+  background:rgba(0,212,170,0.06);
+}
+.entries-grid{display:flex;flex-direction:column;gap:12px}
+.entry-card{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:14px;
+  backdrop-filter:blur(12px);
+  padding:20px 24px;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:16px;
+  align-items:start;
+  transition:all 0.3s;
+  cursor:default;
+}
+.entry-card:hover{
+  border-color:rgba(0,212,170,0.2);
+  background:rgba(14,22,42,0.8);
+}
+.entry-card.hidden{display:none}
+.entry-source{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  min-width:70px;padding-top:2px;
+}
+.entry-source-tag{
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:0.65rem;
+  font-weight:700;
+  font-family:var(--font-mono);
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+}
+.entry-source-tag.pubmed{background:rgba(59,130,246,0.15);color:var(--pubmed)}
+.entry-source-tag.biorxiv{background:rgba(249,115,22,0.15);color:var(--biorxiv)}
+.entry-source-tag.arxiv{background:rgba(239,68,68,0.15);color:var(--arxiv)}
+.entry-source-tag.github{background:rgba(168,85,247,0.15);color:var(--github)}
+.entry-source-tag.hf{background:rgba(234,179,8,0.15);color:var(--huggingface)}
+.entry-source-tag.s2{background:rgba(34,197,94,0.15);color:var(--s2)}
+.entry-body h3{
+  font-family:var(--font-display);
+  font-size:1rem;
+  font-weight:600;
+  line-height:1.4;
+  margin-bottom:4px;
+}
+.entry-authors{font-size:0.78rem;color:var(--text-dim);margin-bottom:6px}
+.entry-abstract{font-size:0.82rem;color:var(--text-dim);line-height:1.6}
+.entry-meta{
+  display:flex;flex-direction:column;align-items:flex-end;gap:8px;
+  min-width:80px;
+}
+.relevance{
+  font-family:var(--font-mono);
+  font-size:0.9rem;
+  font-weight:700;
+}
+.relevance-bar{
+  width:56px;height:4px;
+  border-radius:2px;
+  background:rgba(255,255,255,0.06);
+  overflow:hidden;
+}
+.relevance-fill{height:100%;border-radius:2px;transition:width 0.8s ease}
+.entry-date{font-size:0.68rem;color:var(--text-muted);font-family:var(--font-mono)}
+.entry-extra{font-size:0.68rem;color:var(--text-muted)}
+.entry-link{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:0.68rem;
+  font-family:var(--font-mono);
+  background:rgba(0,212,170,0.06);
+  border:1px solid rgba(0,212,170,0.15);
+  color:var(--teal);
+  text-decoration:none;
+  transition:all 0.2s;
+}
+.entry-link:hover{background:rgba(0,212,170,0.12)}
+
+/* === REPORT === */
+.report-section{margin-bottom:40px}
+.report-card{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:16px;
+  backdrop-filter:blur(16px);
+  overflow:hidden;
+}
+.report-header{
+  padding:28px 32px 20px;
+  border-bottom:1px solid rgba(0,212,170,0.06);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;
+}
+.report-title{
+  font-family:var(--font-display);
+  font-size:1.3rem;font-weight:700;
+}
+.report-cost{
+  font-family:var(--font-mono);font-size:0.75rem;
+  color:var(--teal);
+  padding:4px 12px;
+  border-radius:100px;
+  background:var(--teal-dim);
+}
+.report-body{padding:28px 32px}
+.exec-summary{
+  font-size:1.02rem;
+  line-height:1.8;
+  color:var(--text);
+  margin-bottom:32px;
+  padding:20px 24px;
+  border-left:3px solid var(--teal);
+  background:rgba(0,212,170,0.03);
+  border-radius:0 12px 12px 0;
+}
+
+.highlights-list{list-style:none;display:flex;flex-direction:column;gap:14px;margin-bottom:32px}
+.highlight-item{
+  display:grid;grid-template-columns:32px 1fr;gap:12px;
+  align-items:start;
+  padding:14px 18px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.04);
+  transition:all 0.3s;
+}
+.highlight-item:hover{
+  border-color:rgba(0,212,170,0.15);
+  background:rgba(0,212,170,0.03);
+}
+.hl-num{
+  width:28px;height:28px;
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);
+  font-size:0.7rem;
+  font-weight:700;
+  background:var(--teal-dim);
+  color:var(--teal);
+}
+.hl-title{font-weight:600;font-size:0.92rem;margin-bottom:2px}
+.hl-source{
+  display:inline-block;
+  font-size:0.65rem;font-family:var(--font-mono);font-weight:600;
+  padding:2px 8px;border-radius:4px;
+  margin-right:8px;
+}
+.hl-desc{font-size:0.82rem;color:var(--text-dim);line-height:1.5}
+
+.trends-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+.trend-item{
+  display:flex;align-items:center;gap:10px;
+  font-size:0.88rem;
+  color:var(--text-dim);
+}
+.trend-icon{color:var(--teal);font-size:0.8rem}
+
+/* === SOURCE BREAKDOWN BAR === */
+.breakdown-bar{
+  display:flex;height:32px;border-radius:10px;overflow:hidden;
+  margin-bottom:12px;
+}
+.breakdown-seg{
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;font-weight:700;font-family:var(--font-mono);
+  color:rgba(0,0,0,0.7);
+  transition:flex 0.6s ease;
+  min-width:0;
+}
+.breakdown-legend{display:flex;flex-wrap:wrap;gap:12px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:0.72rem;color:var(--text-dim)}
+.legend-dot{width:8px;height:8px;border-radius:3px}
+
+/* === STATS === */
+.stats-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;margin-bottom:48px;
+}
+.stat-card{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:14px;
+  backdrop-filter:blur(12px);
+  padding:24px;
+  text-align:center;
+}
+.stat-number{
+  font-family:var(--font-display);
+  font-size:2.8rem;
+  font-weight:800;
+  background:linear-gradient(135deg,var(--teal),var(--cyan));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  line-height:1.2;
+}
+.stat-label{
+  font-size:0.78rem;
+  color:var(--text-dim);
+  margin-top:4px;
+}
+
+/* === CODE BLOCKS === */
+.code-examples{display:flex;flex-direction:column;gap:20px}
+.code-block{
+  background:rgba(6,10,20,0.8);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;
+  overflow:hidden;
+}
+.code-header{
+  padding:10px 16px;
+  background:rgba(255,255,255,0.03);
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.code-method{
+  font-family:var(--font-mono);font-size:0.72rem;font-weight:600;
+  padding:3px 8px;border-radius:4px;
+}
+.code-method.post{background:rgba(0,212,170,0.15);color:var(--teal)}
+.code-method.get{background:rgba(59,130,246,0.15);color:var(--pubmed)}
+.code-path{font-family:var(--font-mono);font-size:0.75rem;color:var(--text-dim)}
+.code-desc{font-size:0.72rem;color:var(--text-muted)}
+pre{
+  padding:16px 20px;
+  font-family:var(--font-mono);
+  font-size:0.76rem;
+  line-height:1.7;
+  overflow-x:auto;
+  color:var(--text-dim);
+}
+pre .key{color:var(--cyan)}
+pre .str{color:var(--teal)}
+pre .num{color:var(--biorxiv)}
+pre .comment{color:var(--text-muted);font-style:italic}
+pre .cmd{color:var(--huggingface)}
+
+/* === FOOTER === */
+footer{
+  padding:48px 0;
+  text-align:center;
+  border-top:1px solid rgba(0,212,170,0.06);
+}
+.footer-logo{
+  font-family:var(--font-display);
+  font-size:1.2rem;
+  font-weight:700;
+  margin-bottom:8px;
+}
+.footer-info{font-size:0.78rem;color:var(--text-muted)}
+
+/* === RESPONSIVE === */
+@media(max-width:768px){
+  .container{padding:0 16px}
+  section{padding:60px 0}
+  .entry-card{grid-template-columns:1fr;gap:10px}
+  .entry-source{flex-direction:row}
+  .entry-meta{flex-direction:row;align-items:center;min-width:0}
+  .pipeline{gap:4px}
+  .pipe-node,.pipe-src{font-size:0.65rem;padding:6px 10px}
+  .report-body,.report-header{padding:20px}
+  .stats-row{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .stats-row{grid-template-columns:1fr}
+  .cat-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- Background Effects -->
+<div class="bg-particles" id="particles"></div>
+<div class="mol-grid"></div>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+<div class="container">
+<div class="hero-content">
+  <div class="hero-badge reveal"><span class="dot"></span> BioTeam-AI v0.6</div>
+  <h1 class="reveal reveal-delay-1">
+    <span class="gradient">Research Digest</span><br>
+    다중 소스 문헌 모니터링
+  </h1>
+  <p class="hero-sub reveal reveal-delay-2">
+    6개 소스에서 자동으로 최신 논문과 코드를 수집, 중복 제거, 관련성 평가, AI 요약까지 — 하나의 파이프라인으로
+  </p>
+
+  <!-- Pipeline Flow -->
+  <div class="pipeline reveal reveal-delay-3">
+    <div class="pipe-node input">TopicProfile</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-sources">
+      <span class="pipe-src" style="border-color:var(--pubmed);color:var(--pubmed);background:rgba(59,130,246,0.08)">PubMed</span>
+      <span class="pipe-src" style="border-color:var(--biorxiv);color:var(--biorxiv);background:rgba(249,115,22,0.08)">bioRxiv</span>
+      <span class="pipe-src" style="border-color:var(--arxiv);color:var(--arxiv);background:rgba(239,68,68,0.08)">arXiv</span>
+      <span class="pipe-src" style="border-color:var(--github);color:var(--github);background:rgba(168,85,247,0.08)">GitHub</span>
+      <span class="pipe-src" style="border-color:var(--huggingface);color:var(--huggingface);background:rgba(234,179,8,0.08)">HuggingFace</span>
+      <span class="pipe-src" style="border-color:var(--s2);color:var(--s2);background:rgba(34,197,94,0.08)">Semantic Scholar</span>
+    </div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-node process">Dedup</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-node process">Score</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-node process">Summarize</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-node output">DigestReport</div>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ============ TOPIC CONFIG ============ -->
+<section id="topic">
+<div class="container">
+  <div class="section-label reveal">01 — Configuration</div>
+  <h2 class="reveal reveal-delay-1">사용자 토픽 설정</h2>
+  <p class="section-desc reveal reveal-delay-2">모니터링할 연구 주제를 정의합니다. 검색 키워드, 소스, 스케줄, 카테고리를 자유롭게 설정할 수 있습니다.</p>
+
+  <div class="card topic-card reveal reveal-delay-3">
+    <div class="topic-header">
+      <div class="topic-name">🧬 AI in Biology Research</div>
+      <div class="schedule-badge">⏱ Daily</div>
+    </div>
+
+    <div class="topic-section">
+      <div class="topic-section-label">검색 쿼리 (Queries)</div>
+      <div class="query-tags">
+        <span class="query-tag">machine learning biology</span>
+        <span class="query-tag">foundation models genomics</span>
+        <span class="query-tag">AI drug discovery</span>
+        <span class="query-tag">protein language models</span>
+      </div>
+    </div>
+
+    <div class="topic-section">
+      <div class="topic-section-label">활성 소스 (Sources)</div>
+      <div class="source-badges">
+        <span class="source-badge sb-pubmed"><span class="sdot"></span>PubMed</span>
+        <span class="source-badge sb-biorxiv"><span class="sdot"></span>bioRxiv</span>
+        <span class="source-badge sb-arxiv"><span class="sdot"></span>arXiv</span>
+        <span class="source-badge sb-github"><span class="sdot"></span>GitHub</span>
+        <span class="source-badge sb-hf"><span class="sdot"></span>HuggingFace</span>
+        <span class="source-badge sb-s2"><span class="sdot"></span>Semantic Scholar</span>
+      </div>
+    </div>
+
+    <div class="topic-section">
+      <div class="topic-section-label">카테고리 필터 (Categories)</div>
+      <div class="cat-row">
+        <div class="cat-group">
+          <div class="cat-group-label" style="color:var(--arxiv)">arXiv</div>
+          <div class="cat-chips">
+            <span class="cat-chip">cs.AI</span>
+            <span class="cat-chip">cs.LG</span>
+            <span class="cat-chip">q-bio</span>
+          </div>
+        </div>
+        <div class="cat-group">
+          <div class="cat-group-label" style="color:var(--biorxiv)">bioRxiv</div>
+          <div class="cat-chips">
+            <span class="cat-chip">bioinformatics</span>
+            <span class="cat-chip">genomics</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ ENTRIES ============ -->
+<section id="entries">
+<div class="container">
+  <div class="section-label reveal">02 — Collected Entries</div>
+  <h2 class="reveal reveal-delay-1">수집된 논문 / 코드</h2>
+  <p class="section-desc reveal reveal-delay-2">파이프라인이 6개 소스에서 수집하고, 중복을 제거하고, 관련성 점수를 부여한 결과물입니다.</p>
+
+  <div class="entries-toolbar reveal reveal-delay-3">
+    <button class="filter-btn active" data-filter="all">전체 (12)</button>
+    <button class="filter-btn" data-filter="pubmed">PubMed</button>
+    <button class="filter-btn" data-filter="biorxiv">bioRxiv</button>
+    <button class="filter-btn" data-filter="arxiv">arXiv</button>
+    <button class="filter-btn" data-filter="github">GitHub</button>
+    <button class="filter-btn" data-filter="hf">HuggingFace</button>
+    <button class="filter-btn" data-filter="s2">Semantic Scholar</button>
+  </div>
+
+  <div class="entries-grid" id="entriesGrid">
+
+    <!-- 1 arXiv -->
+    <div class="entry-card reveal" data-source="arxiv">
+      <div class="entry-source">
+        <span class="entry-source-tag arxiv">arXiv</span>
+      </div>
+      <div class="entry-body">
+        <h3>BioGPT-2: Scaling Language Models for Biomedical Text Mining</h3>
+        <div class="entry-authors">Zhang W, Liu H, Chen X</div>
+        <div class="entry-abstract">15B 파라미터 바이오메디컬 언어 모델. PubMed 전문 + PMC 오픈액세스 코퍼스로 학습. 관계 추출 F1 0.91, 질의응답 정확도 82.3%로 기존 BioGPT 대비 대폭 향상.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--teal)">94%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:94%;background:var(--teal)"></div></div>
+        <div class="entry-date">2026-02-22</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 2 PubMed -->
+    <div class="entry-card reveal" data-source="pubmed">
+      <div class="entry-source">
+        <span class="entry-source-tag pubmed">PubMed</span>
+      </div>
+      <div class="entry-body">
+        <h3>Transformer-based Models for Predicting Protein-Protein Interactions in Human Disease Networks</h3>
+        <div class="entry-authors">Kim J, Park S, Lee M</div>
+        <div class="entry-abstract">Graph Transformer 기반 단백질-단백질 상호작용 예측 프레임워크. 질병 네트워크에서 기존 GNN 대비 AUC 0.12 향상 달성. 약물 타겟 발굴에 직접 활용 가능.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--teal)">92%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:92%;background:var(--teal)"></div></div>
+        <div class="entry-date">2026-02-21</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 3 HuggingFace -->
+    <div class="entry-card reveal" data-source="hf">
+      <div class="entry-source">
+        <span class="entry-source-tag hf">HF</span>
+      </div>
+      <div class="entry-body">
+        <h3>ESM-3: Evolutionary Scale Modeling for Protein Sequences and Structures</h3>
+        <div class="entry-authors">Lin Z, Akin H, Rao R</div>
+        <div class="entry-abstract">3B 파라미터 단백질 언어 모델. ESM-2 대비 접촉 예측 15% 향상, 구조 예측 정확도 GDT-TS 0.87. 제로샷 변이 효과 예측에서 SOTA 달성.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--teal)">91%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:91%;background:var(--teal)"></div></div>
+        <div class="entry-date">2026-02-22</div>
+        <div class="entry-extra">⬆ 234 upvotes</div>
+        <a href="#" class="entry-link">모델 →</a>
+      </div>
+    </div>
+
+    <!-- 4 bioRxiv -->
+    <div class="entry-card reveal" data-source="biorxiv">
+      <div class="entry-source">
+        <span class="entry-source-tag biorxiv">bioRxiv</span>
+      </div>
+      <div class="entry-body">
+        <h3>Single-cell Foundation Models Reveal Cell-type-specific Gene Regulatory Networks</h3>
+        <div class="entry-authors">Wang Y, Smith A, Tanaka K</div>
+        <div class="entry-abstract">10M 단일세포 데이터로 사전학습한 foundation model. 세포 유형별 유전자 조절 네트워크를 제로샷으로 추론. 기존 방법 대비 TF-타겟 예측 정밀도 34% 향상.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--teal)">89%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:89%;background:var(--teal)"></div></div>
+        <div class="entry-date">2026-02-20</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 5 GitHub -->
+    <div class="entry-card reveal" data-source="github">
+      <div class="entry-source">
+        <span class="entry-source-tag github">GitHub</span>
+      </div>
+      <div class="entry-body">
+        <h3>google-deepmind/alphafold3</h3>
+        <div class="entry-authors">DeepMind Team</div>
+        <div class="entry-abstract">AlphaFold 3 오픈소스 구현체. 단백질-DNA, 단백질-리간드 복합체 구조 예측 지원. JAX 기반, A100 GPU 1장으로 추론 가능. 학술 연구 목적 라이선스.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--teal)">88%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:88%;background:var(--teal)"></div></div>
+        <div class="entry-date">2026-02-19</div>
+        <div class="entry-extra">★ 12.4k stars</div>
+        <a href="#" class="entry-link">레포 →</a>
+      </div>
+    </div>
+
+    <!-- 6 S2 -->
+    <div class="entry-card reveal" data-source="s2">
+      <div class="entry-source">
+        <span class="entry-source-tag s2">S2</span>
+      </div>
+      <div class="entry-body">
+        <h3>A Survey of Large Language Models in Medicine: Progress, Applications, and Challenges</h3>
+        <div class="entry-authors">Chen J, Patel R, Zhao Q</div>
+        <div class="entry-abstract">의학 분야 LLM 활용 종합 서베이. 진단 보조, 임상 노트 생성, 약물 상호작용 예측, 의학 교육 등 12개 응용 분야 분석. 212편 논문 리뷰.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">87%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:87%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-18</div>
+        <div class="entry-extra">📖 156 citations</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 7 PubMed -->
+    <div class="entry-card reveal" data-source="pubmed">
+      <div class="entry-source">
+        <span class="entry-source-tag pubmed">PubMed</span>
+      </div>
+      <div class="entry-body">
+        <h3>Deep Learning-based Drug-Drug Interaction Prediction Using Molecular Graph Transformers</h3>
+        <div class="entry-authors">Lee H, Choi B, Jung S</div>
+        <div class="entry-abstract">분자 그래프 Transformer를 활용한 약물 상호작용 예측. DrugBank 데이터셋에서 AUC 0.96 달성. 기존 방법 대비 미지의 약물 조합에서도 일반화 성능 우수.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">85%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:85%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-20</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 8 arXiv -->
+    <div class="entry-card reveal" data-source="arxiv">
+      <div class="entry-source">
+        <span class="entry-source-tag arxiv">arXiv</span>
+      </div>
+      <div class="entry-body">
+        <h3>Multimodal Foundation Models for Computational Pathology: A Benchmark Study</h3>
+        <div class="entry-authors">Rivera M, Nakamura T, Williams R</div>
+        <div class="entry-abstract">병리학 이미지 + 임상 텍스트 멀티모달 foundation model 벤치마크. 12개 모델 비교 분석. Vision-Language 모델이 이미지 단독 모델 대비 진단 정확도 8% 향상.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">83%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:83%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-21</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 9 bioRxiv -->
+    <div class="entry-card reveal" data-source="biorxiv">
+      <div class="entry-source">
+        <span class="entry-source-tag biorxiv">bioRxiv</span>
+      </div>
+      <div class="entry-body">
+        <h3>CRISPR-GPT: An LLM Agent for Automated CRISPR Experiment Design</h3>
+        <div class="entry-authors">Huang L, García M, Anderson J</div>
+        <div class="entry-abstract">CRISPR 실험 설계 자동화를 위한 LLM 에이전트. sgRNA 설계, 오프타겟 분석, 프로토콜 생성을 자연어 명령으로 수행. 전문가 평가에서 86% 정확도.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">81%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:81%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-19</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+    <!-- 10 GitHub -->
+    <div class="entry-card reveal" data-source="github">
+      <div class="entry-source">
+        <span class="entry-source-tag github">GitHub</span>
+      </div>
+      <div class="entry-body">
+        <h3>mosaicml/biolm-benchmark</h3>
+        <div class="entry-authors">MosaicML Team</div>
+        <div class="entry-abstract">생물학 언어 모델 통합 벤치마크 프레임워크. 단백질, DNA, RNA, 분자 도메인별 평가 태스크 40개 이상. Hugging Face 모델 자동 로딩 및 평가 지원.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">78%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:78%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-17</div>
+        <div class="entry-extra">★ 3.2k stars</div>
+        <a href="#" class="entry-link">레포 →</a>
+      </div>
+    </div>
+
+    <!-- 11 HuggingFace -->
+    <div class="entry-card reveal" data-source="hf">
+      <div class="entry-source">
+        <span class="entry-source-tag hf">HF</span>
+      </div>
+      <div class="entry-body">
+        <h3>Cell-BERT: Pre-training on 50M Single-cell Transcriptomes for Cell Type Annotation</h3>
+        <div class="entry-authors">Nguyen P, Yamamoto S</div>
+        <div class="entry-abstract">5천만 단일세포 전사체 데이터로 사전학습한 BERT 모델. 세포 유형 분류 정확도 94.2%, 제로샷 크로스-조직 전이 성능 87.6%.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">76%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:76%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-21</div>
+        <div class="entry-extra">⬆ 89 upvotes</div>
+        <a href="#" class="entry-link">모델 →</a>
+      </div>
+    </div>
+
+    <!-- 12 S2 -->
+    <div class="entry-card reveal" data-source="s2">
+      <div class="entry-source">
+        <span class="entry-source-tag s2">S2</span>
+      </div>
+      <div class="entry-body">
+        <h3>Benchmarking Generative AI for Scientific Literature Summarization</h3>
+        <div class="entry-authors">Brown T, Davis K, Miller A</div>
+        <div class="entry-abstract">과학 논문 요약에서 GPT-4, Claude, Gemini 등 6개 LLM 비교 벤치마크. 생물학 논문에서 Claude가 사실적 정확도 1위, 전반적으로 GPT-4가 종합 1위.</div>
+      </div>
+      <div class="entry-meta">
+        <div class="relevance" style="color:var(--cyan)">68%</div>
+        <div class="relevance-bar"><div class="relevance-fill" style="width:68%;background:var(--cyan)"></div></div>
+        <div class="entry-date">2026-02-16</div>
+        <div class="entry-extra">📖 42 citations</div>
+        <a href="#" class="entry-link">논문 →</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<!-- ============ REPORT ============ -->
+<section id="report">
+<div class="container">
+  <div class="section-label reveal">03 — AI-Generated Report</div>
+  <h2 class="reveal reveal-delay-1">다이제스트 리포트</h2>
+  <p class="section-desc reveal reveal-delay-2">DigestAgent (Claude Haiku)가 수집된 논문들을 분석하여 생성한 주간 연구 동향 리포트입니다.</p>
+
+  <div class="report-card reveal reveal-delay-3">
+    <div class="report-header">
+      <div>
+        <div class="report-title">📋 AI in Biology Research — 주간 다이제스트</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px">2026.02.17 — 2026.02.24 · 12 entries from 6 sources</div>
+      </div>
+      <div class="report-cost">LLM 비용: $0.008</div>
+    </div>
+
+    <div class="report-body">
+      <!-- Executive Summary -->
+      <div class="report-section">
+        <div class="topic-section-label">Executive Summary</div>
+        <div class="exec-summary">
+          이번 주 AI+Biology 분야에서 주목할 만한 발전이 있었습니다. 단백질 구조 예측 분야에서 <strong>AlphaFold3의 오픈소스화</strong>가 이루어졌으며, 단일세포 분석에 foundation model을 적용한 연구가 다수 발표되었습니다. 특히 <strong>ESM-3 모델</strong>은 단백질 서열 이해에서 새로운 벤치마크를 달성했습니다. 약물 발견 파이프라인에 LLM을 통합하는 연구도 활발히 진행 중이며, <strong>BioGPT-2</strong>가 의생물학 텍스트 마이닝에서 SOTA를 갱신했습니다.
+        </div>
+      </div>
+
+      <!-- Highlights -->
+      <div class="report-section">
+        <div class="topic-section-label">Highlights</div>
+        <ul class="highlights-list">
+          <li class="highlight-item">
+            <div class="hl-num">1</div>
+            <div>
+              <div class="hl-title">AlphaFold3 오픈소스 공개</div>
+              <span class="hl-source" style="background:rgba(168,85,247,0.15);color:var(--github)">GitHub</span>
+              <span class="hl-desc">구조 생물학 연구의 접근성이 크게 향상될 전망. 단백질-DNA, 단백질-리간드 복합체 구조 예측까지 지원하며, 학술 목적 라이선스로 제공.</span>
+            </div>
+          </li>
+          <li class="highlight-item">
+            <div class="hl-num">2</div>
+            <div>
+              <div class="hl-title">ESM-3: 차세대 단백질 언어 모델</div>
+              <span class="hl-source" style="background:rgba(234,179,8,0.15);color:var(--huggingface)">HuggingFace</span>
+              <span class="hl-desc">기존 ESM-2 대비 접촉 예측 15% 성능 향상, 3B 파라미터. 제로샷 변이 효과 예측에서 SOTA 달성하며 단백질 엔지니어링에 직접 활용 가능.</span>
+            </div>
+          </li>
+          <li class="highlight-item">
+            <div class="hl-num">3</div>
+            <div>
+              <div class="hl-title">단일세포 Foundation Model로 유전자 조절 네트워크 발견</div>
+              <span class="hl-source" style="background:rgba(249,115,22,0.15);color:var(--biorxiv)">bioRxiv</span>
+              <span class="hl-desc">10M 세포 데이터로 사전학습. 세포 유형별 유전자 조절 네트워크를 제로샷으로 추론하여 TF-타겟 예측 정밀도 34% 향상.</span>
+            </div>
+          </li>
+          <li class="highlight-item">
+            <div class="hl-num">4</div>
+            <div>
+              <div class="hl-title">BioGPT-2: 15B 바이오메디컬 언어 모델</div>
+              <span class="hl-source" style="background:rgba(239,68,68,0.15);color:var(--arxiv)">arXiv</span>
+              <span class="hl-desc">의생물학 텍스트 마이닝에서 SOTA 달성. 관계 추출 F1 0.91, 질의응답 정확도 82.3%. PubMed 전문 + PMC 코퍼스 학습.</span>
+            </div>
+          </li>
+          <li class="highlight-item">
+            <div class="hl-num">5</div>
+            <div>
+              <div class="hl-title">LLM 기반 약물 상호작용 예측</div>
+              <span class="hl-source" style="background:rgba(59,130,246,0.15);color:var(--pubmed)">PubMed</span>
+              <span class="hl-desc">Graph Transformer + 분자 표현 학습으로 기존 방법 대비 AUC 0.12 향상. 미지의 약물 조합에서도 일반화 성능 우수.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Trends -->
+      <div class="report-section">
+        <div class="topic-section-label">주요 트렌드</div>
+        <ul class="trends-list">
+          <li class="trend-item"><span class="trend-icon">▸</span> Foundation model의 생물학 응용이 가속화 — 단백질, 단일세포, 병리학 이미지 전 분야로 확대</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> 단백질 서열/구조 분석에서 AI 활용 급증 — ESM-3, AlphaFold3 등 대형 모델 오픈소스화 트렌드</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> 오픈소스 생물정보학 도구의 품질 향상 — 벤치마크 프레임워크, 자동화 에이전트 등 실용 도구 등장</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> LLM Agent의 실험 자동화 적용 시도 — CRISPR-GPT 등 자연어 기반 실험 설계 에이전트 연구 활발</li>
+        </ul>
+      </div>
+
+      <!-- Source Breakdown -->
+      <div class="report-section">
+        <div class="topic-section-label">소스별 분포</div>
+        <div class="breakdown-bar">
+          <div class="breakdown-seg" style="flex:2;background:var(--pubmed)">2</div>
+          <div class="breakdown-seg" style="flex:2;background:var(--biorxiv)">2</div>
+          <div class="breakdown-seg" style="flex:2;background:var(--arxiv)">2</div>
+          <div class="breakdown-seg" style="flex:2;background:var(--github)">2</div>
+          <div class="breakdown-seg" style="flex:2;background:var(--huggingface)">2</div>
+          <div class="breakdown-seg" style="flex:2;background:var(--s2)">2</div>
+        </div>
+        <div class="breakdown-legend">
+          <div class="legend-item"><span class="legend-dot" style="background:var(--pubmed)"></span>PubMed (2)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--biorxiv)"></span>bioRxiv (2)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--arxiv)"></span>arXiv (2)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--github)"></span>GitHub (2)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--huggingface)"></span>HuggingFace (2)</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--s2)"></span>Semantic Scholar (2)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ STATS ============ -->
+<section id="stats">
+<div class="container">
+  <div class="section-label reveal">04 — Pipeline Statistics</div>
+  <h2 class="reveal reveal-delay-1">파이프라인 통계</h2>
+  <p class="section-desc reveal reveal-delay-2">누적 운영 통계입니다. 모든 데이터는 SQLite에 영구 저장되며 DigestScheduler가 자동으로 수집을 관리합니다.</p>
+
+  <div class="stats-row">
+    <div class="stat-card reveal">
+      <div class="stat-number" data-target="247">0</div>
+      <div class="stat-label">수집된 논문/코드</div>
+    </div>
+    <div class="stat-card reveal reveal-delay-1">
+      <div class="stat-number" data-target="12">0</div>
+      <div class="stat-label">생성된 리포트</div>
+    </div>
+    <div class="stat-card reveal reveal-delay-2">
+      <div class="stat-number" data-target="3">0</div>
+      <div class="stat-label">모니터링 토픽</div>
+    </div>
+    <div class="stat-card reveal reveal-delay-3">
+      <div class="stat-number" data-target="4.2">0</div>
+      <div class="stat-label">평균 수집 시간 (초)</div>
+    </div>
+  </div>
+
+  <!-- Source Pie (CSS only) -->
+  <div class="card reveal" style="max-width:500px;margin:0 auto;text-align:center">
+    <div class="topic-section-label" style="margin-bottom:20px">소스별 누적 엔트리</div>
+    <div style="display:flex;justify-content:center;margin-bottom:20px">
+      <svg width="200" height="200" viewBox="0 0 200 200" style="transform:rotate(-90deg)">
+        <!-- PubMed 22% -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="var(--pubmed)" stroke-width="30"
+          stroke-dasharray="110.5 392" stroke-dashoffset="0" opacity="0.85"/>
+        <!-- bioRxiv 20% -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="var(--biorxiv)" stroke-width="30"
+          stroke-dasharray="100.5 402" stroke-dashoffset="-110.5" opacity="0.85"/>
+        <!-- arXiv 18% -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="var(--arxiv)" stroke-width="30"
+          stroke-dasharray="90.5 412" stroke-dashoffset="-211" opacity="0.85"/>
+        <!-- GitHub 15% -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="var(--github)" stroke-width="30"
+          stroke-dasharray="75.4 427" stroke-dashoffset="-301.5" opacity="0.85"/>
+        <!-- HuggingFace 13% -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="var(--huggingface)" stroke-width="30"
+          stroke-dasharray="65.3 437" stroke-dashoffset="-376.9" opacity="0.85"/>
+        <!-- S2 12% -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="var(--s2)" stroke-width="30"
+          stroke-dasharray="60.3 442" stroke-dashoffset="-442.2" opacity="0.85"/>
+      </svg>
+    </div>
+    <div class="breakdown-legend" style="justify-content:center">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--pubmed)"></span>PubMed 54건 (22%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--biorxiv)"></span>bioRxiv 49건 (20%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--arxiv)"></span>arXiv 45건 (18%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--github)"></span>GitHub 37건 (15%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--huggingface)"></span>HuggingFace 32건 (13%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--s2)"></span>S2 30건 (12%)</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ API ============ -->
+<section id="api">
+<div class="container">
+  <div class="section-label reveal">05 — API Reference</div>
+  <h2 class="reveal reveal-delay-1">API 사용 예시</h2>
+  <p class="section-desc reveal reveal-delay-2">REST API를 통해 프로그래밍 방식으로 토픽 관리, 수집 트리거, 리포트 조회가 가능합니다.</p>
+
+  <div class="code-examples">
+    <!-- Create Topic -->
+    <div class="code-block reveal">
+      <div class="code-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="code-method post">POST</span>
+          <span class="code-path">/api/v1/digest/topics</span>
+        </div>
+        <span class="code-desc">토픽 프로필 생성</span>
+      </div>
+      <pre><span class="cmd">curl</span> -X POST http://localhost:8000/api/v1/digest/topics \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span> \
+  -d <span class="str">'{
+    <span class="key">"name"</span>: <span class="str">"AI in Biology Research"</span>,
+    <span class="key">"queries"</span>: [<span class="str">"machine learning biology"</span>, <span class="str">"protein language models"</span>],
+    <span class="key">"sources"</span>: [<span class="str">"pubmed"</span>, <span class="str">"biorxiv"</span>, <span class="str">"arxiv"</span>, <span class="str">"github"</span>, <span class="str">"huggingface"</span>],
+    <span class="key">"schedule"</span>: <span class="str">"daily"</span>
+  }'</span>
+
+<span class="comment"># Response</span>
+{
+  <span class="key">"id"</span>: <span class="str">"a1b2c3d4-..."</span>,
+  <span class="key">"name"</span>: <span class="str">"AI in Biology Research"</span>,
+  <span class="key">"schedule"</span>: <span class="str">"daily"</span>,
+  <span class="key">"is_active"</span>: <span class="num">true</span>,
+  <span class="key">"created_at"</span>: <span class="str">"2026-02-24T09:00:00Z"</span>
+}</pre>
+    </div>
+
+    <!-- Trigger Run -->
+    <div class="code-block reveal reveal-delay-1">
+      <div class="code-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="code-method post">POST</span>
+          <span class="code-path">/api/v1/digest/topics/{id}/run</span>
+        </div>
+        <span class="code-desc">즉시 수집 트리거</span>
+      </div>
+      <pre><span class="cmd">curl</span> -X POST http://localhost:8000/api/v1/digest/topics/a1b2c3d4-.../run \
+  -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span>
+
+<span class="comment"># Response — 즉시 반환, 백그라운드에서 파이프라인 실행</span>
+{
+  <span class="key">"topic_id"</span>: <span class="str">"a1b2c3d4-..."</span>,
+  <span class="key">"status"</span>: <span class="str">"triggered"</span>,
+  <span class="key">"message"</span>: <span class="str">"Digest pipeline started in background"</span>
+}</pre>
+    </div>
+
+    <!-- Get Reports -->
+    <div class="code-block reveal reveal-delay-2">
+      <div class="code-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="code-method get">GET</span>
+          <span class="code-path">/api/v1/digest/reports?topic_id={id}</span>
+        </div>
+        <span class="code-desc">다이제스트 리포트 조회</span>
+      </div>
+      <pre><span class="cmd">curl</span> http://localhost:8000/api/v1/digest/reports?topic_id=a1b2c3d4-... \
+  -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span>
+
+<span class="comment"># Response</span>
+[{
+  <span class="key">"id"</span>: <span class="str">"r5e6f7g8-..."</span>,
+  <span class="key">"topic_id"</span>: <span class="str">"a1b2c3d4-..."</span>,
+  <span class="key">"period_start"</span>: <span class="str">"2026-02-17T00:00:00Z"</span>,
+  <span class="key">"period_end"</span>: <span class="str">"2026-02-24T00:00:00Z"</span>,
+  <span class="key">"entry_count"</span>: <span class="num">12</span>,
+  <span class="key">"summary"</span>: <span class="str">"이번 주 AI+Biology 분야에서 주목할 만한..."</span>,
+  <span class="key">"highlights"</span>: [{
+    <span class="key">"title"</span>: <span class="str">"AlphaFold3 오픈소스 공개"</span>,
+    <span class="key">"source"</span>: <span class="str">"github"</span>,
+    <span class="key">"one_liner"</span>: <span class="str">"구조 생물학 연구의 접근성이 크게 향상될 전망"</span>
+  }],
+  <span class="key">"source_breakdown"</span>: {<span class="str">"pubmed"</span>: <span class="num">2</span>, <span class="str">"biorxiv"</span>: <span class="num">2</span>, ...},
+  <span class="key">"cost"</span>: <span class="num">0.008</span>
+}]</pre>
+    </div>
+
+    <!-- Get Stats -->
+    <div class="code-block reveal reveal-delay-3">
+      <div class="code-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="code-method get">GET</span>
+          <span class="code-path">/api/v1/digest/stats</span>
+        </div>
+        <span class="code-desc">통계 조회</span>
+      </div>
+      <pre><span class="cmd">curl</span> http://localhost:8000/api/v1/digest/stats \
+  -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span>
+
+<span class="comment"># Response</span>
+{
+  <span class="key">"total_topics"</span>: <span class="num">3</span>,
+  <span class="key">"total_entries"</span>: <span class="num">247</span>,
+  <span class="key">"total_reports"</span>: <span class="num">12</span>,
+  <span class="key">"entries_by_source"</span>: {
+    <span class="str">"pubmed"</span>: <span class="num">54</span>, <span class="str">"biorxiv"</span>: <span class="num">49</span>,
+    <span class="str">"arxiv"</span>: <span class="num">45</span>, <span class="str">"github"</span>: <span class="num">37</span>,
+    <span class="str">"huggingface"</span>: <span class="num">32</span>, <span class="str">"semantic_scholar"</span>: <span class="num">30</span>
+  }
+}</pre>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+<div class="container">
+  <div class="footer-logo">🧬 BioTeam-<span style="color:var(--teal)">AI</span></div>
+  <div class="footer-info">
+    Personal AI Science Team — JangKeun Kim, Weill Cornell Medicine<br>
+    <span style="color:var(--text-muted)">703 tests passing · 69 files · Next.js 15 + FastAPI + Claude Haiku</span>
+  </div>
+</div>
+</footer>
+
+<script>
+// === Particles ===
+(function(){
+  const c=document.getElementById('particles');
+  for(let i=0;i<30;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const size=Math.random()*4+1;
+    p.style.cssText=`
+      width:${size}px;height:${size}px;
+      left:${Math.random()*100}%;
+      animation-duration:${Math.random()*15+10}s;
+      animation-delay:${Math.random()*10}s;
+    `;
+    c.appendChild(p);
+  }
+})();
+
+// === Scroll Reveal ===
+(function(){
+  const obs=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('visible');
+      }
+    });
+  },{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+})();
+
+// === Counter Animation ===
+(function(){
+  const obs=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting&&!e.target.dataset.counted){
+        e.target.dataset.counted='true';
+        const target=parseFloat(e.target.dataset.target);
+        const isFloat=target%1!==0;
+        const duration=1500;
+        const start=performance.now();
+        function tick(now){
+          const elapsed=now-start;
+          const progress=Math.min(elapsed/duration,1);
+          const eased=1-Math.pow(1-progress,3);
+          const current=eased*target;
+          e.target.textContent=isFloat?current.toFixed(1):Math.round(current);
+          if(progress<1)requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+    });
+  },{threshold:0.5});
+  document.querySelectorAll('.stat-number[data-target]').forEach(el=>obs.observe(el));
+})();
+
+// === Source Filter ===
+(function(){
+  const btns=document.querySelectorAll('.filter-btn');
+  const cards=document.querySelectorAll('.entry-card');
+  btns.forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      btns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter=btn.dataset.filter;
+      cards.forEach(card=>{
+        if(filter==='all'||card.dataset.source===filter){
+          card.classList.remove('hidden');
+        }else{
+          card.classList.add('hidden');
+        }
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

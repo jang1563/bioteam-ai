@@ -183,3 +183,138 @@ def test_full_pipeline_mocked():
     assert report.entry_count > 0
     # One paper appears in both sources (same DOI), so dedup should reduce count
     assert report.source_breakdown.get("pubmed", 0) > 0 or report.source_breakdown.get("arxiv", 0) > 0
+
+
+# === Word Boundary Relevance Tests ===
+
+
+def test_relevance_word_boundary_no_substring():
+    """'rna' should NOT match substring in 'journal' or 'internal'."""
+    pipeline = DigestPipeline()
+    entries = [
+        {"title": "Published in the journal of internal medicine", "abstract": ""},
+    ]
+    scored = pipeline._compute_relevance(entries, ["rna"])
+    assert scored[0]["relevance_score"] == 0.0
+
+
+def test_relevance_word_boundary_matches():
+    """'rna' should match 'RNA sequencing' as a whole word."""
+    pipeline = DigestPipeline()
+    entries = [
+        {"title": "RNA sequencing reveals new biology", "abstract": ""},
+    ]
+    scored = pipeline._compute_relevance(entries, ["rna"])
+    assert scored[0]["relevance_score"] > 0.0
+
+
+def test_relevance_quoted_phrase():
+    """Quoted phrases should be kept intact as multi-word keywords."""
+    pipeline = DigestPipeline()
+    entries = [
+        {"title": "Single cell RNA-seq analysis", "abstract": ""},
+        {"title": "Single photon emission", "abstract": "Cell phone usage"},
+    ]
+    scored = pipeline._compute_relevance(entries, ['"single cell"'])
+    # First entry has the phrase "single cell" together
+    assert scored[0]["relevance_score"] > scored[1]["relevance_score"]
+
+
+def test_relevance_mixed_queries():
+    """Multiple keywords from a query should all contribute."""
+    pipeline = DigestPipeline()
+    entries = [
+        {"title": "AI for genomics and biology", "abstract": "Machine learning approach"},
+        {"title": "Cooking recipes", "abstract": ""},
+    ]
+    scored = pipeline._compute_relevance(entries, ["AI genomics biology"])
+    assert scored[0]["relevance_score"] > 0.5
+    assert scored[1]["relevance_score"] == 0.0
+
+
+# === URL Resolution Tests ===
+
+
+def test_resolve_url_explicit_takes_priority():
+    """Explicit url field should take priority over constructed URLs."""
+    url = DigestPipeline._resolve_url({
+        "url": "https://example.com/paper",
+        "doi": "10.1234/test",
+        "source": "pubmed",
+    })
+    assert url == "https://example.com/paper"
+
+
+def test_resolve_url_biorxiv():
+    """bioRxiv entries should get DOI-based URL."""
+    url = DigestPipeline._resolve_url({
+        "source": "biorxiv",
+        "doi": "10.1101/2024.01.15.123456",
+    })
+    assert url == "https://www.biorxiv.org/content/10.1101/2024.01.15.123456"
+
+
+def test_resolve_url_arxiv():
+    """arXiv entries should get arxiv.org/abs URL."""
+    url = DigestPipeline._resolve_url({
+        "source": "arxiv",
+        "arxiv_id": "2502.11111",
+    })
+    assert url == "https://arxiv.org/abs/2502.11111"
+
+
+def test_resolve_url_pubmed():
+    """PubMed entries should get pubmed.ncbi URL."""
+    url = DigestPipeline._resolve_url({
+        "source": "pubmed",
+        "pmid": "12345678",
+    })
+    assert url == "https://pubmed.ncbi.nlm.nih.gov/12345678/"
+
+
+def test_resolve_url_doi_fallback():
+    """Unknown source with DOI should use doi.org."""
+    url = DigestPipeline._resolve_url({
+        "source": "unknown",
+        "doi": "10.5678/test",
+    })
+    assert url == "https://doi.org/10.5678/test"
+
+
+def test_resolve_url_no_identifiers():
+    """Entry with no identifiers should return empty string."""
+    url = DigestPipeline._resolve_url({"source": "unknown", "title": "Test"})
+    assert url == ""
+
+
+# === Date Normalization Tests ===
+
+
+def test_normalize_date_iso():
+    """YYYY-MM-DD should pass through."""
+    assert DigestPipeline._normalize_date({"date": "2024-01-15"}) == "2024-01-15"
+
+
+def test_normalize_date_iso_datetime():
+    """ISO datetime should be normalized to YYYY-MM-DD."""
+    assert DigestPipeline._normalize_date({"date": "2024-01-15T10:30:00"}) == "2024-01-15"
+
+
+def test_normalize_date_iso_with_tz():
+    """ISO datetime with timezone should be normalized."""
+    assert DigestPipeline._normalize_date({"date": "2024-01-15T10:30:00+00:00"}) == "2024-01-15"
+
+
+def test_normalize_date_year_only():
+    """Year-only should pass through."""
+    assert DigestPipeline._normalize_date({"year": "2024"}) == "2024"
+
+
+def test_normalize_date_empty():
+    """Empty date should return empty string."""
+    assert DigestPipeline._normalize_date({}) == ""
+
+
+def test_normalize_date_slash_format():
+    """Slash format should be normalized."""
+    assert DigestPipeline._normalize_date({"date": "2024/01/15"}) == "2024-01-15"

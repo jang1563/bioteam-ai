@@ -175,3 +175,27 @@ def test_summarize_with_default_mock():
 
     assert isinstance(output, AgentOutput)
     assert output.error is None
+
+
+# === Highlight URL Tests ===
+
+
+def test_digest_highlight_with_url():
+    """DigestHighlight should accept url field."""
+    hl = DigestHighlight(
+        title="Paper with URL",
+        source="arxiv",
+        one_liner="Important finding",
+        url="https://arxiv.org/abs/2502.11111",
+    )
+    assert hl.url == "https://arxiv.org/abs/2502.11111"
+
+
+def test_digest_highlight_url_defaults_empty():
+    """DigestHighlight url should default to empty string."""
+    hl = DigestHighlight(
+        title="Paper without URL",
+        source="pubmed",
+        one_liner="Finding",
+    )
+    assert hl.url == ""

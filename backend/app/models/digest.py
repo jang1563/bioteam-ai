@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import SQLModel, Field as SQLField, Column, JSON
 
 
@@ -37,9 +38,16 @@ class DigestEntry(SQLModel, table=True):
     """A single paper/repo discovered by the digest pipeline."""
 
     __tablename__ = "digest_entry"
+    __table_args__ = (
+        UniqueConstraint("topic_id", "external_id", name="uq_digest_entry_topic_external"),
+        Index("ix_digest_entry_topic_id", "topic_id"),
+        Index("ix_digest_entry_source", "source"),
+        Index("ix_digest_entry_relevance", "relevance_score"),
+        Index("ix_digest_entry_fetched_at", "fetched_at"),
+    )
 
     id: str = SQLField(default_factory=lambda: str(uuid4()), primary_key=True)
-    topic_id: str  # FK to TopicProfile.id
+    topic_id: str = SQLField(foreign_key="topic_profile.id")
     source: str  # "pubmed" | "biorxiv" | "arxiv" | "github" | "huggingface" | "semantic_scholar"
     external_id: str  # DOI, arXiv ID, repo full_name, etc.
     title: str
@@ -56,9 +64,13 @@ class DigestReport(SQLModel, table=True):
     """A generated summary report for a topic."""
 
     __tablename__ = "digest_report"
+    __table_args__ = (
+        Index("ix_digest_report_topic_id", "topic_id"),
+        Index("ix_digest_report_created_at", "created_at"),
+    )
 
     id: str = SQLField(default_factory=lambda: str(uuid4()), primary_key=True)
-    topic_id: str  # FK to TopicProfile.id
+    topic_id: str = SQLField(foreign_key="topic_profile.id")
     period_start: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
     period_end: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
     entry_count: int = 0

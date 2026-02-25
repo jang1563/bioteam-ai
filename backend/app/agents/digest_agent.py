@@ -29,6 +29,7 @@ class DigestHighlight(BaseModel):
     source: str  # "arxiv", "pubmed", etc.
     one_liner: str
     why_important: str = ""
+    url: str = ""
 
 
 class DigestSummary(BaseModel):

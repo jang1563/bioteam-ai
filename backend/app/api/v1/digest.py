@@ -18,11 +18,12 @@ GET    /api/v1/digest/stats               — aggregate stats
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db.database import engine as db_engine
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/api/v1/digest", tags=["digest"])
 
 # Module-level pipeline reference (set during app startup)
 _pipeline = None
+_running_topics: set[str] = set()
 
 
 def set_pipeline(pipeline) -> None:
@@ -43,10 +45,13 @@ def set_pipeline(pipeline) -> None:
 # === Request / Response Models ===
 
 
+DigestSourceType = Literal["pubmed", "biorxiv", "arxiv", "github", "huggingface", "semantic_scholar"]
+
+
 class CreateTopicRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     queries: list[str] = Field(min_length=1)
-    sources: list[str] = Field(
+    sources: list[DigestSourceType] = Field(
         default_factory=lambda: ["pubmed", "biorxiv", "arxiv", "github", "huggingface", "semantic_scholar"],
     )
     categories: dict = Field(default_factory=dict)
@@ -56,7 +61,7 @@ class CreateTopicRequest(BaseModel):
 class UpdateTopicRequest(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     queries: list[str] | None = None
-    sources: list[str] | None = None
+    sources: list[DigestSourceType] | None = None
     categories: dict | None = None
     schedule: str | None = Field(default=None, pattern=r"^(daily|weekly|manual)$")
     is_active: bool | None = None
@@ -192,6 +197,7 @@ async def list_entries(
     days: int = Query(default=7, ge=1, le=365),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    sort_by: str = Query(default="relevance", pattern=r"^(relevance|date)$"),
 ) -> list[EntryResponse]:
     """List digest entries with optional filters."""
     with Session(db_engine) as session:
@@ -203,7 +209,13 @@ async def list_entries(
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         stmt = stmt.where(DigestEntry.fetched_at >= cutoff)
-        stmt = stmt.order_by(DigestEntry.relevance_score.desc()).offset(offset).limit(limit)
+
+        if sort_by == "date":
+            stmt = stmt.order_by(DigestEntry.fetched_at.desc())
+        else:
+            stmt = stmt.order_by(DigestEntry.relevance_score.desc())
+
+        stmt = stmt.offset(offset).limit(limit)
 
         entries = session.exec(stmt).all()
         for e in entries:
@@ -258,7 +270,7 @@ async def get_report(report_id: str) -> ReportResponse:
 
 
 @router.post("/topics/{topic_id}/run", response_model=ReportResponse)
-async def run_digest(topic_id: str, background_tasks: BackgroundTasks) -> ReportResponse:
+async def run_digest(topic_id: str) -> ReportResponse:
     """Trigger an immediate digest fetch for a topic."""
     if _pipeline is None:
         raise HTTPException(status_code=503, detail="Digest pipeline not initialized")
@@ -269,8 +281,18 @@ async def run_digest(topic_id: str, background_tasks: BackgroundTasks) -> Report
             raise HTTPException(status_code=404, detail=f"Topic not found: {topic_id}")
         session.expunge(topic)
 
-    report = await _pipeline.run(topic, days=7)
-    return _report_response(report)
+    if topic_id in _running_topics:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Digest is already running for topic '{topic.name}'",
+        )
+
+    _running_topics.add(topic_id)
+    try:
+        report = await _pipeline.run(topic, days=7)
+        return _report_response(report)
+    finally:
+        _running_topics.discard(topic_id)
 
 
 # === Stats ===
@@ -278,16 +300,23 @@ async def run_digest(topic_id: str, background_tasks: BackgroundTasks) -> Report
 
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats() -> StatsResponse:
-    """Get aggregate digest statistics."""
+    """Get aggregate digest statistics using SQL aggregates."""
     with Session(db_engine) as session:
-        total_topics = len(session.exec(select(TopicProfile)).all())
-        entries = session.exec(select(DigestEntry)).all()
-        total_entries = len(entries)
-        total_reports = len(session.exec(select(DigestReport)).all())
+        total_topics = session.exec(
+            select(func.count()).select_from(TopicProfile)
+        ).one()
+        total_entries = session.exec(
+            select(func.count()).select_from(DigestEntry)
+        ).one()
+        total_reports = session.exec(
+            select(func.count()).select_from(DigestReport)
+        ).one()
 
-        entries_by_source: dict[str, int] = {}
-        for e in entries:
-            entries_by_source[e.source] = entries_by_source.get(e.source, 0) + 1
+        rows = session.exec(
+            select(DigestEntry.source, func.count(DigestEntry.id))
+            .group_by(DigestEntry.source)
+        ).all()
+        entries_by_source = {row[0]: row[1] for row in rows}
 
     return StatsResponse(
         total_topics=total_topics,

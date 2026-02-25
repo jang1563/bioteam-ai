@@ -232,3 +232,45 @@ def test_create_topic_validation():
         "name": "Test", "queries": ["q"], "schedule": "hourly",
     })
     assert resp.status_code == 422
+
+
+def test_create_topic_invalid_source():
+    """POST /digest/topics should reject invalid source names."""
+    client = _client()
+    resp = client.post("/api/v1/digest/topics", json={
+        "name": "Bad Source Topic",
+        "queries": ["test"],
+        "sources": ["pubmed", "invalid_source"],
+    })
+    assert resp.status_code == 422
+
+
+def test_entries_sort_by_date():
+    """GET /digest/entries?sort_by=date should accept date sort."""
+    client = _client()
+    topic = _seed_topic("Sort Date Topic")
+    _seed_entry(topic.id, title="Sort Date Paper")
+    resp = client.get("/api/v1/digest/entries", params={
+        "topic_id": topic.id,
+        "sort_by": "date",
+    })
+    assert resp.status_code == 200
+
+
+def test_entries_sort_by_invalid():
+    """GET /digest/entries?sort_by=invalid should return 422."""
+    client = _client()
+    resp = client.get("/api/v1/digest/entries", params={"sort_by": "invalid"})
+    assert resp.status_code == 422
+
+
+def test_stats_returns_aggregates():
+    """GET /digest/stats should return proper aggregate structure."""
+    client = _client()
+    resp = client.get("/api/v1/digest/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data["total_topics"], int)
+    assert isinstance(data["total_entries"], int)
+    assert isinstance(data["total_reports"], int)
+    assert isinstance(data["entries_by_source"], dict)

@@ -1446,7 +1446,7 @@ Agent spec YAML template per agent with: system_prompt, output_schema, tools, mc
 ```python
 # PubMed via Biopython (rate-limited, XML-parsed)
 from Bio import Entrez, Medline
-Entrez.email = "jangkeun@med.cornell.edu"
+Entrez.email = os.getenv("NCBI_EMAIL", "your-email@example.com")
 Entrez.api_key = os.getenv("NCBI_API_KEY")
 
 # Semantic Scholar (citation graphs, semantic search)

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -103,13 +104,17 @@ class DigestPipeline:
                 continue
             tasks.append(self._fetch_single_source(source, topic, days, loop))
 
+        # Track source names in same order as tasks for error attribution
+        source_names = [s for s in topic.sources if s in self._clients]
+
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_entries: list[dict] = []
-        for result in results:
+        for source_name, result in zip(source_names, results):
             if isinstance(result, Exception):
-                logger.warning("Source fetch failed: %s", result)
+                logger.warning("Source '%s' fetch failed: %s", source_name, result)
                 continue
+            logger.debug("Source '%s' returned %d entries", source_name, len(result))
             all_entries.extend(result)
 
         return all_entries
@@ -210,19 +215,39 @@ class DigestPipeline:
         return unique
 
     def _compute_relevance(self, entries: list[dict], queries: list[str]) -> list[dict]:
-        """Deterministic keyword-based relevance scoring."""
-        keywords: set[str] = set()
+        """Deterministic keyword-based relevance scoring with word boundary matching."""
+        # Extract keywords: keep quoted phrases intact, split remainder
+        keywords: list[str] = []
         for q in queries:
-            keywords.update(w.lower() for w in q.split() if len(w) > 2)
+            quoted = re.findall(r'"([^"]+)"', q)
+            keywords.extend(phrase.lower() for phrase in quoted)
+            remainder = re.sub(r'"[^"]*"', '', q)
+            keywords.extend(w.lower() for w in remainder.split() if len(w) > 2)
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        unique_keywords: list[str] = []
+        for kw in keywords:
+            if kw not in seen:
+                seen.add(kw)
+                unique_keywords.append(kw)
+
+        # Pre-compile regex patterns for word boundary matching
+        patterns: list[re.Pattern] = []
+        for kw in unique_keywords:
+            try:
+                patterns.append(re.compile(r'\b' + re.escape(kw) + r'\b', re.IGNORECASE))
+            except re.error:
+                continue
 
         for entry in entries:
-            text = f"{entry.get('title', '')} {entry.get('abstract', '')} {entry.get('summary', '')} {entry.get('description', '')}".lower()
+            text = f"{entry.get('title', '')} {entry.get('abstract', '')} {entry.get('summary', '')} {entry.get('description', '')}"
             if not text.strip():
                 entry["relevance_score"] = 0.0
                 continue
 
-            matched = sum(1 for kw in keywords if kw in text)
-            score = min(matched / max(len(keywords), 1), 1.0)
+            matched = sum(1 for pat in patterns if pat.search(text))
+            score = min(matched / max(len(patterns), 1), 1.0)
             entry["relevance_score"] = round(score, 3)
 
         return entries
@@ -254,13 +279,14 @@ class DigestPipeline:
                     title=entry_data.get("title", ""),
                     authors=entry_data.get("authors", []),
                     abstract=entry_data.get("abstract", "") or entry_data.get("summary", "") or entry_data.get("description", ""),
-                    url=entry_data.get("url", "") or entry_data.get("pdf_url", "") or entry_data.get("source_url", ""),
+                    url=self._resolve_url(entry_data),
                     metadata_extra={
-                        k: v for k, v in entry_data.items()
+                        k: str(v) if not isinstance(v, (str, int, float, bool, list, dict, type(None))) else v
+                        for k, v in entry_data.items()
                         if k not in ("title", "authors", "abstract", "summary", "description", "source", "url", "pdf_url", "source_url")
                     },
                     relevance_score=entry_data.get("relevance_score", 0.0),
-                    published_at=entry_data.get("date", "") or entry_data.get("published", "") or entry_data.get("published_at", "") or entry_data.get("year", ""),
+                    published_at=self._normalize_date(entry_data),
                 )
                 session.add(db_entry)
                 persisted.append(db_entry)
@@ -292,8 +318,10 @@ class DigestPipeline:
                 {
                     "title": e.title,
                     "source": e.source,
-                    "abstract": e.abstract[:300] if e.abstract else "",
+                    "abstract": e.abstract[:500] if e.abstract else "",
                     "authors": e.authors[:3],
+                    "url": e.url,
+                    "published_at": e.published_at,
                     "relevance_score": e.relevance_score,
                 }
                 for e in entries[:30]  # Cap at 30 entries for LLM
@@ -303,6 +331,11 @@ class DigestPipeline:
                 "topic_name": topic.name,
                 "period": f"Last {days} days",
                 "entries": entries_for_llm,
+                "instructions": (
+                    "Only report facts present in the provided data. "
+                    "Do not infer or fabricate information not explicitly stated. "
+                    "Include the URL when referencing specific papers."
+                ),
             }, ensure_ascii=False)
 
             context = ContextPackage(task_description=task_desc)
@@ -334,6 +367,77 @@ class DigestPipeline:
             session.expunge(report)
 
         return report
+
+    @staticmethod
+    def _resolve_url(entry_data: dict) -> str:
+        """Resolve the best URL for an entry, with source-specific fallbacks."""
+        url = (
+            entry_data.get("url", "")
+            or entry_data.get("pdf_url", "")
+            or entry_data.get("source_url", "")
+        )
+        if url:
+            return url
+
+        source = entry_data.get("source", "")
+        doi = entry_data.get("doi", "")
+
+        if source == "biorxiv" and doi:
+            return f"https://www.biorxiv.org/content/{doi}"
+        if source == "arxiv":
+            arxiv_id = entry_data.get("arxiv_id", "")
+            if arxiv_id:
+                return f"https://arxiv.org/abs/{arxiv_id}"
+        if source == "pubmed":
+            pmid = entry_data.get("pmid", "")
+            if pmid:
+                return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        if doi:
+            return f"https://doi.org/{doi}"
+
+        return ""
+
+    @staticmethod
+    def _normalize_date(entry_data: dict) -> str:
+        """Parse various date formats and normalize to YYYY-MM-DD."""
+        raw = (
+            entry_data.get("date", "")
+            or entry_data.get("published", "")
+            or entry_data.get("published_at", "")
+            or entry_data.get("year", "")
+        )
+        if not raw:
+            return ""
+
+        raw = str(raw).strip()
+
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', raw):
+            return raw
+        if re.match(r'^\d{4}$', raw):
+            return raw
+
+        for fmt in (
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%Y-%m-%dT%H:%M:%S.%fZ",
+            "%Y/%m/%d",
+        ):
+            try:
+                dt = datetime.strptime(raw, fmt)
+                return dt.strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+
+        # Handle timezone-aware ISO strings (e.g., 2024-01-15T10:30:00+00:00)
+        try:
+            if "T" in raw:
+                dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                return dt.strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            pass
+
+        return raw
 
     @staticmethod
     def _extract_external_id(entry: dict) -> str:

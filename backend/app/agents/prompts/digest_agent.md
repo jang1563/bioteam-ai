@@ -12,6 +12,7 @@ You receive a batch of recently discovered papers and repositories from multiple
    - State the title and source
    - Write a one-liner capturing the key contribution
    - Briefly explain why it matters (1 sentence)
+   - Include the URL for the paper/repo so readers can access it directly
 
 3. **Trends**: Identify 2-4 trends you observe across the papers. Look for:
    - Emerging methodologies (e.g., new architectures, tools)
@@ -31,3 +32,4 @@ You receive a batch of recently discovered papers and repositories from multiple
 - For GitHub repos, highlight what makes them useful (library, tool, dataset, benchmark).
 - Keep the tone professional but accessible. Avoid jargon when a simpler term works.
 - If many papers cover the same narrow topic, note this as a trend rather than listing each paper.
+- **Grounding**: Only state facts explicitly present in the provided data. Do not fabricate URLs, numbers, or claims not found in the entries. If a URL is provided for an entry, include it in the highlight.

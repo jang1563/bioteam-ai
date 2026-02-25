@@ -39,19 +39,19 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - DATABASE_URL=postgresql://${LANGFUSE_DB_USER:-langfuse}:${LANGFUSE_DB_PASSWORD:-langfuse}@langfuse-db:5432/${LANGFUSE_DB_NAME:-langfuse}
       - NEXTAUTH_URL=http://localhost:3001
-      - NEXTAUTH_SECRET=bioteam-ai-langfuse-secret
-      - SALT=bioteam-ai-langfuse-salt
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-change-me-in-env}
+      - SALT=${LANGFUSE_SALT:-change-me-in-env}
     depends_on:
       - langfuse-db
 
   langfuse-db:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=langfuse
-      - POSTGRES_PASSWORD=langfuse
-      - POSTGRES_DB=langfuse
+      - POSTGRES_USER=${LANGFUSE_DB_USER:-langfuse}
+      - POSTGRES_PASSWORD=${LANGFUSE_DB_PASSWORD:-langfuse}
+      - POSTGRES_DB=${LANGFUSE_DB_NAME:-langfuse}
     volumes:
       - langfuse-data:/var/lib/postgresql/data
 

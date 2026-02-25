@@ -36,6 +36,8 @@ import {
   BookOpen,
   TrendingUp,
   Star,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { TableSkeleton } from "@/components/dashboard/loading-skeletons";
 import {
@@ -72,20 +74,24 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 export default function DigestPage() {
-  const { topics, loading: topicsLoading, create, remove } = useTopics();
+  const { topics, loading: topicsLoading, error: topicsError, create, remove } = useTopics();
   const [selectedTopicId, setSelectedTopicId] = useState<string | undefined>();
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"relevance" | "date">("relevance");
+  const [runError, setRunError] = useState<string | null>(null);
 
   const selectedTopic = topics.find((t) => t.id === selectedTopicId) ?? topics[0];
   const topicId = selectedTopic?.id;
 
-  const { entries, loading: entriesLoading, refresh: refreshEntries } = useDigestEntries(
+  const { entries, loading: entriesLoading, error: entriesError, refresh: refreshEntries } = useDigestEntries(
     topicId,
     sourceFilter === "all" ? undefined : (sourceFilter as DigestSource),
+    7,
+    sortBy,
   );
-  const { reports, loading: reportsLoading, refresh: refreshReports } = useDigestReports(topicId);
-  const { run, running } = useRunDigest();
+  const { reports, loading: reportsLoading, error: reportsError, refresh: refreshReports } = useDigestReports(topicId);
+  const { run, running, error: runHookError } = useRunDigest();
   const { stats } = useDigestStats();
 
   const filteredEntries = search
@@ -100,10 +106,17 @@ export default function DigestPage() {
 
   const handleRun = async () => {
     if (!topicId) return;
-    await run(topicId);
-    refreshEntries();
-    refreshReports();
+    setRunError(null);
+    try {
+      await run(topicId);
+      refreshEntries();
+      refreshReports();
+    } catch (e) {
+      setRunError(e instanceof Error ? e.message : "Failed to run digest");
+    }
   };
+
+  const activeError = runError || runHookError || topicsError || entriesError || reportsError;
 
   return (
     <div className="space-y-6">
@@ -127,6 +140,21 @@ export default function DigestPage() {
           <CreateTopicDialog onCreate={create} />
         </div>
       </div>
+
+      {/* Error Banner */}
+      {activeError && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">{activeError}</span>
+          <button
+            onClick={() => setRunError(null)}
+            className="shrink-0 rounded p-0.5 hover:bg-destructive/20"
+            aria-label="Dismiss error"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Topic Selector + Stats */}
       <div className="flex flex-wrap items-center gap-3">
@@ -207,6 +235,16 @@ export default function DigestPage() {
                   <SelectItem value="semantic_scholar">Semantic Scholar</SelectItem>
                 </SelectContent>
               </Select>
+              <label htmlFor="sort-by" className="sr-only">Sort by</label>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as "relevance" | "date")}>
+                <SelectTrigger className="w-[140px]" id="sort-by" aria-label="Sort by">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="relevance">By Relevance</SelectItem>
+                  <SelectItem value="date">By Date</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {entriesLoading ? (
@@ -256,51 +294,91 @@ export default function DigestPage() {
 }
 
 function EntryCard({ entry }: { entry: DigestEntry }) {
+  const [showAbstract, setShowAbstract] = useState(false);
+
   return (
-    <Card className="hover:border-primary/30 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${SOURCE_COLORS[entry.source] ?? "bg-gray-100 text-gray-800"}`}>
-                {SOURCE_LABELS[entry.source] ?? entry.source}
-              </span>
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {(entry.relevance_score * 100).toFixed(0)}% match
-              </span>
-              {entry.published_at && (
-                <span className="text-[10px] text-muted-foreground">
-                  {entry.published_at}
+    <>
+      <Card className="hover:border-primary/30 transition-colors">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${SOURCE_COLORS[entry.source] ?? "bg-gray-100 text-gray-800"}`}>
+                  {SOURCE_LABELS[entry.source] ?? entry.source}
                 </span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {(entry.relevance_score * 100).toFixed(0)}% match
+                </span>
+                {entry.published_at && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {entry.published_at}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-medium leading-snug">{entry.title}</h3>
+              {entry.authors.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {entry.authors.slice(0, 3).join(", ")}
+                  {entry.authors.length > 3 && ` +${entry.authors.length - 3}`}
+                </p>
+              )}
+              {entry.abstract && (
+                <div>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {entry.abstract}
+                  </p>
+                  {entry.abstract.length > 150 && (
+                    <button
+                      onClick={() => setShowAbstract(true)}
+                      className="text-[10px] text-primary hover:underline mt-0.5"
+                    >
+                      Show full abstract
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-            <h3 className="text-sm font-medium leading-snug">{entry.title}</h3>
-            {entry.authors.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {entry.authors.slice(0, 3).join(", ")}
-                {entry.authors.length > 3 && ` +${entry.authors.length - 3}`}
-              </p>
-            )}
-            {entry.abstract && (
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {entry.abstract}
-              </p>
+            {entry.url && (
+              <a
+                href={entry.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0"
+                aria-label={`Open ${entry.title}`}
+              >
+                <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+              </a>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Abstract expand dialog */}
+      <Dialog open={showAbstract} onOpenChange={setShowAbstract}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm leading-snug">{entry.title}</DialogTitle>
+            <DialogDescription className="text-xs">
+              {entry.authors.slice(0, 5).join(", ")}
+              {entry.authors.length > 5 && ` +${entry.authors.length - 5}`}
+              {entry.published_at && ` | ${entry.published_at}`}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{entry.abstract}</p>
           {entry.url && (
             <a
               href={entry.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0"
-              aria-label={`Open ${entry.title}`}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
-              <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+              <ExternalLink className="h-3 w-3" />
+              View paper
             </a>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -354,14 +432,29 @@ function ReportCard({ report }: { report: DigestReport }) {
             <ul className="space-y-2">
               {report.highlights.map((hl, i) => (
                 <li key={i} className="text-sm">
-                  <span className="font-medium">{hl.title}</span>
-                  {hl.source && (
-                    <Badge variant="outline" className="ml-2 text-[10px]">
-                      {SOURCE_LABELS[hl.source] ?? hl.source}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{hl.title}</span>
+                    {hl.source && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {SOURCE_LABELS[hl.source] ?? hl.source}
+                      </Badge>
+                    )}
+                    {hl.url && (
+                      <a
+                        href={hl.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open ${hl.title}`}
+                      >
+                        <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                      </a>
+                    )}
+                  </div>
                   {hl.one_liner && (
                     <p className="text-xs text-muted-foreground mt-0.5">{hl.one_liner}</p>
+                  )}
+                  {hl.why_important && (
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5 italic">{hl.why_important}</p>
                   )}
                 </li>
               ))}

@@ -77,6 +77,7 @@ export function useDigestEntries(
   topicId?: string,
   source?: DigestSource,
   days: number = 7,
+  sortBy: "relevance" | "date" = "relevance",
 ) {
   const [entries, setEntries] = useState<DigestEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +91,7 @@ export function useDigestEntries(
       if (source) params.set("source", source);
       params.set("days", String(days));
       params.set("limit", "100");
+      params.set("sort_by", sortBy);
 
       const data = await api.get<DigestEntry[]>(
         `/api/v1/digest/entries?${params}`,
@@ -101,7 +103,7 @@ export function useDigestEntries(
     } finally {
       setLoading(false);
     }
-  }, [topicId, source, days]);
+  }, [topicId, source, days, sortBy]);
 
   useEffect(() => {
     refresh();
