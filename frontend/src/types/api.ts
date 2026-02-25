@@ -27,6 +27,37 @@ export interface AgentDetail extends AgentListItem {
   version: string;
 }
 
+// === Agent Query & History Types ===
+
+export interface AgentQueryRequest {
+  query: string;
+  context?: string;
+}
+
+export interface AgentQueryResponse {
+  agent_id: string;
+  answer: string;
+  cost: number;
+  duration_ms: number;
+}
+
+export interface AgentHistoryEntry {
+  timestamp: string;
+  workflow_id: string | null;
+  step_id: string | null;
+  cost: number;
+  duration_ms: number;
+  success: boolean;
+  summary: string;
+}
+
+export interface AgentHistoryResponse {
+  agent_id: string;
+  entries: AgentHistoryEntry[];
+  total_count: number;
+  total_cost: number;
+}
+
 // === Workflow Types ===
 
 export type WorkflowState =
@@ -39,7 +70,7 @@ export type WorkflowState =
   | "CANCELLED"
   | "OVER_BUDGET";
 
-export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6";
+export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W7";
 
 export interface WorkflowStatus {
   id: string;
@@ -397,6 +428,79 @@ export interface DigestStats {
   total_entries: number;
   total_reports: number;
   entries_by_source: Record<string, number>;
+}
+
+// === Data Integrity Audit Types ===
+
+export type IntegritySeverity = "info" | "warning" | "error" | "critical";
+export type IntegrityCategory =
+  | "gene_name_error"
+  | "statistical_inconsistency"
+  | "retracted_reference"
+  | "corrected_reference"
+  | "pubpeer_flagged"
+  | "metadata_error"
+  | "sample_size_mismatch"
+  | "genome_build_inconsistency"
+  | "p_value_mismatch"
+  | "benford_anomaly"
+  | "grim_failure";
+export type FindingStatus = "open" | "acknowledged" | "resolved" | "false_positive";
+
+export interface AuditFinding {
+  id: string;
+  category: IntegrityCategory;
+  severity: IntegritySeverity;
+  title: string;
+  description: string;
+  source_text: string;
+  suggestion: string;
+  confidence: number;
+  checker: string;
+  finding_metadata: Record<string, unknown>;
+  workflow_id: string | null;
+  paper_doi: string | null;
+  paper_pmid: string | null;
+  status: FindingStatus;
+  resolved_by: string | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateFindingRequest {
+  status?: FindingStatus;
+  resolved_by?: string;
+  resolution_note?: string;
+}
+
+export interface TriggerAuditRequest {
+  text: string;
+  dois?: string[];
+  use_llm?: boolean;
+}
+
+export interface AuditRun {
+  id: string;
+  workflow_id: string | null;
+  trigger: string;
+  total_findings: number;
+  findings_by_severity: Record<string, number>;
+  findings_by_category: Record<string, number>;
+  overall_level: string;
+  summary: string;
+  cost: number;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface IntegrityStats {
+  total_findings: number;
+  findings_by_severity: Record<string, number>;
+  findings_by_category: Record<string, number>;
+  findings_by_status: Record<string, number>;
+  total_runs: number;
+  average_findings_per_run: number;
 }
 
 // === Health ===

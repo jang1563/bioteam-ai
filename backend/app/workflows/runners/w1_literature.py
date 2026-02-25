@@ -1,13 +1,15 @@
-"""W1 Literature Review Runner — 10-step pipeline for systematic literature review.
+"""W1 Literature Review Runner — 13-step pipeline for systematic literature review.
 
 Steps:
   SCOPE → SEARCH → SCREEN → EXTRACT → NEGATIVE_CHECK → SYNTHESIZE
     RD      KM      T02       T02       LabKB(code)       RD(Opus)
   → [HUMAN CHECKPOINT]
-  → CITATION_CHECK → RCMXT_SCORE → NOVELTY_CHECK → REPORT
-      code              code            KM            code(+SessionManifest)
+  → CONTRADICTION_CHECK → CITATION_CHECK → RCMXT_SCORE → INTEGRITY_CHECK
+        AmbiguityEngine       code              code            DIA(quick)
+  → NOVELTY_CHECK → REPORT
+        KM            code(+SessionManifest)
 
-Code-only steps: NEGATIVE_CHECK, CITATION_CHECK, RCMXT_SCORE, REPORT.
+Code-only steps: NEGATIVE_CHECK, CITATION_CHECK, RCMXT_SCORE, INTEGRITY_CHECK, REPORT.
 SYNTHESIZE has a human checkpoint for Director review.
 """
 
@@ -105,6 +107,13 @@ W1_STEPS: list[WorkflowStepDef] = [
         id="RCMXT_SCORE",
         agent_id="code_only",
         output_schema="dict",
+        next_step="INTEGRITY_CHECK",
+        estimated_cost=0.0,
+    ),
+    WorkflowStepDef(
+        id="INTEGRITY_CHECK",
+        agent_id="code_only",  # Uses data_integrity_auditor.quick_check (deterministic, no LLM)
+        output_schema="IntegrityAnalysis",
         next_step="NOVELTY_CHECK",
         estimated_cost=0.0,
     ),
@@ -227,7 +236,7 @@ class W1LiteratureReviewRunner:
                     payload={"step": step.id},
                 )
 
-            if step.id in ("NEGATIVE_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "REPORT"):
+            if step.id in ("NEGATIVE_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "INTEGRITY_CHECK", "REPORT"):
                 # Code-only steps
                 result = await self._run_code_step(step, query, instance)
                 self._step_results[step.id] = result
@@ -301,7 +310,7 @@ class W1LiteratureReviewRunner:
             self.engine.resume(instance)
 
         # Run remaining steps after human checkpoint
-        remaining_ids = ("CONTRADICTION_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT")
+        remaining_ids = ("CONTRADICTION_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "INTEGRITY_CHECK", "NOVELTY_CHECK", "REPORT")
         remaining_steps = [s for s in W1_STEPS if s.id in remaining_ids]
 
         for step in remaining_steps:
@@ -316,7 +325,7 @@ class W1LiteratureReviewRunner:
                     agent_id=step.agent_id,
                 )
 
-            if step.id in ("CITATION_CHECK", "RCMXT_SCORE", "REPORT"):
+            if step.id in ("CITATION_CHECK", "RCMXT_SCORE", "INTEGRITY_CHECK", "REPORT"):
                 result = await self._run_code_step(step, query, instance)
                 self._step_results[step.id] = result
                 self.engine.advance(instance, step.id)
@@ -410,6 +419,14 @@ class W1LiteratureReviewRunner:
             negative_results=negative_results,
         )
 
+        # Apply pending director notes to context
+        from app.workflows.note_processor import NoteProcessor
+        pending = NoteProcessor.get_pending_notes(instance, step.id)
+        if pending:
+            context = NoteProcessor.apply_to_context(pending, context, self._step_results)
+            NoteProcessor.mark_processed(instance, [n["_index"] for n in pending])
+            await self._persist(instance)
+
         # Call the specific method on the agent
         method = getattr(agent, method_name, None)
         if method is None:
@@ -474,9 +491,120 @@ class W1LiteratureReviewRunner:
             return self._citation_check()
         elif step.id == "RCMXT_SCORE":
             return await self._rcmxt_score()
+        elif step.id == "INTEGRITY_CHECK":
+            return await self._integrity_check(query, instance)
         elif step.id == "REPORT":
             return self._generate_report(query, instance)
         return AgentOutput(agent_id="code_only", error=f"Unknown code step: {step.id}")
+
+    async def _integrity_check(self, query: str, instance: WorkflowInstance) -> AgentOutput:
+        """Run deterministic integrity checks (quick_check — no LLM) on synthesis text."""
+        import re
+
+        agent = self.registry.get("data_integrity_auditor")
+        if agent is None:
+            logger.warning("DataIntegrityAuditorAgent not available, skipping INTEGRITY_CHECK")
+            return AgentOutput(
+                agent_id="data_integrity_auditor",
+                output={"step": "INTEGRITY_CHECK", "skipped": True, "reason": "agent_unavailable"},
+                output_type="IntegrityQuickCheck",
+                summary="Integrity check skipped: agent not available",
+            )
+
+        # Gather text from synthesis + extracted data
+        text_parts = []
+        for sid in ("SYNTHESIZE", "EXTRACT", "SEARCH"):
+            step_result = self._step_results.get(sid)
+            if step_result and hasattr(step_result, "output") and isinstance(step_result.output, dict):
+                for key in ("summary", "text", "synthesis", "data"):
+                    val = step_result.output.get(key)
+                    if val and isinstance(val, str):
+                        text_parts.append(val)
+
+        text = "\n\n".join(text_parts) if text_parts else query
+
+        # Extract DOIs from accumulated text for retraction checking
+        doi_pattern = re.compile(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+\b", re.IGNORECASE)
+        dois = list(set(doi_pattern.findall(text)))
+
+        try:
+            output = await agent.quick_check(text, dois=dois or None)
+            # Store integrity findings in session_manifest
+            if output.output and isinstance(output.output, dict):
+                instance.session_manifest["integrity_quick_check"] = output.output
+
+                # Persist findings to DB
+                findings_list = output.output.get("findings", [])
+                if findings_list:
+                    self._persist_integrity_findings(findings_list, instance.id)
+
+            return AgentOutput(
+                agent_id="data_integrity_auditor",
+                output={"step": "INTEGRITY_CHECK", **output.output} if output.output else {"step": "INTEGRITY_CHECK"},
+                output_type="IntegrityQuickCheck",
+                summary=output.summary or "Integrity quick check completed",
+            )
+        except Exception as e:
+            logger.warning("INTEGRITY_CHECK failed (degradation=skip): %s", e)
+            return AgentOutput(
+                agent_id="data_integrity_auditor",
+                output={"step": "INTEGRITY_CHECK", "skipped": True, "error": str(e)},
+                output_type="IntegrityQuickCheck",
+                summary=f"Integrity check skipped: {e}",
+            )
+
+    @staticmethod
+    def _persist_integrity_findings(findings_list: list[dict], workflow_id: str) -> None:
+        """Persist integrity findings from W1 quick_check to the database."""
+        try:
+            from app.db.database import engine as db_engine
+            from app.models.integrity import AuditFinding, AuditRun
+            from sqlmodel import Session
+
+            with Session(db_engine) as session:
+                for f in findings_list:
+                    db_finding = AuditFinding(
+                        category=f.get("category", "unknown"),
+                        severity=f.get("severity", "info"),
+                        title=f.get("title", ""),
+                        description=f.get("description", ""),
+                        source_text=f.get("source_text", ""),
+                        suggestion=f.get("suggestion", ""),
+                        confidence=f.get("confidence", 0.8),
+                        checker=f.get("checker", ""),
+                        finding_metadata=f.get("metadata", {}),
+                        workflow_id=workflow_id,
+                        paper_doi=f.get("doi", None),
+                    )
+                    session.add(db_finding)
+
+                # Create an audit run record
+                by_severity: dict[str, int] = {}
+                by_category: dict[str, int] = {}
+                for f in findings_list:
+                    sev = f.get("severity", "info")
+                    cat = f.get("category", "unknown")
+                    by_severity[sev] = by_severity.get(sev, 0) + 1
+                    by_category[cat] = by_category.get(cat, 0) + 1
+
+                run = AuditRun(
+                    workflow_id=workflow_id,
+                    trigger="w1_step",
+                    total_findings=len(findings_list),
+                    findings_by_severity=by_severity,
+                    findings_by_category=by_category,
+                    overall_level=(
+                        "critical" if by_severity.get("critical", 0) > 0
+                        else "significant_issues" if by_severity.get("error", 0) > 0
+                        else "minor_issues" if by_severity.get("warning", 0) > 0
+                        else "clean"
+                    ),
+                    summary=f"W1 quick check: {len(findings_list)} findings",
+                )
+                session.add(run)
+                session.commit()
+        except Exception as e:
+            logger.warning("Failed to persist integrity findings: %s", e)
 
     async def _negative_check(self, query: str) -> AgentOutput:
         """Check Lab KB for relevant negative results."""

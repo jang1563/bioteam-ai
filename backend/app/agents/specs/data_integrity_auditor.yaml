@@ -1,0 +1,39 @@
+# Agent Spec: Data Integrity Auditor
+# Hybrid engine: deterministic checkers + LLM contextual analysis.
+
+id: data_integrity_auditor
+name: Data Integrity Auditor
+tier: engine
+model_tier: sonnet
+model_tier_secondary: null
+division: cross_cutting
+criticality: optional        # W1 degrades gracefully without it
+
+system_prompt_file: data_integrity_auditor.md
+
+output_schemas:
+  - IntegrityAnalysis
+
+tools: []
+
+mcp_access: []
+
+literature_access: false     # Uses integrations directly (Crossref, HGNC, PubPeer)
+
+few_shot_examples:
+  - input: "Table contains values: SEPT7, 1-Mar, MARCH1, DEC1"
+    expected: "gene_name_error: 1-Mar is likely MARCH1 corrupted by Excel"
+  - input: "Mean=3.45, N=15 for Likert scale data"
+    expected: "grim_failure: 3.45 is not achievable with N=15 on integer data"
+  - input: "References DOI 10.1234/retracted-paper"
+    expected: "retracted_reference: This paper has been retracted"
+
+failure_modes:
+  - "False positive gene names: common English words flagged — mitigated by HGNC validation and context checking"
+  - "Crossref API timeout: retraction check skipped — mitigated by degradation_mode=skip"
+  - "GRIM false positives on continuous data: only apply to integer-constrained scales — mitigated by LLM contextualization"
+  - "Benford false alarm on small datasets: require minimum 50 values — mitigated by min_values threshold"
+
+degradation_mode: "skip"
+
+version: "0.1.0"

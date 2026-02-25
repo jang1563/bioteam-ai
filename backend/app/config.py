@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     celery_worker_concurrency: int = 4
     celery_task_time_limit: int = 3600  # seconds
 
+    # Data Integrity Audit
+    integrity_audit_enabled: bool = True
+    integrity_audit_interval_hours: float = 24.0
+    crossref_email: str = ""  # For Crossref polite pool (higher rate limits)
+
     # Email / SMTP (for digest report delivery)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

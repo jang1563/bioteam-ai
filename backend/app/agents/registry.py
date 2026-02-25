@@ -132,6 +132,7 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
     """
     from app.agents.ambiguity_engine import AmbiguityEngineAgent
     from app.agents.base import BaseAgent
+    from app.agents.data_integrity_auditor import DataIntegrityAuditorAgent
     from app.agents.digest_agent import DigestAgent
     from app.agents.experimental_designer import ExperimentalDesignerAgent
     from app.agents.integrative_biologist import IntegrativeBiologistAgent
@@ -162,6 +163,7 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
         (KnowledgeManagerAgent, "knowledge_manager", {"memory": memory}),
         (ProjectManagerAgent, "project_manager", {}),
         (AmbiguityEngineAgent, "ambiguity_engine", {"memory": memory}),
+        (DataIntegrityAuditorAgent, "data_integrity_auditor", {}),
         (DigestAgent, "digest_agent", {}),
         (GenomicsAgent, "t01_genomics", {}),
         (TranscriptomicsAgent, "t02_transcriptomics", {}),

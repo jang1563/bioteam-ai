@@ -95,8 +95,8 @@ def _make_runner():
 
 
 def test_step_count():
-    """W1 should have exactly 11 steps (including CONTRADICTION_CHECK)."""
-    assert len(W1_STEPS) == 11
+    """W1 should have exactly 12 steps (including CONTRADICTION_CHECK and INTEGRITY_CHECK)."""
+    assert len(W1_STEPS) == 12
     print("  PASS: step_count")
 
 
@@ -104,7 +104,7 @@ def test_step_order():
     """Steps should be in correct order."""
     expected = ["SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK",
                 "SYNTHESIZE", "CONTRADICTION_CHECK", "CITATION_CHECK",
-                "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT"]
+                "RCMXT_SCORE", "INTEGRITY_CHECK", "NOVELTY_CHECK", "REPORT"]
     actual = [s.id for s in W1_STEPS]
     assert actual == expected
     print("  PASS: step_order")

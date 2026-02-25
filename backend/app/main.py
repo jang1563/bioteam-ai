@@ -17,6 +17,7 @@ from app.api.v1.cold_start import router as cold_start_router
 from app.api.v1.contradictions import router as contradictions_router
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.digest import router as digest_router
+from app.api.v1.integrity import router as integrity_router
 from app.api.v1.direct_query import router as dq_router
 from app.api.v1.negative_results import router as nr_router
 from app.api.v1.sse import router as sse_router
@@ -25,6 +26,7 @@ from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.models.cost import CostRecord  # noqa: F401
+from app.models.integrity import AuditFinding, AuditRun  # noqa: F401
 from app.models.digest import DigestEntry, DigestReport, TopicProfile  # noqa: F401
 
 # Import all SQL models so SQLModel metadata registers them
@@ -91,6 +93,7 @@ async def lifespan(app: FastAPI):
     # Initialize agent registry (graceful — doesn't fail if API key is test/missing)
     backup_scheduler = None
     digest_scheduler = None
+    integrity_scheduler = None
     try:
         from app.agents.registry import create_registry
         from app.api.v1.agents import set_registry as set_agents_registry
@@ -144,12 +147,28 @@ async def lifespan(app: FastAPI):
         digest_pipeline = DigestPipeline(digest_agent=digest_agent)
         set_digest_pipeline(digest_pipeline)
 
+        # Wire up integrity auditor agent
+        from app.api.v1.integrity import set_auditor_agent
+        auditor_agent = registry.get("data_integrity_auditor")
+        if auditor_agent:
+            set_auditor_agent(auditor_agent)
+
         digest_scheduler = DigestScheduler(
             pipeline=digest_pipeline,
             check_interval_minutes=settings.digest_check_interval_minutes,
             enabled=settings.digest_enabled,
         )
         await digest_scheduler.start()
+
+        # Start integrity audit scheduler
+        from app.engines.integrity.scheduler import IntegrityScheduler
+
+        integrity_scheduler = IntegrityScheduler(
+            auditor_agent=auditor_agent,
+            interval_hours=settings.integrity_audit_interval_hours,
+            enabled=settings.integrity_audit_enabled,
+        )
+        await integrity_scheduler.start()
 
         logger.info("Agent registry initialized with %d agents", len(registry.list_agents()))
     except Exception as e:
@@ -162,6 +181,8 @@ async def lifespan(app: FastAPI):
         backup_scheduler.stop()
     if digest_scheduler is not None:
         digest_scheduler.stop()
+    if integrity_scheduler is not None:
+        integrity_scheduler.stop()
     if langfuse_enabled:
         _shutdown_langfuse()
 
@@ -211,6 +232,7 @@ app.include_router(cold_start_router)
 app.include_router(conversations_router)
 app.include_router(contradictions_router)
 app.include_router(digest_router)
+app.include_router(integrity_router)
 
 
 @app.get("/")

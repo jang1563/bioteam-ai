@@ -183,10 +183,123 @@ export const MOCK_DIGEST_STATS = {
   entries_by_source: { pubmed: 8, biorxiv: 4, arxiv: 3 },
 };
 
+export const MOCK_AGENT_DETAIL = {
+  id: "research_director",
+  name: "Research Director",
+  tier: "strategic",
+  model_tier: "opus",
+  model_tier_secondary: "sonnet",
+  division: null,
+  criticality: "critical",
+  tools: ["search", "synthesize"],
+  mcp_access: ["pubmed"],
+  literature_access: true,
+  version: "1.0",
+  state: "idle",
+  total_calls: 12,
+  total_cost: 0.45,
+  consecutive_failures: 0,
+};
+
+export const MOCK_AGENT_QUERY_RESPONSE = {
+  agent_id: "research_director",
+  answer: "VEGF levels have been shown to increase during short-duration spaceflight but may decrease during prolonged missions.",
+  cost: 0.032,
+  duration_ms: 2500,
+};
+
+export const MOCK_AGENT_HISTORY = {
+  agent_id: "research_director",
+  entries: [
+    { timestamp: "2026-02-24T10:00:00Z", workflow_id: "wf-001", step_id: "SCOPE", cost: 0.05, duration_ms: 1200, success: true, summary: "Scope defined for CRISPR review" },
+    { timestamp: "2026-02-24T08:00:00Z", workflow_id: "wf-002", step_id: "SEARCH", cost: 0.03, duration_ms: 800, success: true, summary: "Found 47 papers" },
+    { timestamp: "2026-02-23T14:00:00Z", workflow_id: "wf-003", step_id: "SYNTHESIZE", cost: 0.08, duration_ms: 3000, success: false, summary: "LLM timeout" },
+  ],
+  total_count: 3,
+  total_cost: 0.16,
+};
+
+export const MOCK_AUDIT_FINDINGS = [
+  {
+    id: "af-001",
+    category: "gene_name_error",
+    severity: "warning",
+    title: "Possible Excel date corruption: 1-Mar",
+    description: "1-Mar detected in data table context; likely MARCH1 corrupted by Excel auto-formatting",
+    source_text: "Table 1 shows 1-Mar, 7-Sep genes were upregulated",
+    suggestion: "Verify gene name; 1-Mar is likely MARCH1 (now MARCHF1)",
+    confidence: 0.85,
+    checker: "gene_name_checker",
+    finding_metadata: {},
+    workflow_id: "wf-001",
+    paper_doi: "10.1038/s41586-020-2521-4",
+    paper_pmid: null,
+    status: "open",
+    resolved_by: null,
+    resolution_note: null,
+    created_at: "2026-02-24T12:00:00Z",
+    updated_at: "2026-02-24T12:00:00Z",
+  },
+  {
+    id: "af-002",
+    category: "grim_failure",
+    severity: "error",
+    title: "GRIM test failure: mean 3.45 with N=15",
+    description: "Reported mean 3.45 is not achievable with N=15 on integer-constrained data",
+    source_text: "Mean score was 3.45 (N=15, SD=1.2)",
+    suggestion: "Verify the reported mean and sample size; values are mathematically inconsistent",
+    confidence: 0.95,
+    checker: "statistical_checker",
+    finding_metadata: { test_type: "grim", mean: 3.45, n: 15 },
+    workflow_id: null,
+    paper_doi: null,
+    paper_pmid: null,
+    status: "acknowledged",
+    resolved_by: "reviewer1",
+    resolution_note: null,
+    created_at: "2026-02-23T08:00:00Z",
+    updated_at: "2026-02-23T10:00:00Z",
+  },
+];
+
+export const MOCK_INTEGRITY_STATS = {
+  total_findings: 5,
+  findings_by_severity: { warning: 3, error: 1, critical: 1 },
+  findings_by_category: { gene_name_error: 3, grim_failure: 1, retracted_reference: 1 },
+  findings_by_status: { open: 3, acknowledged: 1, resolved: 1 },
+  total_runs: 3,
+  average_findings_per_run: 1.67,
+};
+
+export const MOCK_AUDIT_RUNS = [
+  {
+    id: "ar-001",
+    workflow_id: "wf-001",
+    trigger: "manual",
+    total_findings: 2,
+    findings_by_severity: { warning: 1, error: 1 },
+    findings_by_category: { gene_name_error: 1, grim_failure: 1 },
+    overall_level: "significant_issues",
+    summary: "2 integrity findings detected",
+    cost: 0.0,
+    duration_ms: 120,
+    created_at: "2026-02-24T12:00:00Z",
+  },
+];
+
 // ── Route setup helpers ────────────────────────────────────
 
 /** Mock all core API routes so pages render without a live backend. */
 export async function mockAllRoutes(page: Page) {
+  await page.route("**/api/v1/agents/*/query", (route) =>
+    route.fulfill({ json: MOCK_AGENT_QUERY_RESPONSE }),
+  );
+  await page.route("**/api/v1/agents/*/history*", (route) =>
+    route.fulfill({ json: MOCK_AGENT_HISTORY }),
+  );
+  await page.route("**/api/v1/agents/*", (route) =>
+    route.fulfill({ json: MOCK_AGENT_DETAIL }),
+  );
   await page.route("**/api/v1/agents", (route) =>
     route.fulfill({ json: MOCK_AGENTS }),
   );
@@ -248,6 +361,24 @@ export async function mockAllRoutes(page: Page) {
   );
   await page.route("**/api/v1/digest/run*", (route) =>
     route.fulfill({ json: { status: "ok" } }),
+  );
+  await page.route("**/api/v1/integrity/findings*", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ json: MOCK_AUDIT_FINDINGS });
+    }
+    if (route.request().method() === "DELETE") {
+      return route.fulfill({ status: 204, body: "" });
+    }
+    return route.fulfill({ json: MOCK_AUDIT_FINDINGS[0] });
+  });
+  await page.route("**/api/v1/integrity/stats*", (route) =>
+    route.fulfill({ json: MOCK_INTEGRITY_STATS }),
+  );
+  await page.route("**/api/v1/integrity/runs*", (route) =>
+    route.fulfill({ json: MOCK_AUDIT_RUNS }),
+  );
+  await page.route("**/api/v1/integrity/audit", (route) =>
+    route.fulfill({ json: MOCK_AUDIT_RUNS[0] }),
   );
   // SSE — return empty stream that stays open briefly
   await page.route("**/api/v1/sse*", (route) =>

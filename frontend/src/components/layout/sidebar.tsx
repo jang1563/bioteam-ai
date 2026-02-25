@@ -12,6 +12,7 @@ import {
   Dna,
   MessageSquare,
   Newspaper,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/digest", label: "Research Digest", icon: Newspaper },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/lab-kb", label: "Lab KB", icon: FlaskConical },
+  { href: "/integrity", label: "Integrity", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

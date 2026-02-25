@@ -21,7 +21,7 @@ WorkflowState = Literal[
     "COMPLETED", "FAILED", "CANCELLED", "OVER_BUDGET",
 ]
 
-WorkflowTemplate = Literal["direct_query", "W1", "W2", "W3", "W4", "W5", "W6"]
+WorkflowTemplate = Literal["direct_query", "W1", "W2", "W3", "W4", "W5", "W6", "W7"]
 
 
 # === SQL Tables ===
