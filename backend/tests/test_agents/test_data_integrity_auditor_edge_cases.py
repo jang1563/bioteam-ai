@@ -8,7 +8,6 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 import pytest
-
 from app.agents.base import BaseAgent
 from app.agents.data_integrity_auditor import (
     DataIntegrityAuditorAgent,
@@ -418,7 +417,7 @@ class TestAuditEdgeCases:
             task_description="Table shows 1-Mar genes.",
             prior_step_outputs=[],
         )
-        output = await agent.audit(context)
+        await agent.audit(context)
         # Gene findings are warning-level → should trigger LLM
         assert len(mock_llm.call_log) >= 1
 

@@ -1,14 +1,12 @@
 """Tests for ImageChecker — duplicate detection, ELA, metadata, resolution checks."""
 
 import io
-import struct
 
 import pytest
-from PIL import Image, ExifTags
-from PIL.ExifTags import Base as ExifBase
-
 from app.engines.integrity.finding_models import ImageInput
 from app.engines.integrity.image_checker import ImageChecker
+from PIL import Image
+from PIL.ExifTags import Base as ExifBase
 
 
 @pytest.fixture

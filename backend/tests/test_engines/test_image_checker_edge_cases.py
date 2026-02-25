@@ -20,7 +20,7 @@ import os
 import sys
 
 import pytest
-from PIL import Image, ExifTags
+from PIL import Image
 from PIL.ExifTags import Base as ExifBase
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))

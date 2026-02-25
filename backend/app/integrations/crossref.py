@@ -13,7 +13,6 @@ import asyncio
 import logging
 
 import httpx
-
 from app.engines.integrity.finding_models import RetractionStatus
 
 logger = logging.getLogger(__name__)

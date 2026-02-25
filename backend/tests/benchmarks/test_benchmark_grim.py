@@ -11,10 +11,8 @@ import random
 import warnings
 
 import pytest
-from pysprite import grim as pysprite_grim
-
 from app.engines.integrity.statistical_checker import StatisticalChecker
-
+from pysprite import grim as pysprite_grim
 
 # ── Helper ──
 
@@ -291,7 +289,7 @@ class TestGRIMAlgorithmDifferences:
         rate = total_disagree / total_cases if total_cases > 0 else 0
 
         # Print analysis for visibility
-        print(f"\n=== GRIM Algorithm Comparison ===")
+        print("\n=== GRIM Algorithm Comparison ===")
         print(f"Total cases: {total_cases}")
         print(f"Total disagreements: {total_disagree}")
         print(f"Disagreement rate: {rate:.6f} ({rate*100:.4f}%)")

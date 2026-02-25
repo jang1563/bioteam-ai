@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-
 from app.engines.integrity.finding_models import PubPeerStatus, RetractionStatus
 from app.engines.integrity.retraction_checker import RetractionChecker
 

@@ -14,13 +14,9 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any
-from uuid import uuid4
 
-from app.agents.base import observe
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
-from app.config import settings
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
 from app.engines.integrity.finding_models import ImageInput
 from app.engines.integrity.gene_name_checker import GeneNameChecker
@@ -28,7 +24,7 @@ from app.engines.integrity.image_checker import ImageChecker
 from app.engines.integrity.metadata_validator import MetadataValidator
 from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
-from app.models.agent import AgentOutput
+from app.models.messages import ContextPackage
 from app.models.workflow import WorkflowInstance, WorkflowStepDef
 from app.workflows.engine import WorkflowEngine
 

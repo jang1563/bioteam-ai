@@ -1,7 +1,6 @@
 """Tests for GeneNameChecker — Excel date corruption detection."""
 
 import pytest
-
 from app.engines.integrity.gene_name_checker import GeneNameChecker
 
 

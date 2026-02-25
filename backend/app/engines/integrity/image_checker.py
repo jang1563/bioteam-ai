@@ -16,15 +16,14 @@ import logging
 from itertools import combinations
 
 import imagehash
-from PIL import Image, ExifTags
-from PIL.ExifTags import Base as ExifBase
-
 from app.engines.integrity.finding_models import (
     DuplicateMatch,
     ELAResult,
     ImageFinding,
     ImageInput,
 )
+from PIL import Image
+from PIL.ExifTags import Base as ExifBase
 
 logger = logging.getLogger(__name__)
 

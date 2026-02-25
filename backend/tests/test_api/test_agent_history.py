@@ -15,7 +15,6 @@ from app.db.database import create_db_and_tables
 from app.db.database import engine as db_engine
 from app.llm.mock_layer import MockLLMLayer
 from app.main import app
-from app.models.cost import CostRecord
 from app.models.workflow import StepCheckpoint
 from fastapi.testclient import TestClient
 from sqlmodel import Session

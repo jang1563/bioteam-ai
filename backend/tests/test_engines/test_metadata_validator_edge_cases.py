@@ -1,7 +1,6 @@
 """Edge case tests for MetadataValidator — accession boundaries, genome build variants, sample sizes."""
 
 import pytest
-
 from app.engines.integrity.metadata_validator import MetadataValidator
 
 

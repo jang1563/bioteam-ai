@@ -1,7 +1,6 @@
 """Edge case tests for GeneNameChecker — boundary conditions, encoding, dedup, tables."""
 
 import pytest
-
 from app.engines.integrity.gene_name_checker import GeneNameChecker
 
 

@@ -36,7 +36,7 @@ dependencies = [
     "imagehash>=4.3.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=9.0.0",
     "pytest-asyncio>=0.23.0",

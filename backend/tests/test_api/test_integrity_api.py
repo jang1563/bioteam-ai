@@ -16,13 +16,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
-from app.api.v1.integrity import router as integrity_router, set_auditor_agent
-from app.db.database import create_db_and_tables, engine as db_engine
+from app.api.v1.integrity import router as integrity_router
+from app.api.v1.integrity import set_auditor_agent
+from app.db.database import create_db_and_tables
+from app.db.database import engine as db_engine
 from app.models.integrity import AuditFinding, AuditRun
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

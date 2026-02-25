@@ -3,7 +3,6 @@
 import asyncio
 import os
 import sys
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -18,11 +17,10 @@ from app.llm.mock_layer import MockLLMLayer
 from app.models.agent import AgentOutput
 from app.models.workflow import WorkflowInstance
 from app.workflows.runners.w7_integrity import (
+    _METHOD_MAP,
     W7_STEPS,
     W7IntegrityRunner,
-    _METHOD_MAP,
 )
-
 
 # === Step Definition Tests ===
 

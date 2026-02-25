@@ -40,13 +40,14 @@ from __future__ import annotations
 import json
 import os
 import re
+
+# Ensure backend is importable
+import sys
 import time
 from pathlib import Path
 
 import pytest
 
-# Ensure backend is importable
-import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")

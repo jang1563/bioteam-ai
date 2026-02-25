@@ -13,8 +13,6 @@ import logging
 import re
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field
-
 from app.agents.base import BaseAgent
 from app.engines.integrity.finding_models import ImageInput, IntegrityFinding, IntegrityReport
 from app.engines.integrity.gene_name_checker import GeneNameChecker
@@ -24,6 +22,7 @@ from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from app.integrations.crossref import CrossrefClient

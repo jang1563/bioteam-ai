@@ -1,7 +1,6 @@
 """Tests for MetadataValidator — GEO/SRA accessions, genome builds, sample sizes."""
 
 import pytest
-
 from app.engines.integrity.metadata_validator import MetadataValidator
 
 

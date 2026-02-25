@@ -14,15 +14,12 @@ Checkers covered (6):
   - Text extraction (SD, percentage, APA stats from realistic paragraphs)
 """
 
-import math
 
 import pytest
-
-from app.engines.integrity.finding_models import PubPeerStatus, RetractionStatus
+from app.engines.integrity.finding_models import RetractionStatus
 from app.engines.integrity.gene_name_checker import GeneNameChecker
 from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
-
 
 # ══════════════════════════════════════════════════════════════════
 # Ground-truth datasets
@@ -203,7 +200,7 @@ class TestGRIMScorecard:
                 tn += 1
 
         m = _metrics(tp, fp, fn, tn)
-        print(f"\n=== GRIM Scorecard ===")
+        print("\n=== GRIM Scorecard ===")
         print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
         print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
         assert m["R"] >= 0.85, f"GRIM recall {m['R']:.3f} < 0.85"
@@ -228,7 +225,7 @@ class TestGRIMMERSDScorecard:
                 tn += 1
 
         m = _metrics(tp, fp, fn, tn)
-        print(f"\n=== GRIMMER SD Scorecard ===")
+        print("\n=== GRIMMER SD Scorecard ===")
         print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
         print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
         assert m["R"] >= 0.85, f"GRIMMER SD recall {m['R']:.3f} < 0.85"
@@ -253,7 +250,7 @@ class TestGRIMMERPctScorecard:
                 tn += 1
 
         m = _metrics(tp, fp, fn, tn)
-        print(f"\n=== GRIMMER Pct Scorecard ===")
+        print("\n=== GRIMMER Pct Scorecard ===")
         print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
         print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
         assert m["R"] >= 0.85, f"GRIMMER Pct recall {m['R']:.3f} < 0.85"
@@ -279,7 +276,7 @@ class TestPValueScorecard:
                 tn += 1
 
         m = _metrics(tp, fp, fn, tn)
-        print(f"\n=== P-Value Scorecard ===")
+        print("\n=== P-Value Scorecard ===")
         print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
         print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
         assert m["R"] >= 0.85, f"P-value recall {m['R']:.3f} < 0.85"
@@ -305,7 +302,7 @@ class TestGeneNameScorecard:
                 tn += 1
 
         m = _metrics(tp, fp, fn, tn)
-        print(f"\n=== Gene Name Scorecard ===")
+        print("\n=== Gene Name Scorecard ===")
         print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
         print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
         assert m["R"] >= 0.85, f"Gene name recall {m['R']:.3f} < 0.85"
@@ -332,7 +329,7 @@ class TestRetractionScorecard:
                 tn += 1
 
         m = _metrics(tp, fp, fn, tn)
-        print(f"\n=== Retraction Scorecard ===")
+        print("\n=== Retraction Scorecard ===")
         print(f"TP={m['tp']} FP={m['fp']} FN={m['fn']} TN={m['tn']}")
         print(f"P={m['P']:.3f} R={m['R']:.3f} F1={m['F1']:.3f}")
         assert m["R"] >= 0.85, f"Retraction recall {m['R']:.3f} < 0.85"

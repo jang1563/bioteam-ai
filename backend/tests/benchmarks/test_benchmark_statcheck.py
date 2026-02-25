@@ -16,14 +16,12 @@ import warnings
 
 import pandas as pd
 import pytest
-
 from app.engines.integrity.statistical_checker import (
-    StatisticalChecker,
     _APA_STAT_RE,
     _Z_STAT_RE,
+    StatisticalChecker,
     _recalculate_p_value,
 )
-
 
 # ── Ground truth test cases ──
 # Each case: (text, expected extraction, expected error, description)
@@ -558,7 +556,7 @@ class TestAggregateMetrics:
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-        print(f"\n=== Our System Metrics ===")
+        print("\n=== Our System Metrics ===")
         print(f"TP={tp}, FP={fp}, FN={fn}, TN={tn}")
         print(f"Precision: {precision:.3f}")
         print(f"Recall:    {recall:.3f}")

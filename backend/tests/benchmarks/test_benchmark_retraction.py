@@ -17,10 +17,8 @@ References:
 import os
 
 import pytest
-
 from app.engines.integrity.finding_models import PubPeerStatus, RetractionStatus
 from app.engines.integrity.retraction_checker import RetractionChecker
-
 
 # ── Mock clients ──
 
@@ -296,7 +294,7 @@ class TestRetractionScorecard:
         recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-        print(f"\n=== Retraction Scorecard ===")
+        print("\n=== Retraction Scorecard ===")
         print(f"TP={tp} FP={fp} FN={fn} TN={tn}")
         print(f"Precision: {precision:.3f}")
         print(f"Recall:    {recall:.3f}")
@@ -327,7 +325,7 @@ class TestLiveCrossref:
         checker = RetractionChecker(crossref_client=client)
         findings = await checker.check_doi("10.1016/S0140-6736(97)11096-0")
         # Informational: print what we find
-        print(f"\n=== Live Crossref: Wakefield ===")
+        print("\n=== Live Crossref: Wakefield ===")
         print(f"Findings: {len(findings)}")
         for f in findings:
             print(f"  {f.category} ({f.severity}): {f.title}")

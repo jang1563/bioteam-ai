@@ -3,8 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from app.engines.integrity.finding_models import RetractionStatus
 from app.integrations.crossref import CrossrefClient
 
 

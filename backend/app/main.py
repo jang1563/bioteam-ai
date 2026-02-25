@@ -17,8 +17,8 @@ from app.api.v1.cold_start import router as cold_start_router
 from app.api.v1.contradictions import router as contradictions_router
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.digest import router as digest_router
-from app.api.v1.integrity import router as integrity_router
 from app.api.v1.direct_query import router as dq_router
+from app.api.v1.integrity import router as integrity_router
 from app.api.v1.negative_results import router as nr_router
 from app.api.v1.sse import router as sse_router
 from app.api.v1.workflows import router as workflows_router
@@ -26,11 +26,11 @@ from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.models.cost import CostRecord  # noqa: F401
-from app.models.integrity import AuditFinding, AuditRun  # noqa: F401
 from app.models.digest import DigestEntry, DigestReport, TopicProfile  # noqa: F401
 
 # Import all SQL models so SQLModel metadata registers them
 from app.models.evidence import ContradictionEntry, DataRegistry, Evidence  # noqa: F401
+from app.models.integrity import AuditFinding, AuditRun  # noqa: F401
 from app.models.memory import EpisodicEvent  # noqa: F401
 from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401
 from app.models.negative_result import NegativeResult  # noqa: F401

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 
 import httpx
-
 from app.engines.integrity.finding_models import PubPeerStatus
 
 logger = logging.getLogger(__name__)

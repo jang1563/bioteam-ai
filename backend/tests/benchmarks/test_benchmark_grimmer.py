@@ -15,9 +15,7 @@ Tests include:
 import math
 
 import pytest
-
 from app.engines.integrity.statistical_checker import StatisticalChecker
-
 
 # ── Helpers ──
 

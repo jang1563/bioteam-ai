@@ -1,8 +1,6 @@
 """Edge case tests for StatisticalChecker — GRIM boundaries, Benford edge inputs, p-value edge math."""
 
-import math
 
-import pytest
 
 from app.engines.integrity.statistical_checker import (
     StatisticalChecker,

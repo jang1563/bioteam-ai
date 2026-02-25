@@ -12,11 +12,9 @@ Tests covering:
 from __future__ import annotations
 
 import pytest
-
 from app.agents.base import BaseAgent
 from app.agents.data_integrity_auditor import (
     DataIntegrityAuditorAgent,
-    IntegrityAnalysis,
     IntegrityContextAssessment,
 )
 from app.llm.mock_layer import MockLLMLayer

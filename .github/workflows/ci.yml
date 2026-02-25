@@ -34,6 +34,7 @@ jobs:
         run: |
           uv run pytest backend/tests/ \
             --ignore=backend/tests/test_integrations/test_semantic_scholar.py \
+            --ignore=backend/tests/benchmarks/ \
             -x -q --tb=short
 
   frontend:

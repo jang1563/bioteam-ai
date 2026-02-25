@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
 
 from app.db.database import engine as db_engine
 from app.models.integrity import AuditFinding, AuditRun

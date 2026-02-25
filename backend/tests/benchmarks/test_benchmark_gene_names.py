@@ -10,9 +10,7 @@ References:
 """
 
 import pytest
-
 from app.engines.integrity.gene_name_checker import GeneNameChecker
-
 
 # ── Ground truth: True positives ──
 # Excel date patterns that should be detected as corrupted gene names.
@@ -151,8 +149,8 @@ class TestZiemannTableData:
         assert corrected == {"MARCHF1", "SEPTIN7", "BHLHE40"}
 
         for f in findings:
-            assert f.severity == "error", f"Table context should be severity='error'"
-            assert f.confidence == 0.9, f"Table confidence should be 0.9"
+            assert f.severity == "error", "Table context should be severity='error'"
+            assert f.confidence == 0.9, "Table confidence should be 0.9"
 
     def test_deduplication(self):
         """Same corrupted gene appearing multiple times should be deduplicated."""
@@ -228,7 +226,7 @@ class TestGeneNameScorecard:
         recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-        print(f"\n=== Gene Name Scorecard (Ziemann) ===")
+        print("\n=== Gene Name Scorecard (Ziemann) ===")
         print(f"TP={tp} FP={fp} FN={fn} TN={tn}")
         print(f"Precision: {precision:.3f}")
         print(f"Recall:    {recall:.3f}")

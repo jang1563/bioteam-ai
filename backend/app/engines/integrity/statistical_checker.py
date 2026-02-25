@@ -17,9 +17,9 @@ import re
 
 from app.engines.integrity.finding_models import (
     BenfordResult,
-    GRIMResult,
     GRIMMERPercentResult,
     GRIMMERSDResult,
+    GRIMResult,
     PValueCheckResult,
     StatisticalFinding,
 )
