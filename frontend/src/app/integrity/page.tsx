@@ -67,6 +67,10 @@ const categoryLabels: Record<string, string> = {
   p_value_mismatch: "P-value",
   benford_anomaly: "Benford",
   grim_failure: "GRIM",
+  duplicate_image: "Duplicate Image",
+  image_manipulation: "Image Manipulation",
+  image_metadata_anomaly: "Image Metadata",
+  image_quality_issue: "Image Quality",
 };
 
 export default function IntegrityPage() {

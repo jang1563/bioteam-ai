@@ -1,10 +1,10 @@
-"""W7 Data Integrity Audit Runner — 7-step pipeline for systematic integrity checking.
+"""W7 Data Integrity Audit Runner — 8-step pipeline for systematic integrity checking.
 
 Steps:
-  COLLECT → GENE_CHECK → STAT_CHECK → RETRACTION_CHECK → METADATA_CHECK → LLM_CONTEXTUALIZE → REPORT
-    KM      code_only    code_only       code_only         code_only          DIA                 code_only
+  COLLECT → GENE_CHECK → STAT_CHECK → RETRACTION_CHECK → METADATA_CHECK
+    → IMAGE_CHECK → LLM_CONTEXTUALIZE → REPORT
 
-Code-only steps: GENE_CHECK, STAT_CHECK, RETRACTION_CHECK, METADATA_CHECK, REPORT.
+Code-only steps: GENE_CHECK, STAT_CHECK, RETRACTION_CHECK, METADATA_CHECK, IMAGE_CHECK, REPORT.
 LLM steps: COLLECT (KM), LLM_CONTEXTUALIZE (DIA).
 Budget: $3 max, ~2 Sonnet calls.
 """
@@ -22,7 +22,9 @@ from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
 from app.config import settings
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
+from app.engines.integrity.finding_models import ImageInput
 from app.engines.integrity.gene_name_checker import GeneNameChecker
+from app.engines.integrity.image_checker import ImageChecker
 from app.engines.integrity.metadata_validator import MetadataValidator
 from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
@@ -72,6 +74,13 @@ W7_STEPS: list[WorkflowStepDef] = [
         id="METADATA_CHECK",
         agent_id="code_only",
         output_schema="dict",
+        next_step="IMAGE_CHECK",
+        estimated_cost=0.0,
+    ),
+    WorkflowStepDef(
+        id="IMAGE_CHECK",
+        agent_id="code_only",
+        output_schema="dict",
         next_step="LLM_CONTEXTUALIZE",
         estimated_cost=0.0,
     ),
@@ -100,9 +109,9 @@ _METHOD_MAP: dict[str, tuple[str, str]] = {
 class W7IntegrityRunner:
     """Orchestrates the W7 Data Integrity Audit pipeline.
 
-    7-step pipeline:
+    8-step pipeline:
       COLLECT -> GENE_CHECK -> STAT_CHECK -> RETRACTION_CHECK
-      -> METADATA_CHECK -> LLM_CONTEXTUALIZE -> REPORT
+      -> METADATA_CHECK -> IMAGE_CHECK -> LLM_CONTEXTUALIZE -> REPORT
     """
 
     def __init__(
@@ -120,11 +129,13 @@ class W7IntegrityRunner:
         self._stat_checker = StatisticalChecker()
         self._retraction_checker = RetractionChecker()
         self._metadata_validator = MetadataValidator()
+        self._image_checker = ImageChecker()
 
         # Accumulated results
         self._all_findings: list[dict] = []
         self._collected_text: str = ""
         self._collected_dois: list[str] = []
+        self._collected_images: list[ImageInput] = []
 
     async def run(self, instance: WorkflowInstance) -> WorkflowInstance:
         """Run the full W7 pipeline."""
@@ -132,6 +143,7 @@ class W7IntegrityRunner:
         self._all_findings = []
         self._collected_text = ""
         self._collected_dois = []
+        self._collected_images = []
 
         instance.state = "RUNNING"
         query = instance.query
@@ -211,6 +223,8 @@ class W7IntegrityRunner:
             return await self._step_retraction_check()
         elif step.id == "METADATA_CHECK":
             return self._step_metadata_check()
+        elif step.id == "IMAGE_CHECK":
+            return self._step_image_check()
         elif step.id == "LLM_CONTEXTUALIZE":
             return await self._step_llm_contextualize(query, instance)
         elif step.id == "REPORT":
@@ -274,6 +288,15 @@ class W7IntegrityRunner:
         for f in findings:
             self._all_findings.append(f.model_dump(mode="json"))
         return {"metadata_findings": len(findings)}
+
+    def _step_image_check(self) -> dict:
+        """IMAGE_CHECK: Check collected images for duplicates and manipulation."""
+        if not self._collected_images:
+            return {"image_findings": 0, "skipped": True}
+        findings = self._image_checker.check_all(self._collected_images)
+        for f in findings:
+            self._all_findings.append(f.model_dump(mode="json"))
+        return {"image_findings": len(findings)}
 
     async def _step_llm_contextualize(self, query: str, instance: WorkflowInstance) -> dict:
         """LLM_CONTEXTUALIZE: Use agent's contextualize_only (LLM-only, no re-run of checkers)."""

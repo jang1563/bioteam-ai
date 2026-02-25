@@ -28,15 +28,15 @@ from app.workflows.runners.w7_integrity import (
 
 
 def test_step_count():
-    """W7 should have exactly 7 steps."""
-    assert len(W7_STEPS) == 7
+    """W7 should have exactly 8 steps."""
+    assert len(W7_STEPS) == 8
 
 
 def test_step_order():
     """Steps should be in correct pipeline order."""
     expected = [
         "COLLECT", "GENE_CHECK", "STAT_CHECK", "RETRACTION_CHECK",
-        "METADATA_CHECK", "LLM_CONTEXTUALIZE", "REPORT",
+        "METADATA_CHECK", "IMAGE_CHECK", "LLM_CONTEXTUALIZE", "REPORT",
     ]
     actual = [s.id for s in W7_STEPS]
     assert actual == expected
@@ -44,7 +44,7 @@ def test_step_order():
 
 def test_code_only_steps():
     """Deterministic steps should be code_only with zero cost."""
-    code_steps = ("GENE_CHECK", "STAT_CHECK", "RETRACTION_CHECK", "METADATA_CHECK", "REPORT")
+    code_steps = ("GENE_CHECK", "STAT_CHECK", "RETRACTION_CHECK", "METADATA_CHECK", "IMAGE_CHECK", "REPORT")
     for step in W7_STEPS:
         if step.id in code_steps:
             assert step.agent_id == "code_only", f"{step.id} should be code_only"
@@ -136,6 +136,16 @@ async def test_retraction_check_no_dois():
     assert result["retraction_findings"] == 0
 
 
+def test_image_check_step_no_images():
+    """IMAGE_CHECK with no collected images should skip gracefully."""
+    runner = _make_runner_with_mocks()
+    runner._collected_images = []
+
+    result = runner._step_image_check()
+    assert result["image_findings"] == 0
+    assert result["skipped"] is True
+
+
 def test_report_step_assembles_findings():
     """REPORT step should assemble findings into session_manifest."""
     runner = _make_runner_with_mocks()
@@ -183,6 +193,7 @@ def test_state_reset_between_runs():
     assert runner._all_findings == []
     assert runner._collected_text == ""
     assert runner._collected_dois == []
+    assert runner._collected_images == []
 
 
 def test_summarize_result():

@@ -444,7 +444,11 @@ export type IntegrityCategory =
   | "genome_build_inconsistency"
   | "p_value_mismatch"
   | "benford_anomaly"
-  | "grim_failure";
+  | "grim_failure"
+  | "duplicate_image"
+  | "image_manipulation"
+  | "image_metadata_anomaly"
+  | "image_quality_issue";
 export type FindingStatus = "open" | "acknowledged" | "resolved" | "false_positive";
 
 export interface AuditFinding {

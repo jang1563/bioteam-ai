@@ -5,6 +5,7 @@ GET    /api/v1/integrity/findings/{id}      — single finding
 PUT    /api/v1/integrity/findings/{id}      — update status (acknowledge, resolve, false positive)
 DELETE /api/v1/integrity/findings/{id}      — delete finding
 POST   /api/v1/integrity/audit              — trigger ad-hoc audit
+POST   /api/v1/integrity/audit-images       — trigger image integrity audit
 GET    /api/v1/integrity/runs               — list audit runs
 GET    /api/v1/integrity/runs/{id}          — audit run detail
 GET    /api/v1/integrity/stats              — aggregate stats
@@ -17,8 +18,9 @@ import time
 from datetime import datetime, timezone
 
 from app.db.database import engine as db_engine
+from app.engines.integrity.finding_models import ImageInput
 from app.models.integrity import AuditFinding, AuditRun
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlmodel import Session, func, select
 
@@ -279,6 +281,79 @@ async def trigger_audit(request: TriggerAuditRequest) -> AuditRunResponse:
         # Create audit run record
         run = AuditRun(
             trigger="manual",
+            total_findings=result.get("total_findings", len(findings_list)),
+            findings_by_severity=result.get("findings_by_severity", {}),
+            findings_by_category=result.get("findings_by_category", {}),
+            overall_level=result.get("overall_level", "clean"),
+            summary=output.summary or "",
+            cost=output.cost,
+            duration_ms=duration_ms,
+        )
+        session.add(run)
+        session.commit()
+        session.refresh(run)
+        session.expunge(run)
+
+    return _to_run_response(run)
+
+
+@router.post("/audit-images", response_model=AuditRunResponse, status_code=201)
+async def trigger_image_audit(
+    files: list[UploadFile] = File(...),
+    labels: list[str] | None = Query(default=None),
+) -> AuditRunResponse:
+    """Trigger an image integrity audit on uploaded files (max 50, 10MB each)."""
+    if _auditor_agent is None:
+        raise HTTPException(status_code=503, detail="DataIntegrityAuditorAgent not available")
+
+    if len(files) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 images per request")
+
+    images: list[ImageInput] = []
+    for i, file in enumerate(files):
+        content = await file.read()
+        if len(content) > 10_000_000:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{file.filename}' exceeds 10MB limit",
+            )
+        label = labels[i] if labels and i < len(labels) else file.filename or f"image_{i}"
+        images.append(ImageInput(
+            image_bytes=content,
+            filename=file.filename or f"image_{i}",
+            label=label,
+        ))
+
+    start_time = time.time()
+
+    try:
+        output = await _auditor_agent.quick_check("", images=images)
+    except Exception as e:
+        logger.error("Image audit failed: %s", e)
+        raise HTTPException(status_code=500, detail="Image audit failed due to an internal error")
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    result = output.output or {}
+
+    # Persist findings to database
+    findings_list = result.get("findings", [])
+    with Session(db_engine) as session:
+        for f in findings_list:
+            db_finding = AuditFinding(
+                category=f.get("category", "unknown"),
+                severity=f.get("severity", "info"),
+                title=f.get("title", ""),
+                description=f.get("description", ""),
+                source_text=f.get("source_text", ""),
+                suggestion=f.get("suggestion", ""),
+                confidence=f.get("confidence", 0.8),
+                checker=f.get("checker", ""),
+                finding_metadata=f.get("metadata", {}),
+            )
+            session.add(db_finding)
+
+        run = AuditRun(
+            trigger="image_audit",
             total_findings=result.get("total_findings", len(findings_list)),
             findings_by_severity=result.get("findings_by_severity", {}),
             findings_by_category=result.get("findings_by_category", {}),

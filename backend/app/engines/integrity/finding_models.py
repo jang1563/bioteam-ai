@@ -26,6 +26,10 @@ IntegrityCategory = Literal[
     "p_value_mismatch",
     "benford_anomaly",
     "grim_failure",
+    "duplicate_image",
+    "image_manipulation",
+    "image_metadata_anomaly",
+    "image_quality_issue",
 ]
 
 
@@ -163,6 +167,45 @@ class SampleSizeFinding(IntegrityFinding):
     category: IntegrityCategory = "sample_size_mismatch"
     stated_n: int = 0
     computed_n: int = 0
+
+
+# === Image findings ===
+
+
+class ImageInput(BaseModel):
+    """Input for a single image to check."""
+
+    image_bytes: bytes
+    filename: str = ""
+    label: str = ""  # e.g. "Figure 2A"
+    source_doi: str = ""
+
+
+class DuplicateMatch(BaseModel):
+    """Result of a near-duplicate pair detection."""
+
+    image_a_label: str = ""
+    image_b_label: str = ""
+    hamming_distance: int = 0
+    similarity: float = 0.0  # 1.0 = identical, 0.0 = totally different
+
+
+class ELAResult(BaseModel):
+    """Error Level Analysis result for a single image."""
+
+    max_ela_value: float = 0.0
+    mean_ela_value: float = 0.0
+    suspicious_region_ratio: float = 0.0  # fraction of pixels above threshold
+    is_suspicious: bool = False
+
+
+class ImageFinding(IntegrityFinding):
+    """Finding from image integrity analysis."""
+
+    category: IntegrityCategory = "image_manipulation"
+    filename: str = ""
+    duplicate_match: DuplicateMatch | None = None
+    ela_result: ELAResult | None = None
 
 
 # === Aggregated report ===

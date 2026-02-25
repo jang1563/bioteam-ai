@@ -16,8 +16,9 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, Field
 
 from app.agents.base import BaseAgent
-from app.engines.integrity.finding_models import IntegrityFinding, IntegrityReport
+from app.engines.integrity.finding_models import ImageInput, IntegrityFinding, IntegrityReport
 from app.engines.integrity.gene_name_checker import GeneNameChecker
+from app.engines.integrity.image_checker import ImageChecker
 from app.engines.integrity.metadata_validator import MetadataValidator
 from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
@@ -94,12 +95,15 @@ class DataIntegrityAuditorAgent(BaseAgent):
             pubpeer_client=pubpeer_client,
         )
         self._metadata_validator = MetadataValidator()
+        self._image_checker = ImageChecker()
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Core execution: run full integrity audit pipeline."""
         return await self.audit(context)
 
-    async def audit(self, context: ContextPackage) -> AgentOutput:
+    async def audit(
+        self, context: ContextPackage, images: list[ImageInput] | None = None,
+    ) -> AgentOutput:
         """Full audit pipeline: deterministic checks → LLM contextualization.
 
         Phase 1: Run all deterministic checkers
@@ -128,6 +132,10 @@ class DataIntegrityAuditorAgent(BaseAgent):
         # Metadata checks
         metadata_findings = self._metadata_validator.check_all(text)
         findings.extend(metadata_findings)
+
+        # Image checks (optional)
+        if images:
+            findings.extend(self._image_checker.check_all(images))
 
         # Phase 2: LLM contextualization (capped)
         total_input_tokens = 0
@@ -241,7 +249,10 @@ class DataIntegrityAuditorAgent(BaseAgent):
             output_tokens=total_output_tokens,
         )
 
-    async def quick_check(self, text: str, dois: list[str] | None = None) -> AgentOutput:
+    async def quick_check(
+        self, text: str, dois: list[str] | None = None,
+        images: list[ImageInput] | None = None,
+    ) -> AgentOutput:
         """Lightweight check for W1 integration (deterministic only, no LLM).
 
         Zero LLM cost. Returns findings from deterministic checkers only.
@@ -260,6 +271,10 @@ class DataIntegrityAuditorAgent(BaseAgent):
 
         # Metadata checks
         findings.extend(self._metadata_validator.check_all(text))
+
+        # Image checks (optional)
+        if images:
+            findings.extend(self._image_checker.check_all(images))
 
         report = self._build_report(findings, "quick_check")
 

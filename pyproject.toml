@@ -32,6 +32,8 @@ dependencies = [
     "celery>=5.4.0",
     "redis>=5.0.0",
     "scipy>=1.12.0",
+    "Pillow>=11.0.0",
+    "imagehash>=4.3.0",
 ]
 
 [project.optional-dependencies]
