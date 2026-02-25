@@ -124,8 +124,8 @@ def test_llm_search_terms():
     from pydantic import BaseModel, Field
 
     class SearchTerms(BaseModel):
-        pubmed_query: str = "spaceflight[MeSH] AND anemia[MeSH]"
-        semantic_scholar_query: str = "spaceflight induced anemia mechanisms"
+        pubmed_queries: list[str] = Field(default_factory=lambda: ["spaceflight[MeSH] AND anemia[MeSH]"])
+        semantic_scholar_queries: list[str] = Field(default_factory=lambda: ["spaceflight induced anemia mechanisms"])
         keywords: list[str] = Field(default_factory=lambda: ["spaceflight", "anemia"])
 
     # Create mock integration clients so tests don't hit real APIs
@@ -154,8 +154,8 @@ def test_llm_search_terms():
 
     assert output.is_success
     assert output.output_type == "LiteratureSearchResult"
-    assert "PubMed" in output.output["databases_searched"]
-    assert "Semantic Scholar" in output.output["databases_searched"]
+    assert any("PubMed" in db for db in output.output["databases_searched"])
+    assert any("Semantic Scholar" in db for db in output.output["databases_searched"])
     assert output.output["total_found"] == 2
     assert len(output.output["papers"]) == 2
     assert output.output["papers"][0]["source"] == "pubmed"

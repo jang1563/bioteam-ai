@@ -28,8 +28,8 @@ from pydantic import BaseModel, Field
 
 class _MockSearchTerms(BaseModel):
     """Mock for KM's internal SearchTerms model."""
-    pubmed_query: str = "spaceflight anemia[MeSH]"
-    semantic_scholar_query: str = "spaceflight anemia erythropoiesis"
+    pubmed_queries: list[str] = Field(default_factory=lambda: ["spaceflight anemia[MeSH]"])
+    semantic_scholar_queries: list[str] = Field(default_factory=lambda: ["spaceflight anemia erythropoiesis"])
     keywords: list[str] = Field(default_factory=lambda: ["spaceflight", "anemia"])
 
 

@@ -120,9 +120,10 @@ class DataIntegrityAuditorAgent(BaseAgent):
         gene_findings = self._gene_checker.check_text(text)
         findings.extend(gene_findings)
 
-        # Statistical checks
+        # Statistical checks (p-value consistency + GRIMMER SD/percentage)
         stat_findings = self._stat_checker.extract_and_check_stats(text)
         findings.extend(stat_findings)
+        findings.extend(self._stat_checker.extract_and_check_grimmer(text))
 
         # Retraction checks (async)
         if dois:
@@ -262,8 +263,9 @@ class DataIntegrityAuditorAgent(BaseAgent):
         # Gene name checks
         findings.extend(self._gene_checker.check_text(text))
 
-        # Statistical checks
+        # Statistical checks (p-value consistency + GRIMMER SD/percentage)
         findings.extend(self._stat_checker.extract_and_check_stats(text))
+        findings.extend(self._stat_checker.extract_and_check_grimmer(text))
 
         # Retraction checks (async)
         if dois:

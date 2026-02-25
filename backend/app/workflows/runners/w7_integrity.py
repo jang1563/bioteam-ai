@@ -265,11 +265,21 @@ class W7IntegrityRunner:
         return {"gene_findings": len(findings)}
 
     def _step_stat_check(self) -> dict:
-        """STAT_CHECK: Run StatisticalChecker on collected text."""
+        """STAT_CHECK: Run StatisticalChecker + GRIMMER on collected text."""
+        # p-value consistency checks
         findings = self._stat_checker.extract_and_check_stats(self._collected_text)
         for f in findings:
             self._all_findings.append(f.model_dump(mode="json"))
-        return {"stat_findings": len(findings)}
+
+        # GRIMMER: SD and percentage consistency checks
+        grimmer_findings = self._stat_checker.extract_and_check_grimmer(self._collected_text)
+        for f in grimmer_findings:
+            self._all_findings.append(f.model_dump(mode="json"))
+
+        return {
+            "stat_findings": len(findings),
+            "grimmer_findings": len(grimmer_findings),
+        }
 
     async def _step_retraction_check(self) -> dict:
         """RETRACTION_CHECK: Check DOIs via Crossref/PubPeer."""

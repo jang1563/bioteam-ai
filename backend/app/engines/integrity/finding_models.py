@@ -26,6 +26,8 @@ IntegrityCategory = Literal[
     "p_value_mismatch",
     "benford_anomaly",
     "grim_failure",
+    "grimmer_sd_failure",
+    "grimmer_percent_failure",
     "duplicate_image",
     "image_manipulation",
     "image_metadata_anomaly",
@@ -77,6 +79,26 @@ class GRIMResult(BaseModel):
     explanation: str = ""
 
 
+class GRIMMERSDResult(BaseModel):
+    """Result of a GRIMMER SD consistency test."""
+
+    sd: float
+    n: int
+    decimals: int = 2
+    is_consistent: bool = True
+    explanation: str = ""
+
+
+class GRIMMERPercentResult(BaseModel):
+    """Result of a GRIMMER percentage consistency test."""
+
+    percentage: float
+    n: int
+    decimals: int = 2
+    is_consistent: bool = True
+    explanation: str = ""
+
+
 class BenfordResult(BaseModel):
     """Result of Benford's Law analysis."""
 
@@ -105,6 +127,8 @@ class StatisticalFinding(IntegrityFinding):
 
     category: IntegrityCategory = "statistical_inconsistency"
     grim_result: GRIMResult | None = None
+    grimmer_sd_result: GRIMMERSDResult | None = None
+    grimmer_percent_result: GRIMMERPercentResult | None = None
     benford_result: BenfordResult | None = None
     p_value_result: PValueCheckResult | None = None
 

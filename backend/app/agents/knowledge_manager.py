@@ -129,18 +129,50 @@ class KnowledgeManagerAgent(BaseAgent):
         """
 
         class SearchTerms(BaseModel):
-            pubmed_query: str = Field(description="Optimized PubMed search query with MeSH terms")
-            semantic_scholar_query: str = Field(description="Natural language query for Semantic Scholar")
+            pubmed_queries: list[str] = Field(
+                min_length=1,
+                max_length=3,
+                description=(
+                    "1-3 diverse PubMed queries. Strategy: "
+                    "(1) Specific: key gene/protein names + technique, "
+                    "(2) Broad: general topic + organism + MeSH terms, "
+                    "(3) Alternative: synonyms, related pathways, or disease context"
+                ),
+            )
+            semantic_scholar_queries: list[str] = Field(
+                min_length=1,
+                max_length=2,
+                description=(
+                    "1-2 Semantic Scholar queries. Strategy: "
+                    "(1) Natural language: full research question rephrased, "
+                    "(2) Key terms: biological entities + method"
+                ),
+            )
             keywords: list[str] = Field(default_factory=list)
+
+            @property
+            def pubmed_query(self) -> str:
+                """Backward compatibility: return first PubMed query."""
+                return self.pubmed_queries[0] if self.pubmed_queries else ""
+
+            @property
+            def semantic_scholar_query(self) -> str:
+                """Backward compatibility: return first S2 query."""
+                return self.semantic_scholar_queries[0] if self.semantic_scholar_queries else ""
 
         messages = [
             {
                 "role": "user",
                 "content": (
-                    f"Generate optimized search queries for this research topic:\n\n"
+                    f"Generate diverse search queries for this research topic:\n\n"
                     f"{context.task_description}\n\n"
-                    f"Create a PubMed query (use MeSH terms when appropriate) "
-                    f"and a Semantic Scholar query."
+                    f"Create 3 PubMed queries using different strategies:\n"
+                    f"1. Specific: key gene/protein names, techniques, organism\n"
+                    f"2. Broad: general topic with MeSH terms\n"
+                    f"3. Alternative: synonyms, related pathways, or disease context\n\n"
+                    f"Also create 2 Semantic Scholar queries:\n"
+                    f"1. Natural language rephrasing of the research question\n"
+                    f"2. Key biological entities and methods only"
                 ),
             }
         ]
@@ -168,48 +200,62 @@ class KnowledgeManagerAgent(BaseAgent):
         if has_pubmed or has_s2:
             loop = asyncio.get_event_loop()
 
-        # PubMed search (blocking I/O → thread pool with 15s timeout)
+        # PubMed search: parallel multi-query (blocking I/O → thread pool)
         if has_pubmed:
-            try:
-                pubmed = self._pubmed or PubMedClient()
+            pubmed = self._pubmed or PubMedClient()
+            per_query_limit = max(5, 20 // len(terms.pubmed_queries))
+
+            async def _run_pm_query(q: str) -> list:
                 with ThreadPoolExecutor(max_workers=1) as pool:
-                    pubmed_papers = await asyncio.wait_for(
-                        loop.run_in_executor(pool, lambda: pubmed.search(terms.pubmed_query, max_results=20)),
+                    return await asyncio.wait_for(
+                        loop.run_in_executor(pool, lambda: pubmed.search(q, max_results=per_query_limit)),
                         timeout=15.0,
                     )
-                for p in pubmed_papers:
+
+            pm_tasks = [_run_pm_query(q) for q in terms.pubmed_queries]
+            pm_results = await asyncio.gather(*pm_tasks, return_exceptions=True)
+
+            pm_total = 0
+            for i, result in enumerate(pm_results):
+                if isinstance(result, BaseException):
+                    logger.warning("PubMed query %d failed: %s", i, result)
+                    continue
+                for p in result:
                     papers.append(p.to_dict())
-                databases_searched.append("PubMed")
-                logger.info("PubMed returned %d papers for: %s", len(pubmed_papers), terms.pubmed_query)
-            except asyncio.TimeoutError:
-                logger.warning("PubMed search timed out after 15s")
-                databases_searched.append("PubMed (timeout)")
-            except Exception as e:
-                logger.warning("PubMed search failed (continuing): %s", e)
-                databases_searched.append("PubMed (failed)")
+                pm_total += len(result)
+
+            databases_searched.append(f"PubMed ({len(terms.pubmed_queries)} queries)")
+            logger.info("PubMed returned %d papers from %d queries", pm_total, len(terms.pubmed_queries))
         else:
             databases_searched.append("PubMed")
             logger.debug("PubMed skipped (no NCBI_EMAIL configured)")
 
-        # Semantic Scholar search (blocking I/O → thread pool with 15s timeout)
+        # Semantic Scholar search: parallel multi-query (blocking I/O → thread pool)
         if has_s2:
-            try:
-                s2 = self._s2 or SemanticScholarClient()
+            s2 = self._s2 or SemanticScholarClient()
+            per_s2_limit = max(5, 10 // len(terms.semantic_scholar_queries))
+
+            async def _run_s2_query(q: str) -> list:
                 with ThreadPoolExecutor(max_workers=1) as pool:
-                    s2_papers = await asyncio.wait_for(
-                        loop.run_in_executor(pool, lambda: s2.search(terms.semantic_scholar_query, limit=10)),
+                    return await asyncio.wait_for(
+                        loop.run_in_executor(pool, lambda: s2.search(q, limit=per_s2_limit)),
                         timeout=15.0,
                     )
-                for p in s2_papers:
+
+            s2_tasks = [_run_s2_query(q) for q in terms.semantic_scholar_queries]
+            s2_results = await asyncio.gather(*s2_tasks, return_exceptions=True)
+
+            s2_total = 0
+            for i, result in enumerate(s2_results):
+                if isinstance(result, BaseException):
+                    logger.warning("S2 query %d failed: %s", i, result)
+                    continue
+                for p in result:
                     papers.append(p.to_dict())
-                databases_searched.append("Semantic Scholar")
-                logger.info("S2 returned %d papers for: %s", len(s2_papers), terms.semantic_scholar_query)
-            except asyncio.TimeoutError:
-                logger.warning("Semantic Scholar search timed out after 15s")
-                databases_searched.append("Semantic Scholar (timeout)")
-            except Exception as e:
-                logger.warning("Semantic Scholar search failed (continuing): %s", e)
-                databases_searched.append("Semantic Scholar (failed)")
+                s2_total += len(result)
+
+            databases_searched.append(f"Semantic Scholar ({len(terms.semantic_scholar_queries)} queries)")
+            logger.info("S2 returned %d papers from %d queries", s2_total, len(terms.semantic_scholar_queries))
         else:
             databases_searched.append("Semantic Scholar")
             logger.debug("Semantic Scholar skipped (no client configured)")
@@ -230,7 +276,12 @@ class KnowledgeManagerAgent(BaseAgent):
             databases_searched=databases_searched,
             total_found=len(unique_papers),
             papers=unique_papers,
-            search_strategy=f"PubMed: {terms.pubmed_query} | S2: {terms.semantic_scholar_query}",
+            search_strategy=(
+                f"PubMed ({len(terms.pubmed_queries)}): "
+                + " | ".join(terms.pubmed_queries)
+                + f" ; S2 ({len(terms.semantic_scholar_queries)}): "
+                + " | ".join(terms.semantic_scholar_queries)
+            ),
         )
 
         return self.build_output(

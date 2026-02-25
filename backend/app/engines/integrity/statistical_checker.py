@@ -1,10 +1,11 @@
-"""Statistical Checker — GRIM test, Benford's Law, p-value consistency.
+"""Statistical Checker — GRIM, GRIMMER, Benford's Law, p-value consistency.
 
 Deterministic engine: no LLM calls. Implements core statistical integrity
 checks used to detect fabricated or erroneous data in publications.
 
 References:
 - Brown & Heathers, "The GRIM Test" (2017)
+- Heathers, "GRIMMER" (2019) — extends GRIM to SDs and percentages
 - Nuijten et al., "The prevalence of statistical reporting errors" (2016)
 """
 
@@ -17,6 +18,8 @@ import re
 from app.engines.integrity.finding_models import (
     BenfordResult,
     GRIMResult,
+    GRIMMERPercentResult,
+    GRIMMERSDResult,
     PValueCheckResult,
     StatisticalFinding,
 )
@@ -56,6 +59,21 @@ _Z_STAT_RE = re.compile(
     \.?(?P<p_value>\d+(?:\.\d+)?)       # p-value
     """,
     re.VERBOSE | re.IGNORECASE,
+)
+
+# Regex for SD reporting: "SD = 1.23", "M = 4.56, SD = 1.23, N = 30"
+_SD_RE = re.compile(
+    r"(?:M\s*=\s*(?P<mean>-?\d+\.?\d*)\s*,?\s*)?"
+    r"SD\s*=\s*(?P<sd>\d+\.?\d*)"
+    r"(?:\s*,?\s*[Nn]\s*=\s*(?P<n>\d+))?",
+    re.IGNORECASE,
+)
+
+# Regex for percentage reporting: "45.6% (N = 100)", "33.3% of participants (n = 30)"
+_PERCENT_RE = re.compile(
+    r"(?P<pct>\d+\.?\d*)\s*%"
+    r"(?:\s+(?:of|out\s+of)\s+\S+)?"
+    r"(?:\s*\(?\s*[Nn]\s*=\s*(?P<n>\d+)\s*\)?)?",
 )
 
 
@@ -138,6 +156,191 @@ class StatisticalChecker:
             decimals = int(entry.get("decimals", 2))
             results.append(self.grim_test(mean, n, decimals))
         return results
+
+    # === GRIMMER SD Test ===
+
+    @staticmethod
+    def grimmer_sd_test(sd: float, n: int, decimals: int = 2) -> GRIMMERSDResult:
+        """Test if a reported SD is consistent with integer data and sample size.
+
+        For integer data, the sum of squared deviations from the mean (SSD)
+        must be an integer. SSD = SD² × (n-1). The rounding interval of the
+        reported SD determines the range of possible SSD values; at least one
+        integer must fall within that range for consistency.
+
+        Reference: Heathers, "GRIMMER" (2019).
+
+        Args:
+            sd: The reported standard deviation.
+            n: The reported sample size.
+            decimals: Number of decimal places in the reported SD.
+
+        Returns:
+            GRIMMERSDResult with is_consistent=True if the SD is achievable.
+        """
+        if n <= 1:
+            return GRIMMERSDResult(
+                sd=sd, n=n, decimals=decimals, is_consistent=False,
+                explanation="Sample size must be > 1 for SD.",
+            )
+        if sd < 0:
+            return GRIMMERSDResult(
+                sd=sd, n=n, decimals=decimals, is_consistent=False,
+                explanation="SD cannot be negative.",
+            )
+        if sd == 0:
+            return GRIMMERSDResult(
+                sd=sd, n=n, decimals=decimals, is_consistent=True,
+                explanation="SD of 0 means all values identical — always consistent.",
+            )
+
+        # SSD = SD² × (n-1) should be close to an integer
+        granularity = 10 ** (-decimals)
+        sd_low = sd - granularity / 2
+        sd_high = sd + granularity / 2
+
+        # Possible SSD range from rounding interval
+        ssd_low = max(0.0, sd_low ** 2 * (n - 1))
+        ssd_high = sd_high ** 2 * (n - 1)
+
+        # Check if any integer falls within [ssd_low, ssd_high]
+        low_int = math.ceil(ssd_low - 1e-9)
+        high_int = math.floor(ssd_high + 1e-9)
+        is_consistent = low_int <= high_int
+
+        ssd = sd ** 2 * (n - 1)
+        if is_consistent:
+            explanation = (
+                f"SD {sd} with N={n} is consistent "
+                f"(SSD = {ssd:.4f}, range [{ssd_low:.4f}, {ssd_high:.4f}])."
+            )
+        else:
+            explanation = (
+                f"SD {sd} with N={n} is NOT consistent. "
+                f"SSD = {sd}² × {n-1} = {ssd:.4f}, "
+                f"no integer in [{ssd_low:.4f}, {ssd_high:.4f}]."
+            )
+
+        return GRIMMERSDResult(
+            sd=sd, n=n, decimals=decimals,
+            is_consistent=is_consistent, explanation=explanation,
+        )
+
+    # === GRIMMER Percentage Test ===
+
+    @staticmethod
+    def grimmer_percent_test(
+        percentage: float, n: int, decimals: int = 2,
+    ) -> GRIMMERPercentResult:
+        """Test if a reported percentage is consistent with sample size.
+
+        count = percentage × n / 100 should be close to an integer.
+        Tolerance derived from rounding granularity of the percentage.
+
+        Args:
+            percentage: The reported percentage (0-100 scale).
+            n: The reported sample size.
+            decimals: Number of decimal places in the reported percentage.
+
+        Returns:
+            GRIMMERPercentResult with is_consistent flag.
+        """
+        if n <= 0:
+            return GRIMMERPercentResult(
+                percentage=percentage, n=n, decimals=decimals,
+                is_consistent=False,
+                explanation="Sample size must be positive.",
+            )
+
+        product = percentage * n / 100
+        granularity = 10 ** (-decimals)
+        # tolerance = n × granularity / 200 (granularity/100 × n / 2)
+        tolerance = n * granularity / 200
+
+        nearest_int = round(product)
+        diff = abs(product - nearest_int)
+        is_consistent = diff <= tolerance + 1e-10
+
+        if is_consistent:
+            explanation = (
+                f"{percentage}% with N={n} is consistent (count ≈ {nearest_int})."
+            )
+        else:
+            explanation = (
+                f"{percentage}% with N={n} is NOT consistent. "
+                f"Count = {percentage}×{n}/100 = {product:.4f}, "
+                f"nearest integer = {nearest_int}, "
+                f"diff = {diff:.4f} > tolerance {tolerance:.4f}."
+            )
+
+        return GRIMMERPercentResult(
+            percentage=percentage, n=n, decimals=decimals,
+            is_consistent=is_consistent, explanation=explanation,
+        )
+
+    # === GRIMMER Text Extraction ===
+
+    def extract_and_check_grimmer(self, text: str) -> list[StatisticalFinding]:
+        """Extract SD and percentage reports from text and run GRIMMER tests.
+
+        Looks for patterns like 'SD = 1.23, N = 30' and '45.6% (N = 100)'.
+        Only flags inconsistencies — consistent values are silently passed.
+        """
+        findings: list[StatisticalFinding] = []
+
+        # SD checks
+        for match in _SD_RE.finditer(text):
+            sd_str = match.group("sd")
+            n_str = match.group("n")
+            if not n_str:
+                continue  # Need N for GRIMMER
+            sd = float(sd_str)
+            n = int(n_str)
+            decimals = len(sd_str.split(".")[-1]) if "." in sd_str else 0
+            result = self.grimmer_sd_test(sd, n, decimals)
+            if not result.is_consistent:
+                findings.append(StatisticalFinding(
+                    severity="warning",
+                    title="GRIMMER SD inconsistency",
+                    description=result.explanation,
+                    source_text=match.group(0),
+                    suggestion=(
+                        "Verify the reported SD is consistent with "
+                        "sample size and integer data."
+                    ),
+                    confidence=0.80,
+                    checker="statistical_checker",
+                    category="grimmer_sd_failure",
+                    grimmer_sd_result=result,
+                ))
+
+        # Percentage checks
+        for match in _PERCENT_RE.finditer(text):
+            pct_str = match.group("pct")
+            n_str = match.group("n")
+            if not n_str:
+                continue  # Need N for GRIMMER
+            pct = float(pct_str)
+            n = int(n_str)
+            decimals = len(pct_str.split(".")[-1]) if "." in pct_str else 0
+            result = self.grimmer_percent_test(pct, n, decimals)
+            if not result.is_consistent:
+                findings.append(StatisticalFinding(
+                    severity="warning",
+                    title="GRIMMER percentage inconsistency",
+                    description=result.explanation,
+                    source_text=match.group(0),
+                    suggestion=(
+                        "Verify the reported percentage is consistent "
+                        "with sample size."
+                    ),
+                    confidence=0.80,
+                    checker="statistical_checker",
+                    category="grimmer_percent_failure",
+                    grimmer_percent_result=result,
+                ))
+
+        return findings
 
     # === Benford's Law ===
 

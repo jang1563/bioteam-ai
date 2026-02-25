@@ -445,6 +445,8 @@ export type IntegrityCategory =
   | "p_value_mismatch"
   | "benford_anomaly"
   | "grim_failure"
+  | "grimmer_sd_failure"
+  | "grimmer_percent_failure"
   | "duplicate_image"
   | "image_manipulation"
   | "image_metadata_anomaly"
