@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Research Digest — BioTeam-AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -29,7 +29,7 @@
   --huggingface:#eab308;
   --s2:#22c55e;
   --font-display:'Outfit',sans-serif;
-  --font-body:'Noto Sans KR','Outfit',sans-serif;
+  --font-body:'Outfit',sans-serif;
   --font-mono:'JetBrains Mono',monospace;
 }
 html{scroll-behavior:smooth;overflow-x:hidden}
@@ -640,10 +640,10 @@ footer{
   <div class="hero-badge reveal"><span class="dot"></span> BioTeam-AI v0.6</div>
   <h1 class="reveal reveal-delay-1">
     <span class="gradient">Research Digest</span><br>
-    다중 소스 문헌 모니터링
+    Multi-Source Literature Monitoring
   </h1>
   <p class="hero-sub reveal reveal-delay-2">
-    6개 소스에서 자동으로 최신 논문과 코드를 수집, 중복 제거, 관련성 평가, AI 요약까지 — 하나의 파이프라인으로
+    Automatically collect, deduplicate, score relevance, and AI-summarize the latest papers and code from 6 sources — in a single pipeline
   </p>
 
   <!-- Pipeline Flow -->
@@ -675,8 +675,8 @@ footer{
 <section id="topic">
 <div class="container">
   <div class="section-label reveal">01 — Configuration</div>
-  <h2 class="reveal reveal-delay-1">사용자 토픽 설정</h2>
-  <p class="section-desc reveal reveal-delay-2">모니터링할 연구 주제를 정의합니다. 검색 키워드, 소스, 스케줄, 카테고리를 자유롭게 설정할 수 있습니다.</p>
+  <h2 class="reveal reveal-delay-1">Topic Configuration</h2>
+  <p class="section-desc reveal reveal-delay-2">Define the research topics you want to monitor. Freely configure search keywords, sources, schedules, and category filters.</p>
 
   <div class="card topic-card reveal reveal-delay-3">
     <div class="topic-header">
@@ -685,7 +685,7 @@ footer{
     </div>
 
     <div class="topic-section">
-      <div class="topic-section-label">검색 쿼리 (Queries)</div>
+      <div class="topic-section-label">Search Queries</div>
       <div class="query-tags">
         <span class="query-tag">machine learning biology</span>
         <span class="query-tag">foundation models genomics</span>
@@ -695,7 +695,7 @@ footer{
     </div>
 
     <div class="topic-section">
-      <div class="topic-section-label">활성 소스 (Sources)</div>
+      <div class="topic-section-label">Active Sources</div>
       <div class="source-badges">
         <span class="source-badge sb-pubmed"><span class="sdot"></span>PubMed</span>
         <span class="source-badge sb-biorxiv"><span class="sdot"></span>bioRxiv</span>
@@ -707,7 +707,7 @@ footer{
     </div>
 
     <div class="topic-section">
-      <div class="topic-section-label">카테고리 필터 (Categories)</div>
+      <div class="topic-section-label">Category Filters</div>
       <div class="cat-row">
         <div class="cat-group">
           <div class="cat-group-label" style="color:var(--arxiv)">arXiv</div>
@@ -734,11 +734,11 @@ footer{
 <section id="entries">
 <div class="container">
   <div class="section-label reveal">02 — Collected Entries</div>
-  <h2 class="reveal reveal-delay-1">수집된 논문 / 코드</h2>
-  <p class="section-desc reveal reveal-delay-2">파이프라인이 6개 소스에서 수집하고, 중복을 제거하고, 관련성 점수를 부여한 결과물입니다.</p>
+  <h2 class="reveal reveal-delay-1">Collected Papers & Code</h2>
+  <p class="section-desc reveal reveal-delay-2">Results collected from 6 sources by the pipeline, deduplicated, and scored for relevance.</p>
 
   <div class="entries-toolbar reveal reveal-delay-3">
-    <button class="filter-btn active" data-filter="all">전체 (12)</button>
+    <button class="filter-btn active" data-filter="all">All (12)</button>
     <button class="filter-btn" data-filter="pubmed">PubMed</button>
     <button class="filter-btn" data-filter="biorxiv">bioRxiv</button>
     <button class="filter-btn" data-filter="arxiv">arXiv</button>
@@ -757,13 +757,13 @@ footer{
       <div class="entry-body">
         <h3>BioGPT-2: Scaling Language Models for Biomedical Text Mining</h3>
         <div class="entry-authors">Zhang W, Liu H, Chen X</div>
-        <div class="entry-abstract">15B 파라미터 바이오메디컬 언어 모델. PubMed 전문 + PMC 오픈액세스 코퍼스로 학습. 관계 추출 F1 0.91, 질의응답 정확도 82.3%로 기존 BioGPT 대비 대폭 향상.</div>
+        <div class="entry-abstract">15B parameter biomedical language model. Trained on PubMed full-text + PMC open access corpus. Achieves relation extraction F1 0.91 and QA accuracy 82.3%, a major improvement over original BioGPT.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--teal)">94%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:94%;background:var(--teal)"></div></div>
         <div class="entry-date">2026-02-22</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -775,13 +775,13 @@ footer{
       <div class="entry-body">
         <h3>Transformer-based Models for Predicting Protein-Protein Interactions in Human Disease Networks</h3>
         <div class="entry-authors">Kim J, Park S, Lee M</div>
-        <div class="entry-abstract">Graph Transformer 기반 단백질-단백질 상호작용 예측 프레임워크. 질병 네트워크에서 기존 GNN 대비 AUC 0.12 향상 달성. 약물 타겟 발굴에 직접 활용 가능.</div>
+        <div class="entry-abstract">Graph Transformer-based protein-protein interaction prediction framework. Achieves AUC improvement of 0.12 over existing GNNs in disease networks. Directly applicable to drug target discovery.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--teal)">92%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:92%;background:var(--teal)"></div></div>
         <div class="entry-date">2026-02-21</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -793,14 +793,14 @@ footer{
       <div class="entry-body">
         <h3>ESM-3: Evolutionary Scale Modeling for Protein Sequences and Structures</h3>
         <div class="entry-authors">Lin Z, Akin H, Rao R</div>
-        <div class="entry-abstract">3B 파라미터 단백질 언어 모델. ESM-2 대비 접촉 예측 15% 향상, 구조 예측 정확도 GDT-TS 0.87. 제로샷 변이 효과 예측에서 SOTA 달성.</div>
+        <div class="entry-abstract">3B parameter protein language model. 15% improvement in contact prediction over ESM-2, structure prediction accuracy GDT-TS 0.87. Achieves SOTA in zero-shot variant effect prediction.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--teal)">91%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:91%;background:var(--teal)"></div></div>
         <div class="entry-date">2026-02-22</div>
         <div class="entry-extra">⬆ 234 upvotes</div>
-        <a href="#" class="entry-link">모델 →</a>
+        <a href="#" class="entry-link">Model →</a>
       </div>
     </div>
 
@@ -812,13 +812,13 @@ footer{
       <div class="entry-body">
         <h3>Single-cell Foundation Models Reveal Cell-type-specific Gene Regulatory Networks</h3>
         <div class="entry-authors">Wang Y, Smith A, Tanaka K</div>
-        <div class="entry-abstract">10M 단일세포 데이터로 사전학습한 foundation model. 세포 유형별 유전자 조절 네트워크를 제로샷으로 추론. 기존 방법 대비 TF-타겟 예측 정밀도 34% 향상.</div>
+        <div class="entry-abstract">Foundation model pre-trained on 10M single-cell data. Zero-shot inference of cell-type-specific gene regulatory networks. 34% improvement in TF-target prediction precision over existing methods.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--teal)">89%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:89%;background:var(--teal)"></div></div>
         <div class="entry-date">2026-02-20</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -830,14 +830,14 @@ footer{
       <div class="entry-body">
         <h3>google-deepmind/alphafold3</h3>
         <div class="entry-authors">DeepMind Team</div>
-        <div class="entry-abstract">AlphaFold 3 오픈소스 구현체. 단백질-DNA, 단백질-리간드 복합체 구조 예측 지원. JAX 기반, A100 GPU 1장으로 추론 가능. 학술 연구 목적 라이선스.</div>
+        <div class="entry-abstract">Open-source implementation of AlphaFold 3. Supports protein-DNA and protein-ligand complex structure prediction. JAX-based, inference possible on a single A100 GPU. Academic research license.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--teal)">88%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:88%;background:var(--teal)"></div></div>
         <div class="entry-date">2026-02-19</div>
         <div class="entry-extra">★ 12.4k stars</div>
-        <a href="#" class="entry-link">레포 →</a>
+        <a href="#" class="entry-link">Repo →</a>
       </div>
     </div>
 
@@ -849,14 +849,14 @@ footer{
       <div class="entry-body">
         <h3>A Survey of Large Language Models in Medicine: Progress, Applications, and Challenges</h3>
         <div class="entry-authors">Chen J, Patel R, Zhao Q</div>
-        <div class="entry-abstract">의학 분야 LLM 활용 종합 서베이. 진단 보조, 임상 노트 생성, 약물 상호작용 예측, 의학 교육 등 12개 응용 분야 분석. 212편 논문 리뷰.</div>
+        <div class="entry-abstract">Comprehensive survey of LLM applications in medicine. Analyzes 12 application domains including diagnostic assistance, clinical note generation, drug interaction prediction, and medical education. Reviews 212 papers.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">87%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:87%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-18</div>
         <div class="entry-extra">📖 156 citations</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -868,13 +868,13 @@ footer{
       <div class="entry-body">
         <h3>Deep Learning-based Drug-Drug Interaction Prediction Using Molecular Graph Transformers</h3>
         <div class="entry-authors">Lee H, Choi B, Jung S</div>
-        <div class="entry-abstract">분자 그래프 Transformer를 활용한 약물 상호작용 예측. DrugBank 데이터셋에서 AUC 0.96 달성. 기존 방법 대비 미지의 약물 조합에서도 일반화 성능 우수.</div>
+        <div class="entry-abstract">Drug-drug interaction prediction using molecular graph Transformers. Achieves AUC 0.96 on the DrugBank dataset. Superior generalization on unseen drug combinations compared to existing methods.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">85%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:85%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-20</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -886,13 +886,13 @@ footer{
       <div class="entry-body">
         <h3>Multimodal Foundation Models for Computational Pathology: A Benchmark Study</h3>
         <div class="entry-authors">Rivera M, Nakamura T, Williams R</div>
-        <div class="entry-abstract">병리학 이미지 + 임상 텍스트 멀티모달 foundation model 벤치마크. 12개 모델 비교 분석. Vision-Language 모델이 이미지 단독 모델 대비 진단 정확도 8% 향상.</div>
+        <div class="entry-abstract">Benchmark of multimodal foundation models for pathology images + clinical text. Comparative analysis of 12 models. Vision-Language models achieve 8% improvement in diagnostic accuracy over image-only models.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">83%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:83%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-21</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -904,13 +904,13 @@ footer{
       <div class="entry-body">
         <h3>CRISPR-GPT: An LLM Agent for Automated CRISPR Experiment Design</h3>
         <div class="entry-authors">Huang L, García M, Anderson J</div>
-        <div class="entry-abstract">CRISPR 실험 설계 자동화를 위한 LLM 에이전트. sgRNA 설계, 오프타겟 분석, 프로토콜 생성을 자연어 명령으로 수행. 전문가 평가에서 86% 정확도.</div>
+        <div class="entry-abstract">LLM agent for automated CRISPR experiment design. Performs sgRNA design, off-target analysis, and protocol generation via natural language commands. Achieves 86% accuracy in expert evaluation.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">81%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:81%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-19</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -922,14 +922,14 @@ footer{
       <div class="entry-body">
         <h3>mosaicml/biolm-benchmark</h3>
         <div class="entry-authors">MosaicML Team</div>
-        <div class="entry-abstract">생물학 언어 모델 통합 벤치마크 프레임워크. 단백질, DNA, RNA, 분자 도메인별 평가 태스크 40개 이상. Hugging Face 모델 자동 로딩 및 평가 지원.</div>
+        <div class="entry-abstract">Unified benchmark framework for biological language models. 40+ evaluation tasks across protein, DNA, RNA, and molecular domains. Supports automatic Hugging Face model loading and evaluation.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">78%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:78%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-17</div>
         <div class="entry-extra">★ 3.2k stars</div>
-        <a href="#" class="entry-link">레포 →</a>
+        <a href="#" class="entry-link">Repo →</a>
       </div>
     </div>
 
@@ -941,14 +941,14 @@ footer{
       <div class="entry-body">
         <h3>Cell-BERT: Pre-training on 50M Single-cell Transcriptomes for Cell Type Annotation</h3>
         <div class="entry-authors">Nguyen P, Yamamoto S</div>
-        <div class="entry-abstract">5천만 단일세포 전사체 데이터로 사전학습한 BERT 모델. 세포 유형 분류 정확도 94.2%, 제로샷 크로스-조직 전이 성능 87.6%.</div>
+        <div class="entry-abstract">BERT model pre-trained on 50M single-cell transcriptomes. Cell type classification accuracy 94.2%, zero-shot cross-tissue transfer performance 87.6%.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">76%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:76%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-21</div>
         <div class="entry-extra">⬆ 89 upvotes</div>
-        <a href="#" class="entry-link">모델 →</a>
+        <a href="#" class="entry-link">Model →</a>
       </div>
     </div>
 
@@ -960,14 +960,14 @@ footer{
       <div class="entry-body">
         <h3>Benchmarking Generative AI for Scientific Literature Summarization</h3>
         <div class="entry-authors">Brown T, Davis K, Miller A</div>
-        <div class="entry-abstract">과학 논문 요약에서 GPT-4, Claude, Gemini 등 6개 LLM 비교 벤치마크. 생물학 논문에서 Claude가 사실적 정확도 1위, 전반적으로 GPT-4가 종합 1위.</div>
+        <div class="entry-abstract">Benchmark comparing 6 LLMs (GPT-4, Claude, Gemini, etc.) for scientific literature summarization. Claude ranks #1 in factual accuracy for biology papers; GPT-4 ranks #1 overall.</div>
       </div>
       <div class="entry-meta">
         <div class="relevance" style="color:var(--cyan)">68%</div>
         <div class="relevance-bar"><div class="relevance-fill" style="width:68%;background:var(--cyan)"></div></div>
         <div class="entry-date">2026-02-16</div>
         <div class="entry-extra">📖 42 citations</div>
-        <a href="#" class="entry-link">논문 →</a>
+        <a href="#" class="entry-link">Paper →</a>
       </div>
     </div>
 
@@ -979,16 +979,16 @@ footer{
 <section id="report">
 <div class="container">
   <div class="section-label reveal">03 — AI-Generated Report</div>
-  <h2 class="reveal reveal-delay-1">다이제스트 리포트</h2>
-  <p class="section-desc reveal reveal-delay-2">DigestAgent (Claude Haiku)가 수집된 논문들을 분석하여 생성한 주간 연구 동향 리포트입니다.</p>
+  <h2 class="reveal reveal-delay-1">Digest Report</h2>
+  <p class="section-desc reveal reveal-delay-2">A weekly research trends report generated by DigestAgent (Claude Haiku) analyzing the collected papers.</p>
 
   <div class="report-card reveal reveal-delay-3">
     <div class="report-header">
       <div>
-        <div class="report-title">📋 AI in Biology Research — 주간 다이제스트</div>
+        <div class="report-title">📋 AI in Biology Research — Weekly Digest</div>
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px">2026.02.17 — 2026.02.24 · 12 entries from 6 sources</div>
       </div>
-      <div class="report-cost">LLM 비용: $0.008</div>
+      <div class="report-cost">LLM Cost: $0.008</div>
     </div>
 
     <div class="report-body">
@@ -996,7 +996,7 @@ footer{
       <div class="report-section">
         <div class="topic-section-label">Executive Summary</div>
         <div class="exec-summary">
-          이번 주 AI+Biology 분야에서 주목할 만한 발전이 있었습니다. 단백질 구조 예측 분야에서 <strong>AlphaFold3의 오픈소스화</strong>가 이루어졌으며, 단일세포 분석에 foundation model을 적용한 연구가 다수 발표되었습니다. 특히 <strong>ESM-3 모델</strong>은 단백질 서열 이해에서 새로운 벤치마크를 달성했습니다. 약물 발견 파이프라인에 LLM을 통합하는 연구도 활발히 진행 중이며, <strong>BioGPT-2</strong>가 의생물학 텍스트 마이닝에서 SOTA를 갱신했습니다.
+          Notable advances were made this week in AI+Biology. In protein structure prediction, <strong>AlphaFold3 went open-source</strong>, and multiple studies applying foundation models to single-cell analysis were published. In particular, <strong>ESM-3</strong> set new benchmarks in protein sequence understanding. Research integrating LLMs into drug discovery pipelines is actively progressing, and <strong>BioGPT-2</strong> achieved new SOTA in biomedical text mining.
         </div>
       </div>
 
@@ -1007,41 +1007,41 @@ footer{
           <li class="highlight-item">
             <div class="hl-num">1</div>
             <div>
-              <div class="hl-title">AlphaFold3 오픈소스 공개</div>
+              <div class="hl-title">AlphaFold3 Open-Source Release</div>
               <span class="hl-source" style="background:rgba(168,85,247,0.15);color:var(--github)">GitHub</span>
-              <span class="hl-desc">구조 생물학 연구의 접근성이 크게 향상될 전망. 단백질-DNA, 단백질-리간드 복합체 구조 예측까지 지원하며, 학술 목적 라이선스로 제공.</span>
+              <span class="hl-desc">Expected to greatly improve accessibility of structural biology research. Supports protein-DNA and protein-ligand complex structure prediction, provided under academic license.</span>
             </div>
           </li>
           <li class="highlight-item">
             <div class="hl-num">2</div>
             <div>
-              <div class="hl-title">ESM-3: 차세대 단백질 언어 모델</div>
+              <div class="hl-title">ESM-3: Next-Gen Protein Language Model</div>
               <span class="hl-source" style="background:rgba(234,179,8,0.15);color:var(--huggingface)">HuggingFace</span>
-              <span class="hl-desc">기존 ESM-2 대비 접촉 예측 15% 성능 향상, 3B 파라미터. 제로샷 변이 효과 예측에서 SOTA 달성하며 단백질 엔지니어링에 직접 활용 가능.</span>
+              <span class="hl-desc">15% improvement in contact prediction over ESM-2, 3B parameters. Achieves SOTA in zero-shot variant effect prediction, directly applicable to protein engineering.</span>
             </div>
           </li>
           <li class="highlight-item">
             <div class="hl-num">3</div>
             <div>
-              <div class="hl-title">단일세포 Foundation Model로 유전자 조절 네트워크 발견</div>
+              <div class="hl-title">Single-Cell Foundation Model Discovers Gene Regulatory Networks</div>
               <span class="hl-source" style="background:rgba(249,115,22,0.15);color:var(--biorxiv)">bioRxiv</span>
-              <span class="hl-desc">10M 세포 데이터로 사전학습. 세포 유형별 유전자 조절 네트워크를 제로샷으로 추론하여 TF-타겟 예측 정밀도 34% 향상.</span>
+              <span class="hl-desc">Pre-trained on 10M cells. Zero-shot inference of cell-type-specific gene regulatory networks with 34% improvement in TF-target prediction precision.</span>
             </div>
           </li>
           <li class="highlight-item">
             <div class="hl-num">4</div>
             <div>
-              <div class="hl-title">BioGPT-2: 15B 바이오메디컬 언어 모델</div>
+              <div class="hl-title">BioGPT-2: 15B Biomedical Language Model</div>
               <span class="hl-source" style="background:rgba(239,68,68,0.15);color:var(--arxiv)">arXiv</span>
-              <span class="hl-desc">의생물학 텍스트 마이닝에서 SOTA 달성. 관계 추출 F1 0.91, 질의응답 정확도 82.3%. PubMed 전문 + PMC 코퍼스 학습.</span>
+              <span class="hl-desc">Achieves SOTA in biomedical text mining. Relation extraction F1 0.91, QA accuracy 82.3%. Trained on PubMed full-text + PMC corpus.</span>
             </div>
           </li>
           <li class="highlight-item">
             <div class="hl-num">5</div>
             <div>
-              <div class="hl-title">LLM 기반 약물 상호작용 예측</div>
+              <div class="hl-title">LLM-based Drug Interaction Prediction</div>
               <span class="hl-source" style="background:rgba(59,130,246,0.15);color:var(--pubmed)">PubMed</span>
-              <span class="hl-desc">Graph Transformer + 분자 표현 학습으로 기존 방법 대비 AUC 0.12 향상. 미지의 약물 조합에서도 일반화 성능 우수.</span>
+              <span class="hl-desc">Graph Transformer + molecular representation learning improves AUC by 0.12 over existing methods. Superior generalization on unseen drug combinations.</span>
             </div>
           </li>
         </ul>
@@ -1049,18 +1049,18 @@ footer{
 
       <!-- Trends -->
       <div class="report-section">
-        <div class="topic-section-label">주요 트렌드</div>
+        <div class="topic-section-label">Key Trends</div>
         <ul class="trends-list">
-          <li class="trend-item"><span class="trend-icon">▸</span> Foundation model의 생물학 응용이 가속화 — 단백질, 단일세포, 병리학 이미지 전 분야로 확대</li>
-          <li class="trend-item"><span class="trend-icon">▸</span> 단백질 서열/구조 분석에서 AI 활용 급증 — ESM-3, AlphaFold3 등 대형 모델 오픈소스화 트렌드</li>
-          <li class="trend-item"><span class="trend-icon">▸</span> 오픈소스 생물정보학 도구의 품질 향상 — 벤치마크 프레임워크, 자동화 에이전트 등 실용 도구 등장</li>
-          <li class="trend-item"><span class="trend-icon">▸</span> LLM Agent의 실험 자동화 적용 시도 — CRISPR-GPT 등 자연어 기반 실험 설계 에이전트 연구 활발</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> Accelerating adoption of foundation models in biology — expanding across protein, single-cell, and pathology imaging domains</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> Surge in AI for protein sequence/structure analysis — open-sourcing trend with large models like ESM-3 and AlphaFold3</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> Rising quality of open-source bioinformatics tools — practical tools emerging including benchmark frameworks and automation agents</li>
+          <li class="trend-item"><span class="trend-icon">▸</span> LLM agents applied to lab automation — active research on natural language-based experiment design agents like CRISPR-GPT</li>
         </ul>
       </div>
 
       <!-- Source Breakdown -->
       <div class="report-section">
-        <div class="topic-section-label">소스별 분포</div>
+        <div class="topic-section-label">Source Breakdown</div>
         <div class="breakdown-bar">
           <div class="breakdown-seg" style="flex:2;background:var(--pubmed)">2</div>
           <div class="breakdown-seg" style="flex:2;background:var(--biorxiv)">2</div>
@@ -1088,31 +1088,31 @@ footer{
 <section id="stats">
 <div class="container">
   <div class="section-label reveal">04 — Pipeline Statistics</div>
-  <h2 class="reveal reveal-delay-1">파이프라인 통계</h2>
-  <p class="section-desc reveal reveal-delay-2">누적 운영 통계입니다. 모든 데이터는 SQLite에 영구 저장되며 DigestScheduler가 자동으로 수집을 관리합니다.</p>
+  <h2 class="reveal reveal-delay-1">Pipeline Statistics</h2>
+  <p class="section-desc reveal reveal-delay-2">Cumulative operational statistics. All data is persisted in SQLite and DigestScheduler automatically manages collection cycles.</p>
 
   <div class="stats-row">
     <div class="stat-card reveal">
       <div class="stat-number" data-target="247">0</div>
-      <div class="stat-label">수집된 논문/코드</div>
+      <div class="stat-label">Collected Papers/Code</div>
     </div>
     <div class="stat-card reveal reveal-delay-1">
       <div class="stat-number" data-target="12">0</div>
-      <div class="stat-label">생성된 리포트</div>
+      <div class="stat-label">Reports Generated</div>
     </div>
     <div class="stat-card reveal reveal-delay-2">
       <div class="stat-number" data-target="3">0</div>
-      <div class="stat-label">모니터링 토픽</div>
+      <div class="stat-label">Monitored Topics</div>
     </div>
     <div class="stat-card reveal reveal-delay-3">
       <div class="stat-number" data-target="4.2">0</div>
-      <div class="stat-label">평균 수집 시간 (초)</div>
+      <div class="stat-label">Avg Fetch Time (sec)</div>
     </div>
   </div>
 
   <!-- Source Pie (CSS only) -->
   <div class="card reveal" style="max-width:500px;margin:0 auto;text-align:center">
-    <div class="topic-section-label" style="margin-bottom:20px">소스별 누적 엔트리</div>
+    <div class="topic-section-label" style="margin-bottom:20px">Cumulative Entries by Source</div>
     <div style="display:flex;justify-content:center;margin-bottom:20px">
       <svg width="200" height="200" viewBox="0 0 200 200" style="transform:rotate(-90deg)">
         <!-- PubMed 22% -->
@@ -1136,12 +1136,12 @@ footer{
       </svg>
     </div>
     <div class="breakdown-legend" style="justify-content:center">
-      <div class="legend-item"><span class="legend-dot" style="background:var(--pubmed)"></span>PubMed 54건 (22%)</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--biorxiv)"></span>bioRxiv 49건 (20%)</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--arxiv)"></span>arXiv 45건 (18%)</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--github)"></span>GitHub 37건 (15%)</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--huggingface)"></span>HuggingFace 32건 (13%)</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--s2)"></span>S2 30건 (12%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--pubmed)"></span>PubMed 54 (22%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--biorxiv)"></span>bioRxiv 49 (20%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--arxiv)"></span>arXiv 45 (18%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--github)"></span>GitHub 37 (15%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--huggingface)"></span>HuggingFace 32 (13%)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--s2)"></span>S2 30 (12%)</div>
     </div>
   </div>
 </div>
@@ -1151,8 +1151,8 @@ footer{
 <section id="api">
 <div class="container">
   <div class="section-label reveal">05 — API Reference</div>
-  <h2 class="reveal reveal-delay-1">API 사용 예시</h2>
-  <p class="section-desc reveal reveal-delay-2">REST API를 통해 프로그래밍 방식으로 토픽 관리, 수집 트리거, 리포트 조회가 가능합니다.</p>
+  <h2 class="reveal reveal-delay-1">API Usage Examples</h2>
+  <p class="section-desc reveal reveal-delay-2">Programmatically manage topics, trigger collection, and retrieve reports via the REST API.</p>
 
   <div class="code-examples">
     <!-- Create Topic -->
@@ -1162,7 +1162,7 @@ footer{
           <span class="code-method post">POST</span>
           <span class="code-path">/api/v1/digest/topics</span>
         </div>
-        <span class="code-desc">토픽 프로필 생성</span>
+        <span class="code-desc">Create topic profile</span>
       </div>
       <pre><span class="cmd">curl</span> -X POST http://localhost:8000/api/v1/digest/topics \
   -H <span class="str">"Content-Type: application/json"</span> \
@@ -1191,12 +1191,12 @@ footer{
           <span class="code-method post">POST</span>
           <span class="code-path">/api/v1/digest/topics/{id}/run</span>
         </div>
-        <span class="code-desc">즉시 수집 트리거</span>
+        <span class="code-desc">Trigger immediate fetch</span>
       </div>
       <pre><span class="cmd">curl</span> -X POST http://localhost:8000/api/v1/digest/topics/a1b2c3d4-.../run \
   -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span>
 
-<span class="comment"># Response — 즉시 반환, 백그라운드에서 파이프라인 실행</span>
+<span class="comment"># Response — returns immediately, pipeline runs in background</span>
 {
   <span class="key">"topic_id"</span>: <span class="str">"a1b2c3d4-..."</span>,
   <span class="key">"status"</span>: <span class="str">"triggered"</span>,
@@ -1211,7 +1211,7 @@ footer{
           <span class="code-method get">GET</span>
           <span class="code-path">/api/v1/digest/reports?topic_id={id}</span>
         </div>
-        <span class="code-desc">다이제스트 리포트 조회</span>
+        <span class="code-desc">Retrieve digest reports</span>
       </div>
       <pre><span class="cmd">curl</span> http://localhost:8000/api/v1/digest/reports?topic_id=a1b2c3d4-... \
   -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span>
@@ -1223,11 +1223,11 @@ footer{
   <span class="key">"period_start"</span>: <span class="str">"2026-02-17T00:00:00Z"</span>,
   <span class="key">"period_end"</span>: <span class="str">"2026-02-24T00:00:00Z"</span>,
   <span class="key">"entry_count"</span>: <span class="num">12</span>,
-  <span class="key">"summary"</span>: <span class="str">"이번 주 AI+Biology 분야에서 주목할 만한..."</span>,
+  <span class="key">"summary"</span>: <span class="str">"Notable advances this week in AI+Biology..."</span>,
   <span class="key">"highlights"</span>: [{
-    <span class="key">"title"</span>: <span class="str">"AlphaFold3 오픈소스 공개"</span>,
+    <span class="key">"title"</span>: <span class="str">"AlphaFold3 Open-Source Release"</span>,
     <span class="key">"source"</span>: <span class="str">"github"</span>,
-    <span class="key">"one_liner"</span>: <span class="str">"구조 생물학 연구의 접근성이 크게 향상될 전망"</span>
+    <span class="key">"one_liner"</span>: <span class="str">"Expected to greatly improve accessibility of structural biology research"</span>
   }],
   <span class="key">"source_breakdown"</span>: {<span class="str">"pubmed"</span>: <span class="num">2</span>, <span class="str">"biorxiv"</span>: <span class="num">2</span>, ...},
   <span class="key">"cost"</span>: <span class="num">0.008</span>
@@ -1241,7 +1241,7 @@ footer{
           <span class="code-method get">GET</span>
           <span class="code-path">/api/v1/digest/stats</span>
         </div>
-        <span class="code-desc">통계 조회</span>
+        <span class="code-desc">Get statistics</span>
       </div>
       <pre><span class="cmd">curl</span> http://localhost:8000/api/v1/digest/stats \
   -H <span class="str">"Authorization: Bearer $BIOTEAM_API_KEY"</span>
