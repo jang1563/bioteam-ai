@@ -29,6 +29,8 @@ dependencies = [
     "PyYAML>=6.0.0",
     "arxiv>=2.1.0",
     "aiosmtplib>=3.0.0",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]

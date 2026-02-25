@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 
 class HealthStatus(BaseModel):
@@ -79,7 +79,26 @@ async def health_check() -> HealthStatus:
         checks["pubmed"] = {"status": "warning", "detail": "NCBI_EMAIL not set (PubMed may rate-limit)"}
         has_warning = True
 
-    # 5. CostTracker
+    # 5. Redis / Celery
+    try:
+        from app.celery_app import is_celery_enabled
+        if is_celery_enabled():
+            import redis as redis_lib
+            from app.config import settings
+            r = redis_lib.from_url(settings.celery_broker_url, socket_timeout=2)
+            r.ping()
+            checks["redis"] = {"status": "ok", "detail": "Connected"}
+            checks["celery"] = {"status": "ok", "detail": "Broker configured"}
+        else:
+            checks["redis"] = {"status": "warning", "detail": "Not configured (asyncio fallback)"}
+            checks["celery"] = {"status": "warning", "detail": "Not configured (asyncio fallback)"}
+            has_warning = True
+    except Exception as e:
+        checks["redis"] = {"status": "error", "detail": str(e)[:100]}
+        checks["celery"] = {"status": "error", "detail": "Broker unreachable"}
+        has_warning = True
+
+    # 6. CostTracker
     try:
         from app.cost.tracker import CostTracker
         tracker = CostTracker()

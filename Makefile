@@ -1,6 +1,6 @@
 # BioTeam-AI Makefile
 
-.PHONY: help dev-minimal dev-full dev-local stop test test-llm test-agents test-workflows test-digest lint format db-init db-migrate db-reset cold-start backup clean
+.PHONY: help dev-minimal dev-full dev-local stop test test-llm test-agents test-workflows test-digest test-celery test-e2e lint format db-init db-migrate db-reset cold-start backup celery-worker clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -37,6 +37,12 @@ test-workflows: ## Run workflow tests only
 test-digest: ## Run digest pipeline tests only
 	uv run pytest backend/tests/test_digest/ -v
 
+test-celery: ## Run Celery integration tests
+	uv run pytest backend/tests/test_celery/ -v
+
+test-e2e: ## Run E2E Playwright tests (frontend)
+	cd frontend && npx playwright test
+
 # === Code Quality ===
 
 lint: ## Run ruff linter
@@ -58,6 +64,11 @@ db-migrate: ## Create new migration
 
 db-reset: ## Reset database (WARNING: deletes all data)
 	rm -f data/bioteam.db && cd backend && uv run alembic upgrade head
+
+# === Celery ===
+
+celery-worker: ## Start Celery worker (requires Redis)
+	cd backend && uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,workflows
 
 # === Cold Start ===
 

@@ -38,7 +38,7 @@ def test_health_check_returns_status():
     result = asyncio.run(health_check())
     assert isinstance(result, HealthStatus)
     assert result.status in ("healthy", "degraded", "unhealthy")
-    assert result.version == "0.5.0"
+    assert result.version == "0.6.0"
     assert "llm_api" in result.checks
     assert "database" in result.checks
     assert "chromadb" in result.checks

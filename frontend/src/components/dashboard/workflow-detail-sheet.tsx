@@ -44,23 +44,36 @@ import type {
   WorkflowStatus,
 } from "@/types/api";
 
-const W1_STEP_LABELS: Record<string, string> = {
+const STEP_LABELS: Record<string, string> = {
+  // W1 steps
   SCOPE: "Scope Definition",
   SEARCH: "Literature Search",
   SCREEN: "Paper Screening",
   EXTRACT: "Data Extraction",
   NEGATIVE_CHECK: "Negative Results Check",
   SYNTHESIZE: "Synthesis (Human Checkpoint)",
+  CONTRADICTION_CHECK: "Contradiction Detection",
   CITATION_CHECK: "Citation Validation",
   RCMXT_SCORE: "Evidence Scoring (RCMXT)",
   NOVELTY_CHECK: "Novelty Assessment",
   REPORT: "Final Report",
+  // W6 steps
+  EVIDENCE_LANDSCAPE: "Evidence Landscape",
+  CLASSIFY: "Contradiction Classification",
+  MINE_NEGATIVES: "Negative Results Mining",
+  RESOLUTION_HYPOTHESES: "Resolution Hypotheses",
+  PRESENT: "Present Results",
 };
 
-const W1_ALL_STEPS = [
-  "SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK", "SYNTHESIZE",
-  "CITATION_CHECK", "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT",
-];
+const WORKFLOW_STEPS: Record<string, string[]> = {
+  W1: [
+    "SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK", "SYNTHESIZE",
+    "CONTRADICTION_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT",
+  ],
+  W6: [
+    "EVIDENCE_LANDSCAPE", "CLASSIFY", "MINE_NEGATIVES", "RESOLUTION_HYPOTHESES", "PRESENT",
+  ],
+};
 
 function stepStatusIcon(stepId: string, workflow: WorkflowStatus) {
   const completed = workflow.step_history.some((s) => s.step_id === stepId);
@@ -225,17 +238,17 @@ export function WorkflowDetailSheet() {
               <Separator />
 
               {/* Pipeline Graph */}
-              {workflow.template === "W1" && (
+              {(workflow.template === "W1" || workflow.template === "W6") && (
                 <WorkflowPipelineGraph workflow={workflow} />
               )}
 
               {/* Pipeline Steps */}
               <div>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Pipeline Steps ({workflow.step_history.length}/{W1_ALL_STEPS.length})
+                  Pipeline Steps ({workflow.step_history.length}/{(WORKFLOW_STEPS[workflow.template] ?? WORKFLOW_STEPS.W1).length})
                 </p>
                 <div className="space-y-0.5">
-                  {W1_ALL_STEPS.map((stepId) => {
+                  {(WORKFLOW_STEPS[workflow.template] ?? WORKFLOW_STEPS.W1).map((stepId) => {
                     const historyEntry = workflow.step_history.find(
                       (s) => s.step_id === stepId
                     );
@@ -249,11 +262,11 @@ export function WorkflowDetailSheet() {
                           onClick={() => hasData && toggleStep(stepId)}
                           disabled={!hasData}
                           aria-expanded={isExpanded}
-                          aria-label={`${W1_STEP_LABELS[stepId] ?? stepId}: ${historyEntry ? "completed" : "pending"}`}
+                          aria-label={`${STEP_LABELS[stepId] ?? stepId}: ${historyEntry ? "completed" : "pending"}`}
                         >
                           {stepStatusIcon(stepId, workflow)}
                           <span className="font-medium flex-1">
-                            {W1_STEP_LABELS[stepId] ?? stepId}
+                            {STEP_LABELS[stepId] ?? stepId}
                           </span>
                           {historyEntry?.completed_at && (
                             <span className="text-muted-foreground text-[10px]">

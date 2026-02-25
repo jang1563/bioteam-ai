@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     digest_check_interval_minutes: float = 60.0
     github_token: str = ""  # Optional, for higher GitHub API rate limits
 
+    # Celery / Redis (Phase 2 task queue)
+    celery_broker_url: str = ""  # Empty = Celery disabled (uses asyncio fallback)
+    celery_result_backend: str = ""
+    celery_worker_concurrency: int = 4
+    celery_task_time_limit: int = 3600  # seconds
+
     # Email / SMTP (for digest report delivery)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

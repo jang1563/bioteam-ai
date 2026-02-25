@@ -15,18 +15,39 @@ import {
 import "@xyflow/react/dist/style.css";
 import type { WorkflowStatus } from "@/types/api";
 
-const W1_STEPS = [
+interface StepDef {
+  id: string;
+  label: string;
+  short: string;
+  human?: boolean;
+}
+
+const W1_STEPS: StepDef[] = [
   { id: "SCOPE", label: "Scope Definition", short: "Scope" },
   { id: "SEARCH", label: "Literature Search", short: "Search" },
   { id: "SCREEN", label: "Paper Screening", short: "Screen" },
   { id: "EXTRACT", label: "Data Extraction", short: "Extract" },
   { id: "NEGATIVE_CHECK", label: "Negative Results", short: "NR Check" },
   { id: "SYNTHESIZE", label: "Synthesis", short: "Synthesis", human: true },
+  { id: "CONTRADICTION_CHECK", label: "Contradiction Detection", short: "Contradict" },
   { id: "CITATION_CHECK", label: "Citation Check", short: "Citations" },
   { id: "RCMXT_SCORE", label: "Evidence Scoring", short: "RCMXT" },
   { id: "NOVELTY_CHECK", label: "Novelty Check", short: "Novelty" },
   { id: "REPORT", label: "Final Report", short: "Report" },
 ];
+
+const W6_STEPS: StepDef[] = [
+  { id: "EVIDENCE_LANDSCAPE", label: "Evidence Landscape", short: "Landscape" },
+  { id: "CLASSIFY", label: "Contradiction Classification", short: "Classify" },
+  { id: "MINE_NEGATIVES", label: "Negative Results Mining", short: "Mine NR" },
+  { id: "RESOLUTION_HYPOTHESES", label: "Resolution Hypotheses", short: "Hypotheses" },
+  { id: "PRESENT", label: "Present Results", short: "Present" },
+];
+
+const WORKFLOW_STEP_DEFS: Record<string, StepDef[]> = {
+  W1: W1_STEPS,
+  W6: W6_STEPS,
+};
 
 type StepStatus = "completed" | "running" | "waiting" | "failed" | "pending";
 
@@ -128,8 +149,7 @@ function getStepStatus(stepId: string, workflow: WorkflowStatus): StepStatus {
   return "pending";
 }
 
-export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }) {
-  // Layout: 2 rows — top row left-to-right (steps 0-4), bottom row right-to-left (steps 5-9)
+function layoutNodes(steps: StepDef[], workflow: WorkflowStatus) {
   const nodeWidth = 110;
   const nodeHeight = 50;
   const gapX = 16;
@@ -137,60 +157,80 @@ export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }
   const startX = 20;
   const startY = 20;
 
-  const { nodes, edges } = useMemo(() => {
-    const ns: Node<StepNodeData>[] = W1_STEPS.map((step, i) => {
-      const row = i < 5 ? 0 : 1;
-      const col = row === 0 ? i : 9 - i; // reverse for bottom row
-      return {
-        id: step.id,
-        type: "step",
-        position: {
-          x: startX + col * (nodeWidth + gapX),
-          y: startY + row * (nodeHeight + gapY),
-        },
-        data: {
-          label: step.label,
-          short: step.short,
-          status: getStepStatus(step.id, workflow),
-          isHuman: !!step.human,
-        },
-        draggable: false,
-      };
-    });
+  const useTwoRows = steps.length > 6;
+  const topCount = useTwoRows ? Math.ceil(steps.length / 2) : steps.length;
 
-    const es: Edge[] = [];
-    for (let i = 0; i < W1_STEPS.length - 1; i++) {
-      const sourceStatus = getStepStatus(W1_STEPS[i].id, workflow);
-      const targetStatus = getStepStatus(W1_STEPS[i + 1].id, workflow);
-      const isActive = sourceStatus === "completed" && (targetStatus === "running" || targetStatus === "waiting");
-      const isPast = sourceStatus === "completed" && targetStatus === "completed";
+  const ns: Node<StepNodeData>[] = steps.map((step, i) => {
+    let x: number;
+    let y: number;
 
-      es.push({
-        id: `e-${W1_STEPS[i].id}-${W1_STEPS[i + 1].id}`,
-        source: W1_STEPS[i].id,
-        target: W1_STEPS[i + 1].id,
-        type: "smoothstep",
-        animated: isActive,
-        style: {
-          stroke: isPast
-            ? "rgb(16, 185, 129)"
-            : isActive
-              ? "rgb(59, 130, 246)"
-              : "rgba(148, 163, 184, 0.3)",
-          strokeWidth: isPast || isActive ? 2 : 1,
-        },
-      });
+    if (useTwoRows) {
+      const row = i < topCount ? 0 : 1;
+      const col = row === 0 ? i : steps.length - 1 - i; // reverse for bottom row
+      x = startX + col * (nodeWidth + gapX);
+      y = startY + row * (nodeHeight + gapY);
+    } else {
+      x = startX + i * (nodeWidth + gapX);
+      y = startY;
     }
 
-    return { nodes: ns, edges: es };
-  }, [workflow]);
+    return {
+      id: step.id,
+      type: "step",
+      position: { x, y },
+      data: {
+        label: step.label,
+        short: step.short,
+        status: getStepStatus(step.id, workflow),
+        isHuman: !!step.human,
+      },
+      draggable: false,
+    };
+  });
+
+  const es: Edge[] = [];
+  for (let i = 0; i < steps.length - 1; i++) {
+    const sourceStatus = getStepStatus(steps[i].id, workflow);
+    const targetStatus = getStepStatus(steps[i + 1].id, workflow);
+    const isActive = sourceStatus === "completed" && (targetStatus === "running" || targetStatus === "waiting");
+    const isPast = sourceStatus === "completed" && targetStatus === "completed";
+
+    es.push({
+      id: `e-${steps[i].id}-${steps[i + 1].id}`,
+      source: steps[i].id,
+      target: steps[i + 1].id,
+      type: "smoothstep",
+      animated: isActive,
+      style: {
+        stroke: isPast
+          ? "rgb(16, 185, 129)"
+          : isActive
+            ? "rgb(59, 130, 246)"
+            : "rgba(148, 163, 184, 0.3)",
+        strokeWidth: isPast || isActive ? 2 : 1,
+      },
+    });
+  }
+
+  return { nodes: ns, edges: es, useTwoRows };
+}
+
+export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }) {
+  const steps = WORKFLOW_STEP_DEFS[workflow.template] ?? W1_STEPS;
+
+  const { nodes, edges, useTwoRows } = useMemo(
+    () => layoutNodes(steps, workflow),
+    [steps, workflow],
+  );
 
   const onInit = useCallback((instance: { fitView: () => void }) => {
     instance.fitView();
   }, []);
 
+  const height = useTwoRows ? 200 : 120;
+
   return (
-    <div className="w-full h-[200px] rounded-lg border border-border overflow-hidden bg-background/50">
+    <div className={`w-full rounded-lg border border-border overflow-hidden bg-background/50`} style={{ height }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

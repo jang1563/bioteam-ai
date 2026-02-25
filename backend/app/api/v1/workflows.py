@@ -9,6 +9,7 @@ POST /api/v1/workflows/{id}/intervene — pause/resume/cancel/inject_note
 v5.1: SQLite persistence for workflow state (survives server restarts).
 v5.2: Added list endpoint for dashboard.
 v5.3: Auto-execute W1 pipeline on creation via asyncio.create_task.
+v6.0: Celery dispatch with asyncio fallback (Phase 2 task queue).
 """
 
 from __future__ import annotations
@@ -187,17 +188,9 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
     async with _lock:
         _save_instance(instance)
 
-    # Auto-start W1 pipeline in background
+    # Auto-start W1 pipeline in background (Celery or asyncio fallback)
     if request.template == "W1" and _registry is not None:
-        logger.info("Starting W1 background task for %s", instance.id)
-        task = asyncio.create_task(
-            _run_w1_background(instance.id, request.query, request.budget)
-        )
-        # Log unhandled exceptions from background task
-        task.add_done_callback(
-            lambda t: logger.error("W1 task exception: %s", t.exception())
-            if t.exception() else None
-        )
+        _dispatch_w1(instance.id, request.query, request.budget)
     elif request.template == "W1":
         logger.warning("W1 created but _registry is None — cannot auto-start")
 
@@ -207,6 +200,36 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
         state=instance.state,
         query=request.query,
     )
+
+
+def _dispatch_w1(workflow_id: str, query: str, budget: float) -> None:
+    """Dispatch W1 workflow execution via Celery or asyncio fallback."""
+    from app.celery_app import is_celery_enabled
+
+    if is_celery_enabled():
+        from app.tasks.workflow_tasks import run_w1_workflow
+        logger.info("Dispatching W1 %s via Celery", workflow_id)
+        run_w1_workflow.delay(workflow_id, query, budget)
+    else:
+        logger.info("Dispatching W1 %s via asyncio (Celery not configured)", workflow_id)
+        task = asyncio.create_task(_run_w1_background(workflow_id, query, budget))
+        task.add_done_callback(
+            lambda t: logger.error("W1 task exception: %s", t.exception())
+            if t.exception() else None
+        )
+
+
+def _dispatch_w1_resume(workflow_id: str, query: str) -> None:
+    """Dispatch W1 resume via Celery or asyncio fallback."""
+    from app.celery_app import is_celery_enabled
+
+    if is_celery_enabled():
+        from app.tasks.workflow_tasks import resume_w1_workflow
+        logger.info("Dispatching W1 resume %s via Celery", workflow_id)
+        resume_w1_workflow.delay(workflow_id, query)
+    else:
+        logger.info("Dispatching W1 resume %s via asyncio", workflow_id)
+        asyncio.create_task(_resume_w1_background(workflow_id, query))
 
 
 async def _run_w1_background(
@@ -464,9 +487,7 @@ async def intervene(workflow_id: str, request: InterveneRequest) -> InterveneRes
                 # If resuming from WAITING_HUMAN, continue W1 pipeline
                 if instance.template == "W1" and _registry is not None:
                     _save_instance(instance)
-                    asyncio.create_task(
-                        _resume_w1_background(workflow_id, instance.query)
-                    )
+                    _dispatch_w1_resume(workflow_id, instance.query)
             elif request.action == "cancel":
                 engine.cancel(instance)
                 detail = "Workflow cancelled"
