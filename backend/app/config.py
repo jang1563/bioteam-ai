@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     backup_enabled: bool = True
     backup_interval_hours: float = 24.0
 
+    # Digest scheduling
+    digest_enabled: bool = True
+    digest_check_interval_minutes: float = 60.0
+    github_token: str = ""  # Optional, for higher GitHub API rate limits
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

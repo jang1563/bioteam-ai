@@ -1,6 +1,7 @@
 """Message and communication models.
 
-Includes: AgentMessage (SQL), ContextPackage (Pydantic), SSEEvent (Pydantic).
+Includes: AgentMessage (SQL), Conversation (SQL), ConversationTurn (SQL),
+ContextPackage (Pydantic), SSEEvent (Pydantic).
 """
 
 from __future__ import annotations
@@ -29,6 +30,37 @@ class AgentMessage(SQLModel, table=True):
     payload: dict = SQLField(default_factory=dict, sa_column=Column(JSON))
     context_refs: list[str] = SQLField(default_factory=list, sa_column=Column(JSON))
     timestamp: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Conversation(SQLModel, table=True):
+    """A conversation thread in Direct Query."""
+
+    __tablename__ = "conversation"
+
+    id: str = SQLField(default_factory=lambda: str(uuid4()), primary_key=True)
+    title: str = ""
+    created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+    total_cost: float = 0.0
+    turn_count: int = 0
+
+
+class ConversationTurn(SQLModel, table=True):
+    """A single Q&A turn within a conversation."""
+
+    __tablename__ = "conversation_turn"
+
+    id: str = SQLField(default_factory=lambda: str(uuid4()), primary_key=True)
+    conversation_id: str = SQLField(index=True)
+    turn_number: int = 0
+    query: str = ""
+    classification_type: str = ""
+    routed_agent: str | None = None
+    answer: str | None = None
+    sources: list[dict] = SQLField(default_factory=list, sa_column=Column(JSON))
+    cost: float = 0.0
+    duration_ms: int = 0
+    created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # === Pydantic-only models (not persisted) ===

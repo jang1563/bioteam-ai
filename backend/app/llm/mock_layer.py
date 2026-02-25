@@ -83,10 +83,32 @@ class MockLLMLayer:
             "method": "complete_raw",
             "model_tier": model_tier,
             "messages": messages,
+            "system": system,
             "temperature": temperature,
         })
         result = self.responses.get(key, _MockMessage(text="Mock response"))
         return result, self._mock_meta(model_tier)
+
+    async def complete_stream(
+        self,
+        messages: list[dict],
+        model_tier: ModelTier,
+        system: str | list[dict] | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ):
+        """Mock streaming — yield word-by-word from mock response."""
+        self.call_log.append({
+            "method": "complete_stream",
+            "model_tier": model_tier,
+            "messages": messages,
+            "system": system,
+            "temperature": temperature,
+        })
+        text = "Mock streaming response for testing."
+        for word in text.split():
+            yield word + " ", None
+        yield "", self._mock_meta(model_tier)
 
     async def complete_with_tools(
         self,

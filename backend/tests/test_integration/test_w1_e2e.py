@@ -110,7 +110,8 @@ def test_full_w1_lifecycle():
 
     assert instance.state == "COMPLETED"
     expected_steps = ["SCOPE", "SEARCH", "SCREEN", "EXTRACT",
-                      "NEGATIVE_CHECK", "SYNTHESIZE", "NOVELTY_CHECK", "REPORT"]
+                      "NEGATIVE_CHECK", "SYNTHESIZE", "CITATION_CHECK",
+                      "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT"]
     for step_id in expected_steps:
         assert step_id in all_steps, f"Missing step: {step_id}"
 

@@ -1,0 +1,37 @@
+# Agent Spec: Ambiguity Engine
+# Hybrid contradiction detection: deterministic pre-screening + LLM classification.
+
+id: ambiguity_engine
+name: Ambiguity Engine
+tier: engine
+model_tier: sonnet
+model_tier_secondary: null
+division: cross_cutting
+criticality: optional        # W1 degrades gracefully without it
+
+system_prompt_file: ambiguity_engine.md
+
+output_schemas:
+  - ContradictionClassification
+  - ContradictionAnalysis
+
+tools: []
+
+mcp_access: []
+
+literature_access: false     # Uses SemanticMemory directly, not external APIs
+
+few_shot_examples:
+  - input: "VEGF promotes angiogenesis in tumors vs. VEGF inhibits angiogenesis in cornea"
+    expected: "conditional_truth — both true under different biological contexts"
+  - input: "Gene X upregulated (RNA-seq) vs. Gene X not detected (microarray)"
+    expected: "technical_artifact — different detection platforms, different sensitivity"
+
+failure_modes:
+  - "Over-classification: trivial rephrasing flagged as contradiction — mitigated by is_genuine_contradiction filter"
+  - "Under-detection: subtle contradictions missed by cosine threshold — mitigated by linguistic markers"
+  - "Cost overrun: too many LLM calls — mitigated by max_llm_pairs=10 cap"
+
+degradation_mode: "skip"     # W1 continues without contradiction detection
+
+version: "0.1.0"

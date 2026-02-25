@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Dna,
   MessageSquare,
+  Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,6 +21,7 @@ import { useAppStore } from "@/stores/app-store";
 const navItems = [
   { href: "/", label: "Mission Control", icon: LayoutDashboard },
   { href: "/query", label: "Direct Query", icon: MessageSquare },
+  { href: "/digest", label: "Research Digest", icon: Newspaper },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/lab-kb", label: "Lab KB", icon: FlaskConical },
   { href: "/settings", label: "Settings", icon: Settings },

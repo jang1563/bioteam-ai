@@ -1,38 +1,127 @@
 "use client";
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Send, Loader2, Brain, Workflow, Clock, DollarSign, BookOpen } from "lucide-react";
-import { api } from "@/lib/api-client";
-import type { DirectQueryResponse } from "@/types/api";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Send,
+  Loader2,
+  Brain,
+  Workflow,
+  Clock,
+  DollarSign,
+  BookOpen,
+  Radio,
+  User,
+  Plus,
+  MessageSquare,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+} from "lucide-react";
+import { useDirectQueryStream } from "@/hooks/use-direct-query-stream";
+import { useConversations } from "@/hooks/use-conversations";
+import type { ConversationTurn } from "@/types/api";
+
+const STATUS_LABELS: Record<string, string> = {
+  classifying: "Classifying query...",
+  retrieving: "Retrieving knowledge context...",
+  streaming: "Generating answer...",
+  done: "Complete",
+  error: "Error",
+};
 
 export default function QueryPage() {
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<DirectQueryResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<DirectQueryResponse[]>([]);
+  const stream = useDirectQueryStream();
+  const convs = useConversations();
 
-  const handleSubmit = async () => {
-    if (!query.trim() || loading) return;
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const res = await api.post<DirectQueryResponse>("/api/v1/direct-query", {
-        query: query.trim(),
-      });
-      setResult(res);
-      setHistory((prev) => [res, ...prev].slice(0, 20));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Query failed");
-    } finally {
-      setLoading(false);
+  // Active conversation state
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [activeTurns, setActiveTurns] = useState<ConversationTurn[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const isActive = stream.status !== "idle" && stream.status !== "done" && stream.status !== "error";
+
+  // Load conversations on mount
+  useEffect(() => {
+    convs.refresh();
+  }, []);
+
+  // When stream completes, update conversation state
+  useEffect(() => {
+    if (stream.status === "done" && stream.metadata) {
+      const newConvId = stream.metadata.conversation_id;
+      if (newConvId) {
+        setActiveConvId(newConvId);
+        // Add the new turn to local state
+        const newTurn: ConversationTurn = {
+          id: crypto.randomUUID(),
+          turn_number: activeTurns.length + 1,
+          query: query.trim(),
+          classification_type: stream.classification?.type ?? "simple_query",
+          routed_agent: stream.metadata.routed_agent,
+          answer: stream.streamedText || null,
+          sources: stream.metadata.sources ?? [],
+          cost: stream.metadata.total_cost,
+          duration_ms: stream.metadata.duration_ms,
+          created_at: new Date().toISOString(),
+        };
+        setActiveTurns((prev) => [...prev, newTurn]);
+        // Refresh sidebar
+        convs.refresh();
+      }
+      setQuery("");
     }
+  }, [stream.status]);
+
+  const handleSubmit = () => {
+    if (!query.trim() || isActive) return;
+    stream.execute(query.trim(), activeConvId);
+  };
+
+  const handleNewConversation = () => {
+    stream.reset();
+    setActiveConvId(null);
+    setActiveTurns([]);
+    setQuery("");
+  };
+
+  const handleSelectConversation = async (id: string) => {
+    if (id === activeConvId) return;
+    stream.reset();
+    setQuery("");
+    try {
+      const detail = await convs.loadConversation(id);
+      setActiveConvId(detail.id);
+      setActiveTurns(detail.turns);
+    } catch {
+      // Conversation may have been deleted
+      convs.refresh();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    await convs.deleteConversation(id);
+    if (activeConvId === id) {
+      handleNewConversation();
+    }
+  };
+
+  const handleRename = async (id: string) => {
+    if (!editTitle.trim()) {
+      setEditingId(null);
+      return;
+    }
+    await convs.renameConversation(id, editTitle.trim());
+    setEditingId(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -43,281 +132,350 @@ export default function QueryPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Direct Query</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Ask a research question. The Research Director will classify it and route to the appropriate agent or workflow.
-        </p>
+    <div className="flex gap-6 h-[calc(100vh-8rem)]">
+      {/* Conversation Sidebar */}
+      <div className="w-64 shrink-0 flex flex-col">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-muted-foreground">Conversations</h2>
+          <Button variant="ghost" size="sm" onClick={handleNewConversation} title="New conversation">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <ScrollArea className="flex-1 -mx-1">
+          <div className="space-y-1 px-1">
+            {convs.conversations.length === 0 && !convs.loading && (
+              <p className="text-xs text-muted-foreground py-4 text-center">No conversations yet</p>
+            )}
+            {convs.conversations.map((c) => (
+              <div
+                key={c.id}
+                className={`group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors ${
+                  activeConvId === c.id
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent/50"
+                }`}
+              >
+                {editingId === c.id ? (
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRename(c.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      className="h-6 text-xs"
+                      autoFocus
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0"
+                      onClick={() => handleRename(c.id)}
+                    >
+                      <Check className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0"
+                      onClick={() => setEditingId(null)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className="flex items-center gap-2 flex-1 min-w-0"
+                      onClick={() => handleSelectConversation(c.id)}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate text-xs">{c.title || "Untitled"}</span>
+                    </div>
+                    <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(c.id);
+                          setEditTitle(c.title);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(c.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+        {convs.conversations.length > 0 && (
+          <div className="pt-2 border-t mt-2">
+            <p className="text-xs text-muted-foreground text-center">
+              {convs.conversations.length} conversation{convs.conversations.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Query Input */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            <label htmlFor="query-input" className="text-sm font-medium">
-              Research Question
-            </label>
-            <Textarea
-              id="query-input"
-              placeholder="e.g., What are the key mechanisms of spaceflight-induced anemia?"
-              className="min-h-[100px] text-sm"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={loading}
-              aria-label="Enter your research question"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                {query.length}/2000 characters | Cmd+Enter to submit
-              </span>
-              <Button
-                onClick={handleSubmit}
-                disabled={loading || !query.trim()}
-                size="sm"
-              >
-                {loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                {loading ? "Analyzing..." : "Ask"}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Error */}
-      {error && (
-        <Card className="border-destructive">
-          <CardContent className="py-4">
-            <p className="text-sm text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              Research Director is analyzing your query...
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Result */}
-      {result && <QueryResult result={result} />}
-
-      {/* History */}
-      {history.length > 1 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Previous Queries ({history.length - 1})
-          </h2>
-          {history.slice(1).map((r, i) => (
-            <Card key={i} className="opacity-70 hover:opacity-100 transition-opacity">
-              <CardContent className="py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium truncate">{r.query}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {r.classification_type === "needs_workflow" ? r.workflow_type : "Direct"}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        ${r.total_cost.toFixed(4)}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs shrink-0"
-                    onClick={() => {
-                      setResult(r);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  >
-                    View
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold tracking-tight">Direct Query</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Ask a research question. The Research Director classifies and routes it to the appropriate specialist agent.
+          </p>
         </div>
+
+        {/* Chat-like conversation history */}
+        <ScrollArea className="flex-1 mb-4">
+          <div className="space-y-4 pr-2">
+            {activeTurns.map((turn) => (
+              <TurnCard key={turn.id} turn={turn} />
+            ))}
+
+            {/* Streaming Progress (current turn being generated) */}
+            {isActive && (
+              <Card>
+                <CardContent className="py-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Radio className="h-3 w-3 text-primary animate-pulse" />
+                    <span className="text-sm text-muted-foreground">
+                      {STATUS_LABELS[stream.status] ?? stream.status}
+                    </span>
+                  </div>
+
+                  {stream.classification && (
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={stream.classification.type === "needs_workflow" ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {stream.classification.type === "needs_workflow" ? (
+                          <>
+                            <Workflow className="mr-1 h-3 w-3" />
+                            {stream.classification.workflow_type} Recommended
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="mr-1 h-3 w-3" />
+                            Direct Answer
+                          </>
+                        )}
+                      </Badge>
+                      {stream.classification.target_agent && (
+                        <Badge variant="outline" className="text-xs">
+                          <User className="mr-1 h-3 w-3" />
+                          {stream.classification.target_agent}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {stream.streamedText && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Answer</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {stream.streamedText}
+                        <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom" />
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Workflow recommendation (no turns created for workflow queries) */}
+            {stream.status === "done" && stream.classification && (
+              <StreamResult classification={stream.classification} />
+            )}
+
+            {/* Empty state when no conversation and idle */}
+            {activeTurns.length === 0 && !isActive && stream.status !== "done" && (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <div className="text-center space-y-2">
+                  <MessageSquare className="h-8 w-8 mx-auto opacity-30" />
+                  <p className="text-sm">Start a conversation by asking a research question below</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Error */}
+        {stream.error && (
+          <Card className="border-destructive mb-4">
+            <CardContent className="py-3">
+              <p className="text-sm text-destructive">{stream.error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Query Input (pinned to bottom) */}
+        <Card className="shrink-0">
+          <CardContent className="pt-4 pb-3">
+            <div className="space-y-2">
+              <Textarea
+                id="query-input"
+                placeholder={
+                  activeConvId
+                    ? "Ask a follow-up question..."
+                    : "e.g., What are the key mechanisms of spaceflight-induced anemia?"
+                }
+                className="min-h-[80px] text-sm resize-none"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isActive}
+                aria-label="Enter your research question"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {query.length}/2000 | Cmd+Enter to submit
+                  {activeConvId && (
+                    <span className="ml-2 text-primary">
+                      Continuing conversation ({activeTurns.length} turn{activeTurns.length !== 1 ? "s" : ""})
+                    </span>
+                  )}
+                </span>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isActive || !query.trim()}
+                  size="sm"
+                >
+                  {isActive ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  {isActive ? "Analyzing..." : "Ask"}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function TurnCard({ turn }: { turn: ConversationTurn }) {
+  return (
+    <div className="space-y-2">
+      {/* User query */}
+      <div className="flex justify-end">
+        <div className="rounded-lg bg-primary/10 px-3 py-2 max-w-[80%]">
+          <p className="text-sm">{turn.query}</p>
+        </div>
+      </div>
+      {/* Assistant answer */}
+      {turn.answer && (
+        <Card>
+          <CardContent className="py-3 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              {turn.routed_agent && (
+                <Badge variant="outline" className="text-xs">
+                  <User className="mr-1 h-3 w-3" />
+                  {turn.routed_agent}
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <DollarSign className="h-3 w-3" />${turn.cost.toFixed(4)}
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />{(turn.duration_ms / 1000).toFixed(1)}s
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.answer}</p>
+            <SourcesList sources={turn.sources} />
+          </CardContent>
+        </Card>
       )}
     </div>
   );
 }
 
-function QueryResult({ result }: { result: DirectQueryResponse }) {
-  const isWorkflow = result.classification_type === "needs_workflow";
+function StreamResult({
+  classification,
+}: {
+  classification: { type: string; reasoning: string; target_agent: string | null; workflow_type: string | null };
+}) {
+  if (classification.type !== "needs_workflow") return null;
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium">Analysis Result</CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={isWorkflow ? "default" : "secondary"}
-              className="text-xs"
-            >
-              {isWorkflow ? (
-                <>
-                  <Workflow className="mr-1 h-3 w-3" />
-                  {result.workflow_type} Recommended
-                </>
-              ) : (
-                <>
-                  <Brain className="mr-1 h-3 w-3" />
-                  Direct Answer
-                </>
-              )}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Query */}
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">Question</p>
-          <p className="text-sm">{result.query}</p>
-        </div>
-
-        <Separator />
-
-        {/* Classification Reasoning */}
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">
-            Research Director Analysis
+      <CardContent className="py-4">
+        <div className="rounded-md border border-border bg-accent/50 p-3">
+          <p className="text-xs font-medium mb-1">Recommended Workflow</p>
+          <p className="text-sm">
+            This question requires a <strong>{classification.workflow_type}</strong> workflow for
+            comprehensive analysis. Create one from the{" "}
+            <a href="/" className="text-primary underline">Mission Control</a> page.
           </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {result.classification_reasoning}
-          </p>
-        </div>
-
-        {/* Direct Answer (for simple queries) */}
-        {result.answer && (
-          <>
-            <Separator />
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">Answer</p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{result.answer}</p>
-            </div>
-          </>
-        )}
-
-        {/* Workflow recommendation */}
-        {isWorkflow && result.workflow_type && (
-          <>
-            <Separator />
-            <div className="rounded-md border border-border bg-accent/50 p-3">
-              <p className="text-xs font-medium mb-1">Recommended Workflow</p>
-              <p className="text-sm">
-                This question requires a <strong>{result.workflow_type}</strong> workflow for
-                comprehensive analysis. Create one from the{" "}
-                <a href="/" className="text-primary underline">Mission Control</a> page.
-              </p>
-              {result.target_agent && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Primary agent: {result.target_agent}
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Sources */}
-        {result.sources && result.sources.length > 0 && (
-          <>
-            <Separator />
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                <BookOpen className="h-3 w-3" />
-                Sources ({result.sources.length})
-              </p>
-              <div className="space-y-1.5">
-                {result.sources.map((src, i) => (
-                  <div key={i} className="rounded border border-border bg-accent/20 p-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        {src.title ? (
-                          <p className="text-xs font-medium truncate">
-                            {String(src.title)}
-                          </p>
-                        ) : null}
-                        {src.content_snippet ? (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {String(src.content_snippet)}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {src.year ? (
-                          <Badge variant="outline" className="text-xs">
-                            {String(src.year)}
-                          </Badge>
-                        ) : null}
-                        {src.source_type ? (
-                          <Badge variant="secondary" className="text-xs">
-                            {String(src.source_type)}
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                    {src.doi ? (
-                      <p className="text-xs text-muted-foreground mt-1 font-mono">
-                        DOI: {String(src.doi)}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Memory Context */}
-        {result.memory_context.length > 0 && (
-          <>
-            <Separator />
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">
-                Related Knowledge ({result.memory_context.length})
-              </p>
-              <div className="space-y-1">
-                {result.memory_context.map((ctx, i) => (
-                  <div key={i} className="rounded bg-accent/30 p-2 text-xs">
-                    {JSON.stringify(ctx).slice(0, 200)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        <Separator />
-
-        {/* Metadata */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <DollarSign className="h-3 w-3" />
-            ${result.total_cost.toFixed(4)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {(result.duration_ms / 1000).toFixed(1)}s
-          </span>
-          <span>{result.total_tokens.toLocaleString()} tokens</span>
-          <span className="font-mono">{result.model_versions.join(", ")}</span>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function SourcesList({ sources }: { sources: Record<string, unknown>[] }) {
+  if (!sources || sources.length === 0) return null;
+
+  return (
+    <>
+      <Separator />
+      <div>
+        <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+          <BookOpen className="h-3 w-3" />
+          Sources ({sources.length})
+        </p>
+        <div className="space-y-1.5">
+          {sources.map((src, i) => (
+            <div key={i} className="rounded border border-border bg-accent/20 p-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  {src.title ? (
+                    <p className="text-xs font-medium truncate">{String(src.title)}</p>
+                  ) : null}
+                  {src.content_snippet ? (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {String(src.content_snippet)}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {src.year ? (
+                    <Badge variant="outline" className="text-xs">{String(src.year)}</Badge>
+                  ) : null}
+                  {src.source_type ? (
+                    <Badge variant="secondary" className="text-xs">{String(src.source_type)}</Badge>
+                  ) : null}
+                </div>
+              </div>
+              {src.doi ? (
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  DOI: {String(src.doi)}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }

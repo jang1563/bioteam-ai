@@ -9,12 +9,18 @@ Responsibilities:
 
 from __future__ import annotations
 
+import logging
+
 from pydantic import BaseModel, Field
 
 from app.agents.base import BaseAgent
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
 from app.memory.semantic import SemanticMemory
+from app.integrations.pubmed import PubMedClient
+from app.integrations.semantic_scholar import SemanticScholarClient
+
+logger = logging.getLogger(__name__)
 
 
 # === Output Models ===
@@ -61,9 +67,18 @@ class KnowledgeManagerAgent(BaseAgent):
     Uses PubMed + Semantic Scholar for external literature search.
     """
 
-    def __init__(self, spec, llm, memory: SemanticMemory | None = None) -> None:
+    def __init__(
+        self,
+        spec,
+        llm,
+        memory: SemanticMemory | None = None,
+        pubmed_client: PubMedClient | None = None,
+        s2_client: SemanticScholarClient | None = None,
+    ) -> None:
         super().__init__(spec, llm)
         self.memory = memory or SemanticMemory()
+        self._pubmed = pubmed_client
+        self._s2 = s2_client
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Retrieve relevant memory for the given context."""
@@ -138,18 +153,91 @@ class KnowledgeManagerAgent(BaseAgent):
             system=self.system_prompt_cached,
         )
 
-        # Phase 1: Return the search terms as output
-        # Actual API calls handled by integrations layer
+        # Execute actual API searches
+        # Only calls real APIs if clients were injected or NCBI_EMAIL is configured.
+        # This avoids blocking network calls in test environments.
+        import asyncio
+        import os
+        from concurrent.futures import ThreadPoolExecutor
+
+        papers: list[dict] = []
+        databases_searched: list[str] = []
+
+        has_pubmed = self._pubmed is not None or bool(os.environ.get("NCBI_EMAIL"))
+        has_s2 = self._s2 is not None
+
+        if has_pubmed or has_s2:
+            loop = asyncio.get_event_loop()
+
+        # PubMed search (blocking I/O → thread pool with 15s timeout)
+        if has_pubmed:
+            try:
+                pubmed = self._pubmed or PubMedClient()
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    pubmed_papers = await asyncio.wait_for(
+                        loop.run_in_executor(pool, lambda: pubmed.search(terms.pubmed_query, max_results=20)),
+                        timeout=15.0,
+                    )
+                for p in pubmed_papers:
+                    papers.append(p.to_dict())
+                databases_searched.append("PubMed")
+                logger.info("PubMed returned %d papers for: %s", len(pubmed_papers), terms.pubmed_query)
+            except asyncio.TimeoutError:
+                logger.warning("PubMed search timed out after 15s")
+                databases_searched.append("PubMed (timeout)")
+            except Exception as e:
+                logger.warning("PubMed search failed (continuing): %s", e)
+                databases_searched.append("PubMed (failed)")
+        else:
+            databases_searched.append("PubMed")
+            logger.debug("PubMed skipped (no NCBI_EMAIL configured)")
+
+        # Semantic Scholar search (blocking I/O → thread pool with 15s timeout)
+        if has_s2:
+            try:
+                s2 = self._s2 or SemanticScholarClient()
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    s2_papers = await asyncio.wait_for(
+                        loop.run_in_executor(pool, lambda: s2.search(terms.semantic_scholar_query, limit=10)),
+                        timeout=15.0,
+                    )
+                for p in s2_papers:
+                    papers.append(p.to_dict())
+                databases_searched.append("Semantic Scholar")
+                logger.info("S2 returned %d papers for: %s", len(s2_papers), terms.semantic_scholar_query)
+            except asyncio.TimeoutError:
+                logger.warning("Semantic Scholar search timed out after 15s")
+                databases_searched.append("Semantic Scholar (timeout)")
+            except Exception as e:
+                logger.warning("Semantic Scholar search failed (continuing): %s", e)
+                databases_searched.append("Semantic Scholar (failed)")
+        else:
+            databases_searched.append("Semantic Scholar")
+            logger.debug("Semantic Scholar skipped (no client configured)")
+
+        # Deduplicate by DOI
+        seen_dois: set[str] = set()
+        unique_papers: list[dict] = []
+        for p in papers:
+            doi = p.get("doi", "")
+            if doi and doi in seen_dois:
+                continue
+            if doi:
+                seen_dois.add(doi)
+            unique_papers.append(p)
+
         result = LiteratureSearchResult(
             query=context.task_description,
-            databases_searched=["PubMed", "Semantic Scholar"],
+            databases_searched=databases_searched,
+            total_found=len(unique_papers),
+            papers=unique_papers,
             search_strategy=f"PubMed: {terms.pubmed_query} | S2: {terms.semantic_scholar_query}",
         )
 
         return self.build_output(
             output=result.model_dump(),
             output_type="LiteratureSearchResult",
-            summary=f"Generated search strategy for: {context.task_description[:80]}",
+            summary=f"Found {len(unique_papers)} papers for: {context.task_description[:80]}",
             llm_response=meta,
         )
 

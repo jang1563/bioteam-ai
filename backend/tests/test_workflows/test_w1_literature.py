@@ -14,6 +14,7 @@ from app.agents.base import BaseAgent
 from app.agents.registry import create_registry
 from app.agents.research_director import QueryClassification, SynthesisReport
 from app.agents.knowledge_manager import LiteratureSearchResult, NoveltyAssessment
+from app.agents.ambiguity_engine import ContradictionClassification, ResolutionOutput
 from app.agents.teams.t02_transcriptomics import (
     ScreeningResult, ScreeningDecision, ExtractionResult, ExtractedPaperData,
 )
@@ -64,6 +65,12 @@ def _make_mock_responses() -> dict:
         ),
         # SYNTHESIZE — RD.synthesize (opus)
         # Already defined above (same key)
+        # CONTRADICTION_CHECK — ambiguity_engine.detect_contradictions
+        "sonnet:ContradictionClassification": ContradictionClassification(
+            types=[],
+            confidence=0.9,
+            is_genuine_contradiction=False,
+        ),
         # NOVELTY — KM.assess_novelty
         "sonnet:NoveltyAssessment": NoveltyAssessment(
             finding="Splenic hemolysis increases by 54% in microgravity",
@@ -85,16 +92,16 @@ def _make_runner():
 
 
 def test_step_count():
-    """W1 should have exactly 10 steps."""
-    assert len(W1_STEPS) == 10
+    """W1 should have exactly 11 steps (including CONTRADICTION_CHECK)."""
+    assert len(W1_STEPS) == 11
     print("  PASS: step_count")
 
 
 def test_step_order():
     """Steps should be in correct order."""
     expected = ["SCOPE", "SEARCH", "SCREEN", "EXTRACT", "NEGATIVE_CHECK",
-                "SYNTHESIZE", "CITATION_CHECK", "RCMXT_SCORE",
-                "NOVELTY_CHECK", "REPORT"]
+                "SYNTHESIZE", "CONTRADICTION_CHECK", "CITATION_CHECK",
+                "RCMXT_SCORE", "NOVELTY_CHECK", "REPORT"]
     actual = [s.id for s in W1_STEPS]
     assert actual == expected
     print("  PASS: step_order")
@@ -157,6 +164,7 @@ def test_run_to_human_checkpoint():
     assert "NEGATIVE_CHECK" in step_ids
     assert "SYNTHESIZE" in step_ids
     # Post-human steps should NOT have run yet
+    assert "CONTRADICTION_CHECK" not in step_ids
     assert "CITATION_CHECK" not in step_ids
     assert "RCMXT_SCORE" not in step_ids
     assert "NOVELTY_CHECK" not in step_ids
@@ -179,6 +187,7 @@ def test_resume_after_human():
     assert final["instance"].state == "COMPLETED"
 
     step_ids = list(final["step_results"].keys())
+    assert "CONTRADICTION_CHECK" in step_ids
     assert "CITATION_CHECK" in step_ids
     assert "RCMXT_SCORE" in step_ids
     assert "NOVELTY_CHECK" in step_ids

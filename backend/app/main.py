@@ -22,6 +22,9 @@ from app.api.v1.agents import router as agents_router
 from app.api.v1.workflows import router as workflows_router
 from app.api.v1.backup import router as backup_router
 from app.api.v1.negative_results import router as nr_router
+from app.api.v1.conversations import router as conversations_router
+from app.api.v1.contradictions import router as contradictions_router
+from app.api.v1.digest import router as digest_router
 from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -31,10 +34,11 @@ from app.workflows.engine import WorkflowEngine
 from app.models.evidence import Evidence, ContradictionEntry, DataRegistry  # noqa: F401
 from app.models.negative_result import NegativeResult  # noqa: F401
 from app.models.workflow import WorkflowInstance, StepCheckpoint  # noqa: F401
-from app.models.messages import AgentMessage  # noqa: F401
+from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401
 from app.models.task import Project, Task  # noqa: F401
 from app.models.memory import EpisodicEvent  # noqa: F401
 from app.models.cost import CostRecord  # noqa: F401
+from app.models.digest import TopicProfile, DigestEntry, DigestReport  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize agent registry (graceful — doesn't fail if API key is test/missing)
     backup_scheduler = None
+    digest_scheduler = None
     try:
         from app.config import settings
         from app.llm.layer import LLMLayer
@@ -92,15 +97,33 @@ async def lifespan(app: FastAPI):
         )
         await backup_scheduler.start()
 
+        # Wire up digest pipeline + scheduler
+        from app.digest.pipeline import DigestPipeline
+        from app.digest.scheduler import DigestScheduler
+        from app.api.v1.digest import set_pipeline as set_digest_pipeline
+
+        digest_agent = registry.get("digest_agent")
+        digest_pipeline = DigestPipeline(digest_agent=digest_agent)
+        set_digest_pipeline(digest_pipeline)
+
+        digest_scheduler = DigestScheduler(
+            pipeline=digest_pipeline,
+            check_interval_minutes=settings.digest_check_interval_minutes,
+            enabled=settings.digest_enabled,
+        )
+        await digest_scheduler.start()
+
         logger.info("Agent registry initialized with %d agents", len(registry.list_agents()))
     except Exception as e:
         logger.warning("Registry init skipped (non-fatal): %s", e)
 
     yield
 
-    # Shutdown: stop backup scheduler
+    # Shutdown: stop schedulers
     if backup_scheduler is not None:
         backup_scheduler.stop()
+    if digest_scheduler is not None:
+        digest_scheduler.stop()
 
 
 app = FastAPI(
@@ -144,6 +167,9 @@ app.include_router(workflows_router)
 app.include_router(backup_router)
 app.include_router(nr_router)
 app.include_router(cold_start_router)
+app.include_router(conversations_router)
+app.include_router(contradictions_router)
+app.include_router(digest_router)
 
 
 @app.get("/")

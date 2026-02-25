@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -243,6 +244,55 @@ class LLMLayer:
 
         meta = self._extract_metadata(response, model_tier)
         return response, meta
+
+    async def complete_stream(
+        self,
+        messages: list[dict],
+        model_tier: ModelTier,
+        system: str | list[dict] | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> AsyncGenerator[tuple[str, LLMResponse | None], None]:
+        """Streaming completion — yields token chunks then final metadata.
+
+        Yields:
+            ("chunk_text", None) for each token chunk during streaming
+            ("", LLMResponse) as the final yield with complete metadata
+
+        Args:
+            messages: Conversation messages.
+            model_tier: "opus", "sonnet", or "haiku".
+            system: Optional system prompt.
+            max_tokens: Max output tokens.
+            temperature: Sampling temperature.
+        """
+        if not self.circuit_breaker.allow_request():
+            raise CircuitBreakerOpenError("Circuit breaker is open.")
+
+        kwargs: dict[str, Any] = {
+            "model": MODEL_MAP[model_tier],
+            "max_tokens": max_tokens or settings.default_max_tokens,
+            "messages": messages,
+            "temperature": temperature if temperature is not None else settings.default_temperature,
+        }
+        if system:
+            kwargs["system"] = system
+
+        try:
+            async with self.raw_client.messages.stream(**kwargs) as stream:
+                async for text in stream.text_stream:
+                    yield text, None
+
+                response = await stream.get_final_message()
+                self.circuit_breaker.record_success()
+                meta = self._extract_metadata(response, model_tier)
+                yield "", meta
+        except (anthropic.RateLimitError, anthropic.APIConnectionError, anthropic.InternalServerError) as e:
+            self.circuit_breaker.record_failure()
+            raise
+        except Exception as e:
+            self.circuit_breaker.record_failure()
+            raise
 
     async def complete_with_tools(
         self,

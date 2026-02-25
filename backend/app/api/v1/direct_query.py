@@ -1,23 +1,29 @@
 """Direct Query API endpoint.
 
 POST /api/v1/direct-query
+GET  /api/v1/direct-query/stream (SSE)
+
 Accepts a research question, routes through Research Director,
 retrieves context from Knowledge Manager, and returns a structured response.
 
 v5: Registry-backed handler replaces 503 stub.
 v6: Full answer pipeline — classify → retrieve → generate answer.
     Added 30s timeout, $0.50 cost cap per PRD requirements.
+v7: Specialist routing + SSE streaming endpoint.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.agents.registry import AgentRegistry
 from app.models.messages import ContextPackage
@@ -47,6 +53,7 @@ class DirectQueryRequest(BaseModel):
     """Incoming direct query from the dashboard."""
 
     query: str = Field(min_length=1, max_length=2000, description="Research question")
+    conversation_id: str | None = Field(default=None, description="Continue existing conversation")
     seed_papers: list[str] = Field(
         default_factory=list,
         max_length=50,
@@ -62,6 +69,8 @@ class DirectQueryResponse(BaseModel):
     classification_reasoning: str = ""
     target_agent: str | None = None
     workflow_type: str | None = None
+    routed_agent: str | None = None  # Agent actually used for answer generation
+    conversation_id: str | None = None  # Created or continued conversation ID
 
     # Populated for simple_query
     answer: str | None = None
@@ -77,6 +86,26 @@ class DirectQueryResponse(BaseModel):
 
 
 # === Helper functions ===
+
+
+def _resolve_specialist(
+    registry: AgentRegistry | None,
+    target_agent: str | None,
+) -> tuple[str | None, str]:
+    """Resolve specialist agent's system prompt for answer generation.
+
+    Returns (agent_id, system_prompt_text).
+    Falls back to generic prompt if agent unavailable.
+    """
+    if not registry or not target_agent:
+        return None, ""
+
+    agent = registry.get(target_agent)
+    if agent is None or not registry.is_available(target_agent):
+        logger.info("Specialist %s unavailable, using generic prompt", target_agent)
+        return None, ""
+
+    return agent.agent_id, agent.system_prompt
 
 
 def _build_context_text(memory_context: list[dict]) -> str:
@@ -125,12 +154,103 @@ def _extract_sources(memory_context: list[dict]) -> list[dict]:
 # === Pipeline function (decoupled from FastAPI for testing) ===
 
 
+def _load_conversation_history(conversation_id: str | None) -> list[dict]:
+    """Load prior turns as LLM message pairs. Returns last 10 turns max."""
+    if not conversation_id:
+        return []
+    try:
+        from app.db.database import engine
+        from sqlmodel import Session, select
+        from app.models.messages import ConversationTurn
+
+        with Session(engine) as session:
+            stmt = (
+                select(ConversationTurn)
+                .where(ConversationTurn.conversation_id == conversation_id)
+                .order_by(ConversationTurn.turn_number.desc())  # type: ignore[union-attr]
+                .limit(10)
+            )
+            turns = list(reversed(session.exec(stmt).all()))
+
+        messages = []
+        for turn in turns:
+            messages.append({"role": "user", "content": turn.query})
+            if turn.answer:
+                messages.append({"role": "assistant", "content": turn.answer})
+        return messages
+    except Exception as e:
+        logger.warning("Failed to load conversation history: %s", e)
+        return []
+
+
+def _save_conversation_turn(
+    conversation_id: str | None,
+    query: str,
+    classification_type: str,
+    routed_agent: str | None,
+    answer: str | None,
+    sources: list[dict],
+    cost: float,
+    duration_ms: int,
+) -> str | None:
+    """Save a turn. Creates conversation if needed. Returns conversation_id."""
+    if classification_type != "simple_query":
+        return None
+    try:
+        from app.db.database import engine
+        from sqlmodel import Session
+        from app.models.messages import Conversation, ConversationTurn
+
+        with Session(engine) as session:
+            if conversation_id:
+                conv = session.get(Conversation, conversation_id)
+                if conv is None:
+                    conversation_id = None  # Fall through to create
+
+            if not conversation_id:
+                conv = Conversation(
+                    title=query[:60],
+                    total_cost=0.0,
+                    turn_count=0,
+                )
+                session.add(conv)
+                session.flush()
+                conversation_id = conv.id
+            else:
+                conv = session.get(Conversation, conversation_id)
+
+            if conv is not None:
+                conv.turn_count += 1
+                conv.total_cost += cost
+                conv.updated_at = datetime.now(timezone.utc)
+
+                turn = ConversationTurn(
+                    conversation_id=conversation_id,
+                    turn_number=conv.turn_count,
+                    query=query,
+                    classification_type=classification_type,
+                    routed_agent=routed_agent,
+                    answer=answer,
+                    sources=sources,
+                    cost=cost,
+                    duration_ms=duration_ms,
+                )
+                session.add(turn)
+                session.commit()
+
+            return conversation_id
+    except Exception as e:
+        logger.warning("Failed to save conversation turn: %s", e)
+        return conversation_id
+
+
 async def run_direct_query(
     query: str,
     research_director: Any,
     knowledge_manager: Any,
     registry: AgentRegistry | None = None,
     seed_papers: list[str] | None = None,
+    conversation_id: str | None = None,
 ) -> DirectQueryResponse:
     """Execute the Direct Query pipeline.
 
@@ -138,6 +258,7 @@ async def run_direct_query(
       1. Research Director classifies query (Sonnet)
       2. Knowledge Manager retrieves memory context
       3. Generate answer using LLM with memory grounding (Sonnet)
+      4. Save conversation turn
 
     Args:
         query: Research question.
@@ -145,16 +266,19 @@ async def run_direct_query(
         knowledge_manager: KnowledgeManagerAgent instance.
         registry: Optional AgentRegistry for specialist routing.
         seed_papers: Optional DOIs to prioritize.
+        conversation_id: Optional ID to continue a conversation.
 
     Returns:
         DirectQueryResponse with classification and answer.
     """
-    import time
     start = time.time()
 
     total_cost = 0.0
     total_tokens = 0
     model_versions: list[str] = []
+
+    # Load conversation history for context
+    conversation_history = _load_conversation_history(conversation_id)
 
     # Step 1: Classify query
     context = ContextPackage(task_description=query)
@@ -177,9 +301,13 @@ async def run_direct_query(
     memory_context: list[dict] = []
     answer: str | None = None
     sources: list[dict] = []
+    routed_agent: str | None = None
 
     if classification_type == "simple_query":
-        # 2a: Retrieve relevant memory
+        # 2a: Resolve specialist agent for domain-grounded answers
+        routed_agent, specialist_prompt = _resolve_specialist(registry, target_agent)
+
+        # 2b: Retrieve relevant memory
         memory_output = await knowledge_manager.execute(context)
         if memory_output.is_success and memory_output.output:
             memory_context = memory_output.output.get("results", [])
@@ -193,29 +321,33 @@ async def run_direct_query(
             logger.warning("Cost cap reached ($%.4f >= $%.2f), skipping answer generation",
                            total_cost, DIRECT_QUERY_COST_CAP)
         else:
-            # 2b: Generate answer using LLM with memory grounding
+            # 2c: Generate answer using LLM with memory grounding
             llm = research_director.llm
             context_text = _build_context_text(memory_context)
 
-            answer_messages = [
-                {
-                    "role": "user",
-                    "content": (
-                        f"Research question: {query}\n\n"
-                        f"Relevant knowledge base context:\n{context_text}\n\n"
-                        f"Provide a concise, evidence-based answer to the research question. "
-                        f"Cite specific sources using [N] notation when available. "
-                        f"If the context is insufficient, clearly state what is known "
-                        f"and what knowledge gaps remain."
-                    ),
-                }
-            ]
+            # Build messages with conversation history for context
+            answer_messages = list(conversation_history)  # Prior turns
+            answer_messages.append({
+                "role": "user",
+                "content": (
+                    f"Research question: {query}\n\n"
+                    f"Relevant knowledge base context:\n{context_text}\n\n"
+                    f"Provide a concise, evidence-based answer to the research question. "
+                    f"Cite specific sources using [N] notation when available. "
+                    f"If the context is insufficient, clearly state what is known "
+                    f"and what knowledge gaps remain."
+                ),
+            })
+
+            # Use specialist system prompt if available for domain expertise
+            system_prompt = specialist_prompt if specialist_prompt else None
 
             try:
                 raw_response, answer_meta = await llm.complete_raw(
                     messages=answer_messages,
                     model_tier="sonnet",
                     max_tokens=2048,
+                    system=system_prompt,
                 )
 
                 # Extract text from response
@@ -238,12 +370,26 @@ async def run_direct_query(
 
     duration_ms = int((time.time() - start) * 1000)
 
+    # Save conversation turn
+    result_conversation_id = _save_conversation_turn(
+        conversation_id=conversation_id,
+        query=query,
+        classification_type=classification_type,
+        routed_agent=routed_agent,
+        answer=answer,
+        sources=sources,
+        cost=total_cost,
+        duration_ms=duration_ms,
+    )
+
     return DirectQueryResponse(
         query=query,
         classification_type=classification_type,
         classification_reasoning=classification.get("reasoning", ""),
         target_agent=target_agent,
         workflow_type=workflow_type,
+        routed_agent=routed_agent,
+        conversation_id=result_conversation_id,
         answer=answer,
         sources=sources,
         memory_context=memory_context,
@@ -288,6 +434,7 @@ async def direct_query_endpoint(request: DirectQueryRequest) -> DirectQueryRespo
                 knowledge_manager=km,
                 registry=_registry,
                 seed_papers=request.seed_papers,
+                conversation_id=request.conversation_id,
             ),
             timeout=DIRECT_QUERY_TIMEOUT,
         )
@@ -298,3 +445,181 @@ async def direct_query_endpoint(request: DirectQueryRequest) -> DirectQueryRespo
         )
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# === SSE Streaming endpoint ===
+
+
+def _sse_event(event: str, data: dict) -> str:
+    """Format a named SSE event."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@router.get("/direct-query/stream")
+async def direct_query_stream(
+    query: str = Query(min_length=1, max_length=2000, description="Research question"),
+    conversation_id: str | None = Query(default=None, description="Continue existing conversation"),
+) -> StreamingResponse:
+    """SSE endpoint for streaming Direct Query responses.
+
+    Uses GET because EventSource API only supports GET.
+    Emits named events: classification, memory, token, done, error.
+    """
+    if _registry is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Agent registry not initialized. Run Cold Start first.",
+        )
+
+    rd = _registry.get("research_director")
+    km = _registry.get("knowledge_manager")
+
+    if rd is None or km is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Required agents (research_director, knowledge_manager) not available.",
+        )
+
+    async def event_generator():
+        start = time.time()
+        total_cost = 0.0
+        total_tokens = 0
+        model_versions: list[str] = []
+
+        # Load conversation history for context
+        conv_history = _load_conversation_history(conversation_id)
+
+        try:
+            # Step 1: Classify query
+            context = ContextPackage(task_description=query)
+            classification_output = await rd.execute(context)
+
+            if not classification_output.is_success:
+                yield _sse_event("error", {"detail": f"Classification failed: {classification_output.error}"})
+                return
+
+            total_cost += classification_output.cost
+            total_tokens += classification_output.input_tokens + classification_output.output_tokens
+            if classification_output.model_version:
+                model_versions.append(classification_output.model_version)
+
+            classification = classification_output.output
+            classification_type = classification.get("type", "simple_query")
+            target_agent = classification.get("target_agent")
+
+            yield _sse_event("classification", {
+                "type": classification_type,
+                "reasoning": classification.get("reasoning", ""),
+                "target_agent": target_agent,
+                "workflow_type": classification.get("workflow_type"),
+            })
+
+            # If needs_workflow, no streaming — send done immediately
+            if classification_type != "simple_query":
+                duration_ms = int((time.time() - start) * 1000)
+                yield _sse_event("done", {
+                    "classification_type": classification_type,
+                    "workflow_type": classification.get("workflow_type"),
+                    "total_cost": total_cost,
+                    "total_tokens": total_tokens,
+                    "duration_ms": duration_ms,
+                })
+                return
+
+            # Step 2: Resolve specialist
+            routed_agent, specialist_prompt = _resolve_specialist(_registry, target_agent)
+
+            # Step 3: Retrieve memory
+            memory_output = await km.execute(context)
+            memory_context: list[dict] = []
+            if memory_output.is_success and memory_output.output:
+                memory_context = memory_output.output.get("results", [])
+                total_cost += memory_output.cost
+                total_tokens += memory_output.input_tokens + memory_output.output_tokens
+                if memory_output.model_version:
+                    model_versions.append(memory_output.model_version)
+
+            sources = _extract_sources(memory_context)
+            yield _sse_event("memory", {
+                "results_count": len(memory_context),
+                "sources": sources,
+            })
+
+            # Cost cap check
+            if total_cost >= DIRECT_QUERY_COST_CAP:
+                yield _sse_event("error", {"detail": "Cost cap reached before answer generation."})
+                return
+
+            # Step 4: Stream answer
+            llm = rd.llm
+            context_text = _build_context_text(memory_context)
+            answer_messages = list(conv_history)  # Prior turns for context
+            answer_messages.append({
+                "role": "user",
+                "content": (
+                    f"Research question: {query}\n\n"
+                    f"Relevant knowledge base context:\n{context_text}\n\n"
+                    f"Provide a concise, evidence-based answer to the research question. "
+                    f"Cite specific sources using [N] notation when available. "
+                    f"If the context is insufficient, clearly state what is known "
+                    f"and what knowledge gaps remain."
+                ),
+            })
+            system_prompt = specialist_prompt if specialist_prompt else None
+
+            answer_chunks: list[str] = []
+            async for chunk, meta in llm.complete_stream(
+                messages=answer_messages,
+                model_tier="sonnet",
+                max_tokens=2048,
+                system=system_prompt,
+            ):
+                if meta is None:
+                    answer_chunks.append(chunk)
+                    yield _sse_event("token", {"text": chunk})
+                else:
+                    total_cost += meta.cost
+                    total_tokens += meta.input_tokens + meta.output_tokens
+                    if meta.model_version:
+                        model_versions.append(meta.model_version)
+
+            duration_ms = int((time.time() - start) * 1000)
+
+            # Save conversation turn
+            full_answer = "".join(answer_chunks) or None
+            result_conv_id = _save_conversation_turn(
+                conversation_id=conversation_id,
+                query=query,
+                classification_type=classification_type,
+                routed_agent=routed_agent,
+                answer=full_answer,
+                sources=sources,
+                cost=total_cost,
+                duration_ms=duration_ms,
+            )
+
+            yield _sse_event("done", {
+                "routed_agent": routed_agent,
+                "conversation_id": result_conv_id,
+                "total_cost": total_cost,
+                "total_tokens": total_tokens,
+                "model_versions": model_versions,
+                "duration_ms": duration_ms,
+                "sources": sources,
+            })
+
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.error("Stream error: %s", e)
+            yield _sse_event("error", {"detail": str(e)})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

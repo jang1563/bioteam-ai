@@ -141,7 +141,7 @@ def test_mock_complete_structured_default():
         value: str = ""
 
     mock = MockLLMLayer()
-    result, meta = asyncio.get_event_loop().run_until_complete(
+    result, meta = asyncio.run(
         mock.complete_structured(
             messages=[{"role": "user", "content": "test"}],
             model_tier="sonnet",
@@ -166,7 +166,7 @@ def test_mock_complete_structured_with_response():
             reasoning="Complex task",
         )
     })
-    result, meta = asyncio.get_event_loop().run_until_complete(
+    result, meta = asyncio.run(
         mock.complete_structured(
             messages=[{"role": "user", "content": "test"}],
             model_tier="sonnet",
@@ -180,7 +180,7 @@ def test_mock_complete_structured_with_response():
 
 def test_mock_complete_raw():
     mock = MockLLMLayer()
-    result, meta = asyncio.get_event_loop().run_until_complete(
+    result, meta = asyncio.run(
         mock.complete_raw(
             messages=[{"role": "user", "content": "hello"}],
             model_tier="haiku",
@@ -197,7 +197,7 @@ def test_mock_complete_with_tools():
     async def executor(name, input_data):
         return "tool result"
 
-    results, meta = asyncio.get_event_loop().run_until_complete(
+    results, meta = asyncio.run(
         mock.complete_with_tools(
             messages=[{"role": "user", "content": "test"}],
             model_tier="opus",
@@ -219,14 +219,14 @@ def test_mock_call_log():
     class TestModel(BaseModel):
         value: str = ""
 
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         mock.complete_structured(
             messages=[{"role": "user", "content": "msg1"}],
             model_tier="sonnet",
             response_model=TestModel,
         )
     )
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         mock.complete_raw(
             messages=[{"role": "user", "content": "msg2"}],
             model_tier="haiku",

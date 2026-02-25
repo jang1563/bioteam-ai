@@ -1,0 +1,346 @@
+"""Digest Pipeline — FETCH → DEDUP → SUMMARIZE → STORE.
+
+Standalone pipeline that fetches papers from multiple sources,
+deduplicates, computes relevance, generates a summary via DigestAgent,
+and persists everything to the database.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
+
+from sqlmodel import Session, select
+
+from app.config import settings
+from app.db.database import engine as db_engine
+from app.integrations.biorxiv import BiorxivClient
+from app.integrations.arxiv_client import ArxivClient
+from app.integrations.github_trending import GithubTrendingClient
+from app.integrations.huggingface import HuggingFaceClient
+from app.integrations.pubmed import PubMedClient
+from app.integrations.semantic_scholar import SemanticScholarClient
+from app.models.digest import DigestEntry, DigestReport, TopicProfile
+from app.models.messages import ContextPackage
+
+logger = logging.getLogger(__name__)
+
+# Source name constants
+SOURCE_PUBMED = "pubmed"
+SOURCE_BIORXIV = "biorxiv"
+SOURCE_ARXIV = "arxiv"
+SOURCE_GITHUB = "github"
+SOURCE_HUGGINGFACE = "huggingface"
+SOURCE_S2 = "semantic_scholar"
+
+
+class DigestPipeline:
+    """Multi-source research digest pipeline.
+
+    Usage:
+        pipeline = DigestPipeline()
+        report = await pipeline.run(topic)
+    """
+
+    def __init__(self, digest_agent=None) -> None:
+        self._digest_agent = digest_agent
+        self._clients = {
+            SOURCE_PUBMED: PubMedClient(),
+            SOURCE_S2: SemanticScholarClient(),
+            SOURCE_BIORXIV: BiorxivClient(),
+            SOURCE_ARXIV: ArxivClient(),
+            SOURCE_GITHUB: GithubTrendingClient(token=getattr(settings, "github_token", "")),
+            SOURCE_HUGGINGFACE: HuggingFaceClient(),
+        }
+
+    async def run(self, topic: TopicProfile, days: int = 7) -> DigestReport:
+        """Full pipeline: FETCH → DEDUP → SCORE → STORE → SUMMARIZE → REPORT.
+
+        Args:
+            topic: TopicProfile with queries, sources, and categories.
+            days: Look-back period in days.
+
+        Returns:
+            DigestReport with summary and highlights.
+        """
+        logger.info("Starting digest pipeline for topic '%s'", topic.name)
+
+        # 1. Fetch from all enabled sources in parallel
+        raw_entries = await self._fetch_all_sources(topic, days=days)
+        logger.info("Fetched %d raw entries from %d sources", len(raw_entries), len(topic.sources))
+
+        # 2. Deduplicate
+        unique_entries = self._deduplicate(raw_entries)
+        logger.info("After dedup: %d unique entries", len(unique_entries))
+
+        # 3. Compute relevance scores
+        scored_entries = self._compute_relevance(unique_entries, topic.queries)
+
+        # 4. Sort by relevance and take top entries
+        scored_entries.sort(key=lambda e: e.get("relevance_score", 0), reverse=True)
+        top_entries = scored_entries[:100]
+
+        # 5. Persist entries to DB
+        persisted = self._persist_entries(top_entries, topic.id)
+        logger.info("Persisted %d entries", len(persisted))
+
+        # 6. Summarize with DigestAgent (if available)
+        report = await self._summarize(persisted, topic, days=days)
+        logger.info("Digest report generated: %d entries, cost=%.4f", report.entry_count, report.cost)
+
+        return report
+
+    async def _fetch_all_sources(self, topic: TopicProfile, days: int = 7) -> list[dict]:
+        """Fetch from all enabled sources in parallel."""
+        tasks = []
+        loop = asyncio.get_event_loop()
+
+        for source in topic.sources:
+            if source not in self._clients:
+                continue
+            tasks.append(self._fetch_single_source(source, topic, days, loop))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_entries: list[dict] = []
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning("Source fetch failed: %s", result)
+                continue
+            all_entries.extend(result)
+
+        return all_entries
+
+    async def _fetch_single_source(
+        self, source: str, topic: TopicProfile, days: int, loop
+    ) -> list[dict]:
+        """Fetch from a single source with timeout."""
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    ThreadPoolExecutor(max_workers=1),
+                    self._fetch_sync,
+                    source,
+                    topic,
+                    days,
+                ),
+                timeout=30.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Source %s timed out", source)
+            return []
+        except Exception as e:
+            logger.warning("Source %s error: %s", source, e)
+            return []
+
+    def _fetch_sync(self, source: str, topic: TopicProfile, days: int) -> list[dict]:
+        """Synchronous fetch for a single source (runs in ThreadPoolExecutor)."""
+        query = " ".join(topic.queries[:3])  # Use first 3 queries combined
+        categories = topic.categories.get(source, []) if topic.categories else []
+
+        if source == SOURCE_PUBMED:
+            papers = self._clients[SOURCE_PUBMED].search(query, max_results=30, sort="date")
+            return [p.to_dict() for p in papers]
+
+        elif source == SOURCE_S2:
+            papers = self._clients[SOURCE_S2].search(query, limit=20)
+            return [p.to_dict() for p in papers]
+
+        elif source == SOURCE_BIORXIV:
+            papers = self._clients[SOURCE_BIORXIV].search_by_topic(query, days=days, max_results=30)
+            return [p.to_dict() for p in papers]
+
+        elif source == SOURCE_ARXIV:
+            cats = categories or ArxivClient.BIO_AI_CATEGORIES
+            papers = self._clients[SOURCE_ARXIV].search(query, max_results=30, categories=cats)
+            return [p.to_dict() for p in papers]
+
+        elif source == SOURCE_GITHUB:
+            repos = self._clients[SOURCE_GITHUB].trending_ai_bio(days=days, max_results=20)
+            return [r.to_dict() for r in repos]
+
+        elif source == SOURCE_HUGGINGFACE:
+            papers = self._clients[SOURCE_HUGGINGFACE].search_papers(query, max_results=30)
+            return [p.to_dict() for p in papers]
+
+        return []
+
+    def _deduplicate(self, entries: list[dict]) -> list[dict]:
+        """Cross-source dedup by DOI, arXiv ID, or title."""
+        seen_ids: set[str] = set()
+        seen_titles: set[str] = set()
+        unique: list[dict] = []
+
+        for entry in entries:
+            # Check by DOI
+            doi = entry.get("doi", "")
+            if doi and doi in seen_ids:
+                continue
+
+            # Check by arXiv ID
+            arxiv_id = entry.get("arxiv_id", "") or entry.get("paper_id", "")
+            if arxiv_id and arxiv_id in seen_ids:
+                continue
+
+            # Check by repo full_name
+            full_name = entry.get("full_name", "")
+            if full_name and full_name in seen_ids:
+                continue
+
+            # Check by normalized title
+            title = entry.get("title", "").strip().lower()
+            if title and title in seen_titles:
+                continue
+
+            # Mark as seen
+            if doi:
+                seen_ids.add(doi)
+            if arxiv_id:
+                seen_ids.add(arxiv_id)
+            if full_name:
+                seen_ids.add(full_name)
+            if title:
+                seen_titles.add(title)
+
+            unique.append(entry)
+
+        return unique
+
+    def _compute_relevance(self, entries: list[dict], queries: list[str]) -> list[dict]:
+        """Deterministic keyword-based relevance scoring."""
+        keywords: set[str] = set()
+        for q in queries:
+            keywords.update(w.lower() for w in q.split() if len(w) > 2)
+
+        for entry in entries:
+            text = f"{entry.get('title', '')} {entry.get('abstract', '')} {entry.get('summary', '')} {entry.get('description', '')}".lower()
+            if not text.strip():
+                entry["relevance_score"] = 0.0
+                continue
+
+            matched = sum(1 for kw in keywords if kw in text)
+            score = min(matched / max(len(keywords), 1), 1.0)
+            entry["relevance_score"] = round(score, 3)
+
+        return entries
+
+    def _persist_entries(self, entries: list[dict], topic_id: str) -> list[DigestEntry]:
+        """Store entries in SQLite, skipping duplicates."""
+        persisted: list[DigestEntry] = []
+
+        with Session(db_engine) as session:
+            for entry_data in entries:
+                external_id = self._extract_external_id(entry_data)
+                if not external_id:
+                    continue
+
+                # Check if already exists for this topic
+                existing = session.exec(
+                    select(DigestEntry).where(
+                        DigestEntry.topic_id == topic_id,
+                        DigestEntry.external_id == external_id,
+                    )
+                ).first()
+                if existing:
+                    continue
+
+                db_entry = DigestEntry(
+                    topic_id=topic_id,
+                    source=entry_data.get("source", "unknown"),
+                    external_id=external_id,
+                    title=entry_data.get("title", ""),
+                    authors=entry_data.get("authors", []),
+                    abstract=entry_data.get("abstract", "") or entry_data.get("summary", "") or entry_data.get("description", ""),
+                    url=entry_data.get("url", "") or entry_data.get("pdf_url", "") or entry_data.get("source_url", ""),
+                    metadata_extra={
+                        k: v for k, v in entry_data.items()
+                        if k not in ("title", "authors", "abstract", "summary", "description", "source", "url", "pdf_url", "source_url")
+                    },
+                    relevance_score=entry_data.get("relevance_score", 0.0),
+                    published_at=entry_data.get("date", "") or entry_data.get("published", "") or entry_data.get("published_at", "") or entry_data.get("year", ""),
+                )
+                session.add(db_entry)
+                persisted.append(db_entry)
+
+            session.commit()
+            for p in persisted:
+                session.refresh(p)
+                session.expunge(p)
+
+        return persisted
+
+    async def _summarize(self, entries: list[DigestEntry], topic: TopicProfile, days: int = 7) -> DigestReport:
+        """Generate a summary report using DigestAgent."""
+        now = datetime.now(timezone.utc)
+        period_start = now - timedelta(days=days)
+
+        # Build source breakdown
+        source_breakdown: dict[str, int] = {}
+        for e in entries:
+            source_breakdown[e.source] = source_breakdown.get(e.source, 0) + 1
+
+        summary_text = ""
+        highlights: list[dict] = []
+        cost = 0.0
+
+        if self._digest_agent and entries:
+            # Prepare entries for the agent
+            entries_for_llm = [
+                {
+                    "title": e.title,
+                    "source": e.source,
+                    "abstract": e.abstract[:300] if e.abstract else "",
+                    "authors": e.authors[:3],
+                    "relevance_score": e.relevance_score,
+                }
+                for e in entries[:30]  # Cap at 30 entries for LLM
+            ]
+
+            task_desc = json.dumps({
+                "topic_name": topic.name,
+                "period": f"Last {days} days",
+                "entries": entries_for_llm,
+            }, ensure_ascii=False)
+
+            context = ContextPackage(task_description=task_desc)
+            try:
+                output = await self._digest_agent.run(context)
+                if output.output and not output.error:
+                    summary_text = output.output.get("executive_summary", "")
+                    highlights = output.output.get("highlights", [])
+                    cost = output.cost
+            except Exception as e:
+                logger.warning("DigestAgent summarization failed: %s", e)
+
+        # Create report
+        report = DigestReport(
+            topic_id=topic.id,
+            period_start=period_start,
+            period_end=now,
+            entry_count=len(entries),
+            summary=summary_text,
+            highlights=highlights,
+            source_breakdown=source_breakdown,
+            cost=cost,
+        )
+
+        with Session(db_engine) as session:
+            session.add(report)
+            session.commit()
+            session.refresh(report)
+            session.expunge(report)
+
+        return report
+
+    @staticmethod
+    def _extract_external_id(entry: dict) -> str:
+        """Extract the best unique external identifier for an entry."""
+        # Priority: DOI > arXiv ID > paper_id > pmid > full_name
+        for key in ("doi", "arxiv_id", "paper_id", "pmid", "full_name"):
+            val = entry.get(key, "")
+            if val:
+                return str(val)
+        return ""

@@ -185,6 +185,7 @@ export interface UpdateNegativeResultRequest {
 
 export interface DirectQueryRequest {
   query: string;
+  conversation_id?: string | null;
   seed_papers?: string[];
 }
 
@@ -194,6 +195,8 @@ export interface DirectQueryResponse {
   classification_reasoning: string;
   target_agent: string | null;
   workflow_type: string | null;
+  routed_agent: string | null;
+  conversation_id: string | null;
   answer: string | null;
   sources: Record<string, unknown>[];
   memory_context: Record<string, unknown>[];
@@ -202,6 +205,63 @@ export interface DirectQueryResponse {
   model_versions: string[];
   duration_ms: number;
   timestamp: string;
+}
+
+// === Conversation Types ===
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  total_cost: number;
+  turn_count: number;
+}
+
+export interface ConversationTurn {
+  id: string;
+  turn_number: number;
+  query: string;
+  classification_type: string;
+  routed_agent: string | null;
+  answer: string | null;
+  sources: Record<string, unknown>[];
+  cost: number;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  total_cost: number;
+  turn_count: number;
+  turns: ConversationTurn[];
+}
+
+// === Direct Query Streaming Types ===
+
+export type StreamStatus = "idle" | "classifying" | "retrieving" | "streaming" | "done" | "error";
+
+export interface StreamClassification {
+  type: "simple_query" | "needs_workflow";
+  reasoning: string;
+  target_agent: string | null;
+  workflow_type: string | null;
+}
+
+export interface StreamDoneData {
+  classification_type?: string;
+  workflow_type?: string | null;
+  routed_agent: string | null;
+  conversation_id?: string | null;
+  total_cost: number;
+  total_tokens: number;
+  model_versions: string[];
+  duration_ms: number;
+  sources: Record<string, unknown>[];
 }
 
 // === SSE Types ===
@@ -260,6 +320,82 @@ export interface ColdStartStatus {
   has_literature: boolean;
   has_lab_kb: boolean;
   timestamp: string;
+}
+
+// === Research Digest Types ===
+
+export type DigestSchedule = "daily" | "weekly" | "manual";
+export type DigestSource = "pubmed" | "biorxiv" | "arxiv" | "github" | "huggingface" | "semantic_scholar";
+
+export interface TopicProfile {
+  id: string;
+  name: string;
+  queries: string[];
+  sources: DigestSource[];
+  categories: Record<string, string[]>;
+  schedule: DigestSchedule;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTopicRequest {
+  name: string;
+  queries: string[];
+  sources?: DigestSource[];
+  categories?: Record<string, string[]>;
+  schedule?: DigestSchedule;
+}
+
+export interface UpdateTopicRequest {
+  name?: string;
+  queries?: string[];
+  sources?: DigestSource[];
+  categories?: Record<string, string[]>;
+  schedule?: DigestSchedule;
+  is_active?: boolean;
+}
+
+export interface DigestEntry {
+  id: string;
+  topic_id: string;
+  source: DigestSource | "github";
+  external_id: string;
+  title: string;
+  authors: string[];
+  abstract: string;
+  url: string;
+  metadata_extra: Record<string, unknown>;
+  relevance_score: number;
+  fetched_at: string;
+  published_at: string;
+}
+
+export interface DigestHighlight {
+  title: string;
+  source: string;
+  one_liner: string;
+  why_important?: string;
+}
+
+export interface DigestReport {
+  id: string;
+  topic_id: string;
+  period_start: string;
+  period_end: string;
+  entry_count: number;
+  summary: string;
+  highlights: DigestHighlight[];
+  source_breakdown: Record<string, number>;
+  cost: number;
+  created_at: string;
+}
+
+export interface DigestStats {
+  total_topics: number;
+  total_entries: number;
+  total_reports: number;
+  entries_by_source: Record<string, number>;
 }
 
 // === Health ===

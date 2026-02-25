@@ -127,6 +127,8 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
     from app.agents.research_director import ResearchDirectorAgent
     from app.agents.knowledge_manager import KnowledgeManagerAgent
     from app.agents.project_manager import ProjectManagerAgent
+    from app.agents.ambiguity_engine import AmbiguityEngineAgent
+    from app.agents.digest_agent import DigestAgent
     from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
     from app.agents.teams.t10_data_eng import DataEngineeringAgent
 
@@ -137,6 +139,8 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
         (ResearchDirectorAgent, "research_director", {}),
         (KnowledgeManagerAgent, "knowledge_manager", {"memory": memory}),
         (ProjectManagerAgent, "project_manager", {}),
+        (AmbiguityEngineAgent, "ambiguity_engine", {"memory": memory}),
+        (DigestAgent, "digest_agent", {}),
         (TranscriptomicsAgent, "t02_transcriptomics", {}),
         (DataEngineeringAgent, "t10_data_eng", {}),
     ]

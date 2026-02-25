@@ -120,15 +120,36 @@ def test_search_all_collections():
 
 
 def test_llm_search_terms():
-    """KM should use LLM to generate optimized search terms."""
+    """KM should use LLM to generate optimized search terms and call real APIs."""
     from pydantic import BaseModel, Field
+    from app.integrations.pubmed import PubMedPaper
+    from app.integrations.semantic_scholar import S2Paper
 
     class SearchTerms(BaseModel):
         pubmed_query: str = "spaceflight[MeSH] AND anemia[MeSH]"
         semantic_scholar_query: str = "spaceflight induced anemia mechanisms"
         keywords: list[str] = Field(default_factory=lambda: ["spaceflight", "anemia"])
 
+    # Create mock integration clients so tests don't hit real APIs
+    class MockPubMed:
+        def search(self, query, max_results=20):
+            return [
+                PubMedPaper(pmid="12345678", title="Space anemia study", authors=["Kim J"],
+                            journal="Nature Medicine", year="2022",
+                            abstract="Spaceflight hemolysis.", doi="10.1038/test1"),
+            ]
+
+    class MockS2:
+        def search(self, query, limit=10):
+            return [
+                S2Paper(paper_id="abc123", title="Microgravity erythropoiesis",
+                        authors=["Lee S"], year=2023,
+                        abstract="Red blood cell dynamics.", doi="10.1234/test2"),
+            ]
+
     agent = make_agent({"sonnet:SearchTerms": SearchTerms()})
+    agent._pubmed = MockPubMed()
+    agent._s2 = MockS2()
 
     context = ContextPackage(task_description="spaceflight anemia mechanisms")
     output = asyncio.run(agent.search_literature(context))
@@ -137,7 +158,11 @@ def test_llm_search_terms():
     assert output.output_type == "LiteratureSearchResult"
     assert "PubMed" in output.output["databases_searched"]
     assert "Semantic Scholar" in output.output["databases_searched"]
-    print("  PASS: LLM search term generation")
+    assert output.output["total_found"] == 2
+    assert len(output.output["papers"]) == 2
+    assert output.output["papers"][0]["source"] == "pubmed"
+    assert output.output["papers"][1]["source"] == "semantic_scholar"
+    print("  PASS: LLM search term generation + API calls")
 
 
 def test_novelty_assessment():

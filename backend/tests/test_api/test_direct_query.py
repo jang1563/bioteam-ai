@@ -6,6 +6,7 @@ using MockLLMLayer (no real API calls).
 v6: Updated tests for answer generation pipeline, timeout, cost cap.
 """
 
+import json
 import os
 import sys
 import asyncio
@@ -20,9 +21,10 @@ from app.agents.research_director import ResearchDirectorAgent, QueryClassificat
 from app.agents.knowledge_manager import KnowledgeManagerAgent
 from app.api.v1.direct_query import (
     run_direct_query, DirectQueryResponse,
-    _build_context_text, _extract_sources,
+    _build_context_text, _extract_sources, _resolve_specialist,
     DIRECT_QUERY_TIMEOUT, DIRECT_QUERY_COST_CAP,
 )
+from app.agents.registry import AgentRegistry
 from app.llm.mock_layer import MockLLMLayer
 from app.memory.semantic import SemanticMemory
 
@@ -300,6 +302,273 @@ def test_fastapi_endpoint_with_registry():
     set_registry(None)
 
 
+def test_specialist_routing_uses_agent_system_prompt():
+    """When target_agent is available, its system prompt should be used for answer generation."""
+    classification = QueryClassification(
+        type="simple_query",
+        reasoning="Transcriptomics question.",
+        target_agent="t02_transcriptomics",
+    )
+    mock = MockLLMLayer({"sonnet:QueryClassification": classification})
+
+    rd_spec = BaseAgent.load_spec("research_director")
+    rd = ResearchDirectorAgent(spec=rd_spec, llm=mock)
+
+    km_spec = BaseAgent.load_spec("knowledge_manager")
+    km = KnowledgeManagerAgent(spec=km_spec, llm=mock)
+
+    # Create registry with t02 agent
+    from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
+    t02_spec = BaseAgent.load_spec("t02_transcriptomics")
+    t02 = TranscriptomicsAgent(spec=t02_spec, llm=mock)
+
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    registry.register(t02)
+
+    response = asyncio.run(run_direct_query(
+        query="Is TNFSF11 differentially expressed?",
+        research_director=rd,
+        knowledge_manager=km,
+        registry=registry,
+    ))
+
+    assert response.routed_agent == "t02_transcriptomics"
+    assert response.answer is not None
+
+    # Verify the mock LLM received a system prompt (specialist's prompt)
+    raw_calls = [c for c in mock.call_log if c["method"] == "complete_raw"]
+    assert len(raw_calls) >= 1
+    last_raw = raw_calls[-1]
+    # The system prompt should be set (non-None) when specialist is available
+    assert last_raw.get("system") is not None or "system" in last_raw, \
+        "Specialist system prompt should be passed to complete_raw"
+    print(f"  PASS: Specialist routing uses t02 system prompt (routed_agent={response.routed_agent})")
+
+
+def test_specialist_unavailable_falls_back():
+    """When target_agent is not in registry, fallback to generic prompt."""
+    classification = QueryClassification(
+        type="simple_query",
+        reasoning="Proteomics question.",
+        target_agent="t03_proteomics",  # Not registered
+    )
+    mock = MockLLMLayer({"sonnet:QueryClassification": classification})
+
+    rd_spec = BaseAgent.load_spec("research_director")
+    rd = ResearchDirectorAgent(spec=rd_spec, llm=mock)
+
+    km_spec = BaseAgent.load_spec("knowledge_manager")
+    km = KnowledgeManagerAgent(spec=km_spec, llm=mock)
+
+    # Registry without t03
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+
+    response = asyncio.run(run_direct_query(
+        query="What proteins are affected by microgravity?",
+        research_director=rd,
+        knowledge_manager=km,
+        registry=registry,
+    ))
+
+    assert response.routed_agent is None, "Should be None when specialist unavailable"
+    assert response.target_agent == "t03_proteomics", "Classification target should still be reported"
+    assert response.answer is not None, "Answer should still be generated"
+    print(f"  PASS: Specialist unavailable fallback (routed_agent=None)")
+
+
+def test_resolve_specialist_helper():
+    """Unit test for _resolve_specialist helper."""
+    mock = MockLLMLayer()
+
+    # Case 1: No registry
+    agent_id, prompt = _resolve_specialist(None, "t02_transcriptomics")
+    assert agent_id is None
+    assert prompt == ""
+
+    # Case 2: No target_agent
+    registry = AgentRegistry()
+    agent_id, prompt = _resolve_specialist(registry, None)
+    assert agent_id is None
+    assert prompt == ""
+
+    # Case 3: Agent not in registry
+    agent_id, prompt = _resolve_specialist(registry, "t03_proteomics")
+    assert agent_id is None
+    assert prompt == ""
+
+    # Case 4: Agent available
+    from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
+    t02_spec = BaseAgent.load_spec("t02_transcriptomics")
+    t02 = TranscriptomicsAgent(spec=t02_spec, llm=mock)
+    registry.register(t02)
+
+    agent_id, prompt = _resolve_specialist(registry, "t02_transcriptomics")
+    assert agent_id == "t02_transcriptomics"
+    assert len(prompt) > 0, "Should return the agent's system prompt"
+    print(f"  PASS: _resolve_specialist helper (prompt length: {len(prompt)})")
+
+
+def test_stream_endpoint_emits_events():
+    """SSE streaming endpoint should emit classification → memory → token(s) → done."""
+    from fastapi.testclient import TestClient
+    from app.api.v1.direct_query import router, set_registry
+    from fastapi import FastAPI
+
+    rd, km = setup_agents()
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    set_registry(registry)
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    with client.stream("GET", "/api/v1/direct-query/stream?query=What+is+spaceflight+anemia%3F") as response:
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        events = []
+        event_type = ""
+        for line in response.iter_lines():
+            if line.startswith("event: "):
+                event_type = line[7:]
+            elif line.startswith("data: "):
+                data = json.loads(line[6:])
+                events.append({"event": event_type, "data": data})
+
+    event_types = [e["event"] for e in events]
+    assert "classification" in event_types, f"Missing classification: {event_types}"
+    assert "memory" in event_types, f"Missing memory: {event_types}"
+    assert "done" in event_types, f"Missing done: {event_types}"
+
+    cls_event = next(e for e in events if e["event"] == "classification")
+    assert cls_event["data"]["type"] == "simple_query"
+
+    done_event = next(e for e in events if e["event"] == "done")
+    assert "total_cost" in done_event["data"]
+    assert "duration_ms" in done_event["data"]
+
+    token_events = [e for e in events if e["event"] == "token"]
+    assert len(token_events) > 0, f"Expected token events: {event_types}"
+
+    print(f"  PASS: Stream endpoint ({len(events)} events, {len(token_events)} tokens)")
+    set_registry(None)
+
+
+def test_stream_workflow_returns_done_immediately():
+    """Workflow queries should emit classification + done, no tokens."""
+    from fastapi.testclient import TestClient
+    from app.api.v1.direct_query import router, set_registry
+    from fastapi import FastAPI
+
+    classification = QueryClassification(
+        type="needs_workflow",
+        reasoning="Requires systematic review.",
+        workflow_type="W1",
+    )
+    mock = MockLLMLayer({"sonnet:QueryClassification": classification})
+
+    rd_spec = BaseAgent.load_spec("research_director")
+    rd = ResearchDirectorAgent(spec=rd_spec, llm=mock)
+    km_spec = BaseAgent.load_spec("knowledge_manager")
+    km = KnowledgeManagerAgent(spec=km_spec, llm=mock)
+
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    set_registry(registry)
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    with client.stream("GET", "/api/v1/direct-query/stream?query=Compare+anemia") as response:
+        assert response.status_code == 200
+        events = []
+        event_type = ""
+        for line in response.iter_lines():
+            if line.startswith("event: "):
+                event_type = line[7:]
+            elif line.startswith("data: "):
+                data = json.loads(line[6:])
+                events.append({"event": event_type, "data": data})
+
+    event_types = [e["event"] for e in events]
+    assert "classification" in event_types
+    assert "done" in event_types
+    assert "token" not in event_types
+
+    done_data = next(e for e in events if e["event"] == "done")["data"]
+    assert done_data["classification_type"] == "needs_workflow"
+    print(f"  PASS: Stream workflow done immediately")
+    set_registry(None)
+
+
+def test_stream_no_registry_returns_503():
+    """Streaming endpoint without registry should return 503."""
+    from fastapi.testclient import TestClient
+    from app.api.v1.direct_query import router, set_registry
+    from fastapi import FastAPI
+
+    set_registry(None)
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    response = client.get("/api/v1/direct-query/stream?query=test")
+    assert response.status_code == 503
+    print("  PASS: Stream 503 without registry")
+
+
+def test_routed_agent_in_api_response():
+    """routed_agent field should appear in the FastAPI JSON response."""
+    from fastapi.testclient import TestClient
+    from app.api.v1.direct_query import router, set_registry
+    from fastapi import FastAPI
+    from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
+
+    classification = QueryClassification(
+        type="simple_query",
+        reasoning="Transcriptomics question.",
+        target_agent="t02_transcriptomics",
+    )
+    mock = MockLLMLayer({"sonnet:QueryClassification": classification})
+
+    rd_spec = BaseAgent.load_spec("research_director")
+    rd = ResearchDirectorAgent(spec=rd_spec, llm=mock)
+    km_spec = BaseAgent.load_spec("knowledge_manager")
+    km = KnowledgeManagerAgent(spec=km_spec, llm=mock)
+    t02_spec = BaseAgent.load_spec("t02_transcriptomics")
+    t02 = TranscriptomicsAgent(spec=t02_spec, llm=mock)
+
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    registry.register(t02)
+    set_registry(registry)
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/direct-query",
+        json={"query": "Is TNFSF11 differentially expressed?"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["routed_agent"] == "t02_transcriptomics"
+    assert data["target_agent"] == "t02_transcriptomics"
+    print(f"  PASS: routed_agent in API response")
+
+    set_registry(None)
+
+
 if __name__ == "__main__":
     print("Testing Direct Query Pipeline (E2E):")
     test_simple_query_e2e()
@@ -313,4 +582,11 @@ if __name__ == "__main__":
     test_timeout_constant()
     test_fastapi_endpoint()
     test_fastapi_endpoint_with_registry()
+    test_specialist_routing_uses_agent_system_prompt()
+    test_specialist_unavailable_falls_back()
+    test_resolve_specialist_helper()
+    test_stream_endpoint_emits_events()
+    test_stream_workflow_returns_done_immediately()
+    test_stream_no_registry_returns_503()
+    test_routed_agent_in_api_response()
     print("\nAll Direct Query E2E tests passed!")

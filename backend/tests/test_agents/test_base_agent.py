@@ -106,7 +106,7 @@ def test_execute_success():
     agent = SuccessAgent(spec=spec, llm=llm)
     ctx = ContextPackage(task_description="test task")
 
-    result = asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    result = asyncio.run(agent.execute(ctx))
 
     assert result.is_success
     assert result.agent_id == "test_agent"
@@ -126,7 +126,7 @@ def test_execute_tracks_cost():
     agent = SuccessAgent(spec=spec, llm=llm)
     ctx = ContextPackage(task_description="test task")
 
-    result = asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    result = asyncio.run(agent.execute(ctx))
 
     assert result.is_success
     # MockLLMLayer.estimate_cost returns 0.0 always
@@ -143,7 +143,7 @@ def test_execute_all_retries_fail():
     agent = FailingAgent(spec=spec, llm=llm)
     ctx = ContextPackage(task_description="test task")
 
-    result = asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    result = asyncio.run(agent.execute(ctx))
 
     assert not result.is_success
     assert "RuntimeError" in result.error
@@ -162,7 +162,7 @@ def test_execute_retry_then_succeed():
     agent = FailThenSucceedAgent(spec=spec, llm=llm, fail_count=2)
     ctx = ContextPackage(task_description="test task")
 
-    result = asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    result = asyncio.run(agent.execute(ctx))
 
     assert result.is_success
     assert result.output == {"recovered": True}
@@ -180,7 +180,7 @@ def test_execute_sets_busy_then_idle():
     ctx = ContextPackage(task_description="test task")
 
     assert agent.status.state == "idle"
-    asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    asyncio.run(agent.execute(ctx))
     assert agent.status.state == "idle"
     print("  PASS: execute_sets_busy_then_idle")
 
@@ -191,13 +191,13 @@ def test_consecutive_failures_increment():
     ctx = ContextPackage(task_description="test task")
 
     agent = FailingAgent(spec=spec, llm=llm)
-    asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    asyncio.run(agent.execute(ctx))
     assert agent.status.consecutive_failures == 1
 
     # Create a fresh failing agent to test second failure
     agent2 = FailingAgent(spec=spec, llm=llm)
-    asyncio.get_event_loop().run_until_complete(agent2.execute(ctx))
-    asyncio.get_event_loop().run_until_complete(agent2.execute(ctx))
+    asyncio.run(agent2.execute(ctx))
+    asyncio.run(agent2.execute(ctx))
     assert agent2.status.consecutive_failures == 2
     print("  PASS: consecutive_failures_increment")
 
@@ -209,7 +209,7 @@ def test_consecutive_failures_reset_on_success():
 
     # Fail first
     agent = FailThenSucceedAgent(spec=spec, llm=llm, fail_count=1)
-    asyncio.get_event_loop().run_until_complete(agent.execute(ctx))
+    asyncio.run(agent.execute(ctx))
     assert agent.status.consecutive_failures == 0  # Reset after success
     print("  PASS: consecutive_failures_reset_on_success")
 

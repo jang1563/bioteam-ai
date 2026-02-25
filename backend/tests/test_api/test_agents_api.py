@@ -30,11 +30,13 @@ def test_list_agents():
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert len(data) == 5
+    assert len(data) == 7
     ids = [a["id"] for a in data]
     assert "research_director" in ids
     assert "knowledge_manager" in ids
     assert "project_manager" in ids
+    assert "ambiguity_engine" in ids
+    assert "digest_agent" in ids
     assert "t02_transcriptomics" in ids
     assert "t10_data_eng" in ids
     # Check structure
