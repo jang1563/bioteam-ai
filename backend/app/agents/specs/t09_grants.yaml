@@ -1,0 +1,38 @@
+# Agent Spec: Grant Writing & Funding (Team 9)
+# Proposal strategy, specific aims, budget planning, agency alignment.
+
+id: t09_grants
+name: Grant Writing Agent
+tier: domain_expert
+model_tier: opus
+model_tier_secondary: null
+division: translation
+criticality: optional
+
+system_prompt_file: t09_grants.md
+
+output_schemas:
+  - GrantWritingResult
+
+tools:
+  - draft_aims             # Draft specific aims page
+  - identify_funding       # Match project to funding mechanisms
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Draft specific aims for an R01 on spaceflight-induced bone loss using multi-omics"
+    expected: "Produce 3 specific aims with hypothesis, approach, expected outcomes, and NIH alignment"
+  - input: "What NASA funding mechanisms fit our cfRNA biomarker discovery project?"
+    expected: "Identify relevant NASA ROSEs, TRISH mechanisms, and budget ranges with alignment rationale"
+
+failure_modes:
+  - "Misaligned aims with agency priorities — mitigated by agency-specific templates"
+  - "Over-promising in significance section — mitigated by evidence-grounded claims"
+  - "Budget underestimation for multi-omics work — mitigated by cost benchmarks"
+
+degradation_mode: null
+
+version: "0.1.0"

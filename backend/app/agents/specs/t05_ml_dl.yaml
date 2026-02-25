@@ -1,0 +1,38 @@
+# Agent Spec: Machine Learning & Deep Learning (Team 5)
+# ML model design, training strategies, feature engineering, evaluation.
+
+id: t05_ml_dl
+name: Machine Learning Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: computation
+criticality: optional
+
+system_prompt_file: t05_ml_dl.md
+
+output_schemas:
+  - MLAnalysisResult
+
+tools:
+  - model_recommendation      # ML/DL model selection and architecture design
+  - feature_engineering       # Feature selection and transformation guidance
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Design a classifier to predict astronaut health risk from multi-omics data"
+    expected: "Recommend ensemble or multi-modal DL, specify feature selection, cross-validation, AUROC/AUPRC metrics"
+  - input: "What architecture should I use for predicting protein-ligand binding from sequence?"
+    expected: "Recommend transformer-based model, describe input encoding, training data, evaluation metrics"
+
+failure_modes:
+  - "Overfitting on small biological datasets — mitigated by requiring cross-validation and regularization"
+  - "Data leakage from improper train/test split — mitigated by enforcing sample-level splitting"
+  - "Recommending overcomplex model for tabular data — mitigated by always comparing against simple baselines"
+
+degradation_mode: t04_biostatistics
+
+version: "0.1.0"

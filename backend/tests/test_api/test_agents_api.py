@@ -29,15 +29,32 @@ def test_list_agents():
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert len(data) == 7
+    assert len(data) >= 18  # 18 agents + digest_agent + ambiguity_engine = 20
     ids = [a["id"] for a in data]
+    # Strategic (Tier 1)
     assert "research_director" in ids
     assert "knowledge_manager" in ids
     assert "project_manager" in ids
+    # Core
     assert "ambiguity_engine" in ids
     assert "digest_agent" in ids
+    # Domain experts (Tier 2)
+    assert "t01_genomics" in ids
     assert "t02_transcriptomics" in ids
+    assert "t03_proteomics" in ids
+    assert "t04_biostatistics" in ids
+    assert "t05_ml_dl" in ids
+    assert "t06_systems_bio" in ids
+    assert "t07_structural_bio" in ids
+    assert "t08_scicomm" in ids
+    assert "t09_grants" in ids
     assert "t10_data_eng" in ids
+    assert "experimental_designer" in ids
+    assert "integrative_biologist" in ids
+    # QA (Tier 3)
+    assert "qa_statistical_rigor" in ids
+    assert "qa_biological_plausibility" in ids
+    assert "qa_reproducibility" in ids
     # Check structure
     for agent in data:
         assert "id" in agent

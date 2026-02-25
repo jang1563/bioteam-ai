@@ -122,14 +122,36 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
     - ProjectManagerAgent (infrastructure, optional)
     - TranscriptomicsAgent (domain_expert, optional)
     - DataEngineeringAgent (domain_expert, optional)
+    - SciCommAgent (domain_expert, translation)
+    - GrantWritingAgent (domain_expert, translation)
+    - ExperimentalDesignerAgent (domain_expert, cross_cutting)
+    - IntegrativeBiologistAgent (domain_expert, cross_cutting)
+    - StatisticalRigorQA (qa, independent)
+    - BiologicalPlausibilityQA (qa, independent)
+    - ReproducibilityQA (qa, independent)
     """
     from app.agents.ambiguity_engine import AmbiguityEngineAgent
     from app.agents.base import BaseAgent
     from app.agents.digest_agent import DigestAgent
+    from app.agents.experimental_designer import ExperimentalDesignerAgent
+    from app.agents.integrative_biologist import IntegrativeBiologistAgent
     from app.agents.knowledge_manager import KnowledgeManagerAgent
     from app.agents.project_manager import ProjectManagerAgent
+    from app.agents.qa_agents import (
+        BiologicalPlausibilityQA,
+        ReproducibilityQA,
+        StatisticalRigorQA,
+    )
     from app.agents.research_director import ResearchDirectorAgent
+    from app.agents.teams.t01_genomics import GenomicsAgent
     from app.agents.teams.t02_transcriptomics import TranscriptomicsAgent
+    from app.agents.teams.t03_proteomics import ProteomicsAgent
+    from app.agents.teams.t04_biostatistics import BiostatisticsAgent
+    from app.agents.teams.t05_ml_dl import MachineLearningAgent
+    from app.agents.teams.t06_systems_bio import SystemsBiologyAgent
+    from app.agents.teams.t07_structural_bio import StructuralBiologyAgent
+    from app.agents.teams.t08_scicomm import SciCommAgent
+    from app.agents.teams.t09_grants import GrantWritingAgent
     from app.agents.teams.t10_data_eng import DataEngineeringAgent
 
     registry = AgentRegistry()
@@ -141,8 +163,21 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
         (ProjectManagerAgent, "project_manager", {}),
         (AmbiguityEngineAgent, "ambiguity_engine", {"memory": memory}),
         (DigestAgent, "digest_agent", {}),
+        (GenomicsAgent, "t01_genomics", {}),
         (TranscriptomicsAgent, "t02_transcriptomics", {}),
+        (ProteomicsAgent, "t03_proteomics", {}),
+        (BiostatisticsAgent, "t04_biostatistics", {}),
+        (MachineLearningAgent, "t05_ml_dl", {}),
+        (SystemsBiologyAgent, "t06_systems_bio", {}),
+        (StructuralBiologyAgent, "t07_structural_bio", {}),
+        (SciCommAgent, "t08_scicomm", {}),
+        (GrantWritingAgent, "t09_grants", {}),
         (DataEngineeringAgent, "t10_data_eng", {}),
+        (ExperimentalDesignerAgent, "experimental_designer", {}),
+        (IntegrativeBiologistAgent, "integrative_biologist", {}),
+        (StatisticalRigorQA, "qa_statistical_rigor", {}),
+        (BiologicalPlausibilityQA, "qa_biological_plausibility", {}),
+        (ReproducibilityQA, "qa_reproducibility", {}),
     ]
 
     for agent_cls, spec_id, extra_kwargs in agent_defs:

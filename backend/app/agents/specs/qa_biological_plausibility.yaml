@@ -1,0 +1,37 @@
+# Agent Spec: Biological Plausibility QA
+# Validates pathway annotations, flags artifacts, checks literature consistency.
+
+id: qa_biological_plausibility
+name: Biological Plausibility QA
+tier: qa
+model_tier: sonnet
+model_tier_secondary: null
+division: independent
+criticality: optional
+
+system_prompt_file: qa_biological_plausibility.md
+
+output_schemas:
+  - BiologicalPlausibilityResult
+
+tools:
+  - validate_biology        # Check biological plausibility of claims
+
+mcp_access: []
+
+literature_access: false
+
+few_shot_examples:
+  - input: "Finding: TP53 upregulated 100-fold in healthy tissue with no stress stimulus"
+    expected: "Flag: implausible — TP53 100x upregulation without stress/damage stimulus suggests artifact or contamination"
+  - input: "Claim: spaceflight activates NF-kB leading to muscle atrophy via inflammatory signaling"
+    expected: "Plausible — NF-kB → inflammatory cytokines → muscle proteolysis is well-established; check if spaceflight NF-kB activation is supported by data"
+
+failure_modes:
+  - "Rejecting novel biology as implausible — mitigated by distinguishing 'surprising' from 'impossible'"
+  - "Missing tissue-specific pathway differences — mitigated by tissue context awareness"
+  - "Over-reliance on canonical pathways missing recent discoveries — mitigated by noting knowledge cutoff"
+
+degradation_mode: null
+
+version: "0.1.0"

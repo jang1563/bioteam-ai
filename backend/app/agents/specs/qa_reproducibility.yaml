@@ -1,0 +1,37 @@
+# Agent Spec: Reproducibility QA
+# Assesses FAIR compliance, metadata completeness, and code reproducibility.
+
+id: qa_reproducibility
+name: Reproducibility QA
+tier: qa
+model_tier: haiku
+model_tier_secondary: null
+division: independent
+criticality: optional
+
+system_prompt_file: qa_reproducibility.md
+
+output_schemas:
+  - ReproducibilityResult
+
+tools:
+  - check_reproducibility   # Assess reproducibility and FAIR compliance
+
+mcp_access: []
+
+literature_access: false
+
+few_shot_examples:
+  - input: "Check reproducibility: RNA-seq analysis with no code, GEO accession provided, R version not specified"
+    expected: "FAIR: Findable (yes, GEO), Accessible (yes), Interoperable (partial), Reusable (no — missing code + environment). Verdict: needs improvement"
+  - input: "Assess: Jupyter notebook with pinned dependencies, Docker image, data on Zenodo with DOI"
+    expected: "FAIR: all criteria met. Code reproducible with Docker. Metadata complete. Verdict: excellent"
+
+failure_modes:
+  - "Over-penalizing early-stage exploratory work for missing FAIR elements — mitigated by stage-aware scoring"
+  - "Missing field-specific data standards (e.g., MIAME for microarrays) — mitigated by domain detection"
+  - "Not recognizing equivalent practices (e.g., conda env vs. Docker) — mitigated by flexible environment checks"
+
+degradation_mode: null
+
+version: "0.1.0"

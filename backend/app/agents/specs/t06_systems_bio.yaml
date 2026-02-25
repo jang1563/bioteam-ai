@@ -1,0 +1,38 @@
+# Agent Spec: Systems Biology & Networks (Team 6)
+# Pathway enrichment, network inference, multi-omics integration.
+
+id: t06_systems_bio
+name: Systems Biology Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: computation
+criticality: optional
+
+system_prompt_file: t06_systems_bio.md
+
+output_schemas:
+  - NetworkAnalysisResult
+
+tools:
+  - pathway_enrichment        # GO/KEGG/Reactome enrichment analysis
+  - network_analysis          # PPI network and module detection
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "What pathways are enriched in spaceflight DEGs across multiple tissues?"
+    expected: "Run GO/KEGG/Reactome enrichment, identify shared pathways, report adjusted p-values and gene overlap"
+  - input: "Build a gene regulatory network from multi-tissue spaceflight transcriptomics"
+    expected: "Infer network using WGCNA or GENIE3, identify hub genes, detect modules, map to known pathways"
+
+failure_modes:
+  - "Enrichment bias from gene-length or expression-level — mitigated by using conditional enrichment"
+  - "False hub genes from high-degree bias — mitigated by degree-corrected centrality measures"
+  - "Spurious network edges from correlation-based methods — mitigated by partial correlation or mutual information"
+
+degradation_mode: integrative_biologist
+
+version: "0.1.0"

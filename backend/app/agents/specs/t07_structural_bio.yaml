@@ -1,0 +1,38 @@
+# Agent Spec: Structural Biology (Team 7)
+# Protein structure prediction, molecular docking, binding site analysis.
+
+id: t07_structural_bio
+name: Structural Biology Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: computation
+criticality: optional
+
+system_prompt_file: t07_structural_bio.md
+
+output_schemas:
+  - StructuralAnalysisResult
+
+tools:
+  - structure_analysis        # Protein structure prediction and analysis
+  - molecular_docking         # Binding site identification and docking
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Predict the effect of a TP53 R248W mutation on protein structure and DNA binding"
+    expected: "Retrieve PDB structure, analyze mutation impact on binding interface, report RMSD and binding energy changes"
+  - input: "Identify druggable binding pockets on the SARS-CoV-2 main protease"
+    expected: "Analyze PDB 6LU7, identify catalytic site and allosteric pockets, report pocket volume and druggability score"
+
+failure_modes:
+  - "Low-confidence AlphaFold regions misinterpreted — mitigated by pLDDT threshold filtering"
+  - "Docking score overinterpretation — mitigated by requiring ensemble docking and MM-GBSA rescoring"
+  - "Missing cofactors or post-translational modifications — mitigated by explicit checking of biological assembly"
+
+degradation_mode: null
+
+version: "0.1.0"

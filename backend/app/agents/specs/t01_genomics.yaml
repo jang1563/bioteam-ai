@@ -1,0 +1,38 @@
+# Agent Spec: Genomics & Epigenomics (Team 1)
+# WGS, WES, WGBS, ChIP-seq, ATAC-seq, variant calling, epigenetic profiling.
+
+id: t01_genomics
+name: Genomics Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: wet_to_dry
+criticality: optional
+
+system_prompt_file: t01_genomics.md
+
+output_schemas:
+  - GenomicsAnalysisResult
+
+tools:
+  - analyze_variants          # SNV/indel/SV calling and interpretation
+  - epigenetic_profiling      # ChIP-seq / ATAC-seq / WGBS analysis
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "What variants in TP53 are associated with spaceflight-related clonal hematopoiesis?"
+    expected: "Query WGS/WES datasets, annotate variants with ClinVar/COSMIC, report VAF and functional impact"
+  - input: "Characterize DNA methylation changes in astronaut blood after 6-month ISS missions"
+    expected: "Analyze WGBS data, identify DMRs, map to gene promoters, report pathway enrichment"
+
+failure_modes:
+  - "Incorrect variant annotation — mitigated by multi-database cross-referencing (ClinVar, gnomAD, COSMIC)"
+  - "Epigenetic signal confounded by batch effects — mitigated by requiring biological replicates"
+  - "Over-interpretation of VUS — mitigated by strict ACMG classification adherence"
+
+degradation_mode: t02_transcriptomics
+
+version: "0.1.0"

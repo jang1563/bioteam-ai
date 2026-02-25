@@ -1,0 +1,38 @@
+# Agent Spec: Integrative Biologist
+# Cross-omics synthesis, pathway consensus, and multi-layer mechanistic analysis.
+
+id: integrative_biologist
+name: Integrative Biologist
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: cross_cutting
+criticality: optional
+
+system_prompt_file: integrative_biologist.md
+
+output_schemas:
+  - IntegrativeAnalysisResult
+
+tools:
+  - integrate_omics        # Synthesize findings across omics layers
+  - pathway_consensus      # Identify converging pathways
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Integrate transcriptomic and proteomic spaceflight data to identify convergent pathways"
+    expected: "Identify concordant/discordant genes across RNA and protein layers, map to KEGG/Reactome pathways, report confidence per layer"
+  - input: "What mechanistic links connect the DNA damage and immune findings in astronaut blood samples?"
+    expected: "Trace cGAS-STING pathway from DNA damage (genomics) through inflammatory signaling (transcriptomics) to cytokine levels (proteomics)"
+
+failure_modes:
+  - "False convergence from gene name collisions across species — mitigated by ortholog mapping validation"
+  - "Over-interpreting sparse proteomics coverage as absence — mitigated by coverage-aware confidence scoring"
+  - "Missing tissue-specific context in pathway mapping — mitigated by tissue-aware pathway databases"
+
+degradation_mode: t06_systems_bio
+
+version: "0.1.0"
