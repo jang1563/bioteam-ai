@@ -235,13 +235,19 @@ class TestPValueEdgeCases:
 
     def test_unknown_test_type_returns_none(self):
         """Unknown test type should return None."""
-        result = _recalculate_p_value("z", 2.0, 30)
+        result = _recalculate_p_value("wilcoxon", 2.0, 30)
         assert result is None
+
+    def test_z_test_now_supported(self):
+        """Z-test should now return a valid p-value (two-tailed normal)."""
+        result = _recalculate_p_value("z", 2.0, 30)
+        assert result is not None
+        assert 0.04 < result < 0.05  # z=2.0 → p≈0.0455
 
     def test_unknown_test_type_assumed_consistent(self):
         """Unknown test type → is_consistent=True (can't verify)."""
         checker = StatisticalChecker()
-        result = checker.check_p_value_consistency("z", 2.0, 30, 0.05)
+        result = checker.check_p_value_consistency("wilcoxon", 2.0, 30, 0.05)
         assert result.is_consistent is True
 
     def test_threshold_boundary(self):

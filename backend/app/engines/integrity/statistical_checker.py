@@ -28,18 +28,32 @@ logger = logging.getLogger(__name__)
 #          t(45) = 2.31, p < .05
 #          χ²(2) = 8.41, p = .015
 #          r(30) = .45, p = .012
+#          Z = 2.58, p = .010
 _APA_STAT_RE = re.compile(
     r"""
-    (?P<test_type>[Ftr]|χ²|chi2)    # test type
-    \s*\(\s*                         # opening paren
-    (?P<df1>\d+)                     # df1
-    (?:\s*,\s*(?P<df2>\d+))?         # optional df2 (for F-test)
-    \s*\)\s*                         # closing paren
-    [=]\s*                           # equals sign
-    (?P<statistic>-?\d+\.?\d*)       # test statistic
-    \s*,?\s*                         # optional comma
-    p\s*[=<>]\s*                     # p =, p <, or p >
-    \.?(?P<p_value>\d+\.?\d*)        # p-value (with or without leading 0)
+    (?P<test_type>[Ftr]|χ²|chi2|[ZQ])  # test type (incl. Z-test, Q meta-analysis)
+    \s*\(\s*                            # opening paren
+    (?P<df1>\d+)                        # df1
+    (?:\s*,\s*(?P<df2>\d+))?            # optional df2 (for F-test)
+    \s*\)\s*                            # closing paren
+    [=]\s*                              # equals sign
+    (?P<statistic>-?(?:\d+\.?\d*|\.\d+))  # test statistic (allows .45 and 2.05)
+    \s*,?\s*                            # optional comma
+    p\s*[=<>]\s*                        # p =, p <, or p >
+    \.?(?P<p_value>\d+(?:\.\d+)?)       # p-value: prevents trailing period capture
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+# Separate regex for Z-test without parentheses: Z = 2.58, p = .010
+_Z_STAT_RE = re.compile(
+    r"""
+    (?P<test_type>[ZQ])                 # Z or Q test
+    \s*[=]\s*                           # equals sign (no parens)
+    (?P<statistic>-?(?:\d+\.?\d*|\.\d+))  # test statistic
+    \s*,?\s*                            # optional comma
+    p\s*[=<>]\s*                        # p =, p <, or p >
+    \.?(?P<p_value>\d+(?:\.\d+)?)       # p-value
     """,
     re.VERBOSE | re.IGNORECASE,
 )
@@ -247,50 +261,80 @@ class StatisticalChecker:
         """Extract APA-style statistics from text and validate consistency.
 
         Finds patterns like "F(1, 23) = 4.52, p = .003" and checks if the
-        reported p-value matches the test statistic.
+        reported p-value matches the test statistic. Also handles Z = 2.58, p = .010.
         """
         findings: list[StatisticalFinding] = []
+        seen_spans: set[tuple[int, int]] = set()
 
-        for match in _APA_STAT_RE.finditer(text):
-            test_type = match.group("test_type").lower()
-            if test_type in ("χ²", "chi2"):
-                test_type = "chi2"
+        # Process matches from both regex patterns
+        for match in _extract_all_stat_matches(text):
+            # Deduplicate overlapping matches
+            span = match.span()
+            if span in seen_spans:
+                continue
+            seen_spans.add(span)
 
-            df1 = int(match.group("df1"))
-            df2_str = match.group("df2")
-            df: int | tuple[int, int] = (df1, int(df2_str)) if df2_str else df1
-
-            statistic = float(match.group("statistic"))
-
-            p_str = match.group("p_value")
-            # Handle both ".003" and "0.003"
-            reported_p = float(p_str) if "." in p_str else float(f"0.{p_str}")
-
-            result = self.check_p_value_consistency(test_type, statistic, df, reported_p)
-
-            if not result.is_consistent:
-                findings.append(
-                    StatisticalFinding(
-                        severity="warning",
-                        title=f"p-value inconsistency: {test_type} test",
-                        description=(
-                            f"Reported {test_type}({result.reported_df}) = {statistic}, "
-                            f"p = {reported_p}. Recalculated p = {result.recalculated_p}. "
-                            f"Discrepancy = {result.discrepancy}."
-                        ),
-                        source_text=match.group(0),
-                        suggestion="Verify the reported p-value matches the test statistic.",
-                        confidence=0.85,
-                        checker="statistical_checker",
-                        category="p_value_mismatch",
-                        p_value_result=result,
-                    )
-                )
+            finding = self._process_stat_match(match)
+            if finding:
+                findings.append(finding)
 
         return findings
 
+    def _process_stat_match(self, match: re.Match) -> StatisticalFinding | None:
+        """Process a single regex match into a finding (if inconsistent)."""
+        test_type = match.group("test_type").lower()
+        if test_type in ("χ²", "chi2"):
+            test_type = "chi2"
+
+        df1_str = match.groupdict().get("df1")
+        df2_str = match.groupdict().get("df2")
+
+        if df1_str is not None:
+            df1 = int(df1_str)
+            df: int | tuple[int, int] = (df1, int(df2_str)) if df2_str else df1
+        else:
+            # Z = ... format (no parenthesized df)
+            df = 0  # Z-test doesn't use df
+
+        statistic = float(match.group("statistic"))
+
+        p_str = match.group("p_value")
+        # Handle both ".003" (captured as "003") and "0.003" (captured as "0.003")
+        reported_p = float(p_str) if "." in p_str else float(f"0.{p_str}")
+
+        result = self.check_p_value_consistency(test_type, statistic, df, reported_p)
+
+        if not result.is_consistent:
+            return StatisticalFinding(
+                severity="warning",
+                title=f"p-value inconsistency: {test_type} test",
+                description=(
+                    f"Reported {test_type}({result.reported_df}) = {statistic}, "
+                    f"p = {reported_p}. Recalculated p = {result.recalculated_p}. "
+                    f"Discrepancy = {result.discrepancy}."
+                ),
+                source_text=match.group(0),
+                suggestion="Verify the reported p-value matches the test statistic.",
+                confidence=0.85,
+                checker="statistical_checker",
+                category="p_value_mismatch",
+                p_value_result=result,
+            )
+        return None
+
 
 # === Internal helpers ===
+
+
+def _extract_all_stat_matches(text: str) -> list[re.Match]:
+    """Extract all APA-style stat matches from text using both regex patterns."""
+    matches = list(_APA_STAT_RE.finditer(text))
+    # Also check for Z/Q without parentheses (e.g., "Z = 2.58, p = .010")
+    for m in _Z_STAT_RE.finditer(text):
+        # Avoid duplicates — only add if not already captured by main regex
+        if not any(m.start() == existing.start() for existing in matches):
+            matches.append(m)
+    return sorted(matches, key=lambda m: m.start())
 
 
 def _recalculate_p_value(
@@ -334,6 +378,16 @@ def _recalculate_p_value(
                 return 0.0
             t_val = statistic * math.sqrt(df) / math.sqrt(1 - statistic**2)
             return float(2 * sp_stats.t.sf(abs(t_val), df))
+
+        if test_type == "z":
+            # Z-test: standard normal, two-tailed
+            return float(2 * sp_stats.norm.sf(abs(statistic)))
+
+        if test_type == "q":
+            # Q-test (meta-analysis heterogeneity): chi-squared distribution
+            if isinstance(df, tuple):
+                df = df[0]
+            return float(sp_stats.chi2.sf(statistic, df))
 
     except Exception as e:
         logger.debug("p-value recalculation failed: %s", e)
