@@ -46,6 +46,8 @@ export function useSSE(onEvent: SSECallback) {
       "workflow.paused",
       "workflow.resumed",
       "workflow.cancelled",
+      "workflow.note_injected",
+      "workflow.intervention",
       "agent.status_changed",
       "system.alert",
     ];

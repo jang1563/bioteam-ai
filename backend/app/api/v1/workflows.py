@@ -558,6 +558,15 @@ async def intervene(workflow_id: str, request: InterveneRequest) -> InterveneRes
         except IllegalTransitionError as e:
             raise HTTPException(status_code=409, detail=str(e))
 
+    # Broadcast SSE event for real-time UI updates
+    if _sse_hub:
+        event_type = "workflow.note_injected" if request.action == "inject_note" else "workflow.intervention"
+        await _sse_hub.broadcast_dict(
+            event_type=event_type,
+            workflow_id=workflow_id,
+            payload={"action": request.action, "new_state": instance.state, "detail": detail},
+        )
+
     return InterveneResponse(
         workflow_id=workflow_id,
         action=request.action,

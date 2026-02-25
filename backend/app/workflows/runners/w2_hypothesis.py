@@ -418,6 +418,14 @@ class W2HypothesisRunner:
             constraints={"workflow_id": instance.id},
         )
 
+        # Apply pending director notes to context
+        from app.workflows.note_processor import NoteProcessor
+        pending = NoteProcessor.get_pending_notes(instance, step.id)
+        if pending:
+            context = NoteProcessor.apply_to_context(pending, context, self._step_results)
+            NoteProcessor.mark_processed(instance, [n["_index"] for n in pending])
+            await self._persist(instance)
+
         # Call the specific method on the agent
         method = getattr(agent, method_name, None)
         if method is None:

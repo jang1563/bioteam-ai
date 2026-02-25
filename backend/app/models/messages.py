@@ -105,6 +105,8 @@ class SSEEvent(BaseModel):
         "workflow.completed",
         "workflow.failed",
         "workflow.cancelled",
+        "workflow.note_injected",
+        "workflow.intervention",
         "agent.token_stream",
         "system.health_changed",
         "system.cost_alert",

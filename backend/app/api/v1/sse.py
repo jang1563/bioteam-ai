@@ -112,10 +112,13 @@ class SSEHub:
         event_type: str,
         workflow_id: str | None = None,
         step_id: str | None = None,
-        agent_id: str | None = None,
+        agent_id: str | list[str] | None = None,
         payload: dict | None = None,
     ) -> int:
         """Convenience method to broadcast from dict values."""
+        # Normalize list agent_ids (from parallel steps) to comma-separated string
+        if isinstance(agent_id, list):
+            agent_id = ",".join(agent_id)
         event = SSEEvent(
             event_type=event_type,  # type: ignore[arg-type]
             workflow_id=workflow_id,
