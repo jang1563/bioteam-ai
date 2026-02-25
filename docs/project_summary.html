@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioTeam-AI: Personal AI Science Team for Biology Research</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent: #0D9488;
+    --accent-light: #CCFBF1;
+    --accent-dark: #0F766E;
+    --text: #1E293B;
+    --text-secondary: #475569;
+    --border: #CBD5E1;
+    --bg: #FFFFFF;
+    --bg-subtle: #F8FAFC;
+  }
+
+  html { font-size: 11px; }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Page Container ───────────────────────────────────── */
+  .page {
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 18mm 16mm 14mm 16mm;
+    border: 1px solid var(--border);
+    min-height: 297mm;
+    position: relative;
+  }
+
+  .page::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+  }
+
+  /* ── Header ───────────────────────────────────────────── */
+  .header { text-align: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 1.72rem; font-weight: 700; color: var(--accent-dark); letter-spacing: -0.02em; margin-bottom: 3px; }
+  .header .author { font-size: 1.05rem; color: var(--text-secondary); font-weight: 500; margin-bottom: 4px; }
+  .header .links { font-size: 0.95rem; }
+  .header .links a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .header .links a:hover { text-decoration: underline; }
+  .header .links .sep { color: var(--border); margin: 0 6px; }
+
+  /* ── Section ──────────────────────────────────────────── */
+  .section { margin-bottom: 10px; }
+  .section-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+    border-bottom: 1.5px solid var(--accent-light);
+  }
+  .section p, .section li { font-size: 1.0rem; color: var(--text); }
+
+  /* ── Two-Column Layout ────────────────────────────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* ── Problem + Solution side-by-side ──────────────────── */
+  .problem-solution {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .problem-solution .section { margin-bottom: 0; }
+
+  /* ── Architecture Diagram ─────────────────────────────── */
+  .arch-diagram {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 4px;
+  }
+
+  .arch-tiers {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .arch-tier {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .tier-label {
+    min-width: 90px;
+    padding: 6px 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--bg);
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .tier-label.t2 { background: var(--accent-dark); }
+  .tier-label.t3 { background: #115E59; }
+  .tier-label.infra { background: #374151; }
+
+  .tier-items {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-left: none;
+    background: var(--bg);
+    font-size: 0.9rem;
+  }
+
+  .tier-items span {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .arch-arrow {
+    text-align: center;
+    color: var(--accent);
+    font-size: 1.0rem;
+    line-height: 1;
+    padding: 1px 0;
+  }
+
+  /* ── Metrics Grid ─────────────────────────────────────── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .metric-card {
+    text-align: center;
+    padding: 7px 4px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+  }
+
+  .metric-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--accent-dark);
+    line-height: 1.2;
+  }
+
+  .metric-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.25;
+    margin-top: 1px;
+  }
+
+  /* ── Tech Stack ───────────────────────────────────────── */
+  .tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .tech-stack span {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.88rem;
+    font-weight: 500;
+  }
+
+  /* ── Feature List ─────────────────────────────────────── */
+  .features-list {
+    list-style: none;
+    margin-top: 4px;
+    padding: 0;
+  }
+
+  .features-list li {
+    position: relative;
+    padding-left: 14px;
+    margin-bottom: 3px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .features-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* ── Why Section ──────────────────────────────────────── */
+  .why-box {
+    background: var(--accent-light);
+    border-left: 3px solid var(--accent);
+    padding: 8px 12px;
+    border-radius: 0 5px 5px 0;
+    margin-top: 4px;
+  }
+
+  .why-box p {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.45;
+  }
+
+  /* ── Print Styles ─────────────────────────────────────── */
+  @media print {
+    html { font-size: 10.5px; }
+
+    body { background: none; }
+
+    .page {
+      border: none;
+      padding: 10mm 14mm 10mm 14mm;
+      min-height: auto;
+      max-width: none;
+    }
+
+    .page::before { height: 3px; }
+
+    .section { margin-bottom: 8px; }
+    .problem-solution { gap: 10px; }
+    .two-col { gap: 10px; }
+
+    .metric-card { padding: 5px 3px; }
+    .metric-value { font-size: 1.2rem; }
+
+    .header { margin-bottom: 10px; padding-bottom: 8px; }
+
+    .arch-diagram { padding: 8px 10px; }
+
+    a { color: var(--accent) !important; text-decoration: none !important; }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+  }
+
+  /* ── Screen < A4 width adjustment ─────────────────────── */
+  @media screen and (max-width: 700px) {
+    html { font-size: 10px; }
+    .page { padding: 12px; border: none; min-height: auto; }
+    .problem-solution { grid-template-columns: 1fr; gap: 8px; }
+    .two-col { grid-template-columns: 1fr; gap: 8px; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ── Header ──────────────────────────────────────── -->
+  <div class="header">
+    <h1>BioTeam-AI: Personal AI Science Team for Biology Research</h1>
+    <div class="author">JangKeun Kim &nbsp;|&nbsp; Weill Cornell Medicine</div>
+    <div class="links">
+      <a href="https://github.com/jang1563/bioteam-ai" target="_blank">GitHub</a>
+      <span class="sep">|</span>
+      <a href="https://jang1563.github.io/bioteam-ai/" target="_blank">Live Demo</a>
+    </div>
+  </div>
+
+  <!-- ── Problem + Solution (side by side) ───────────── -->
+  <div class="problem-solution">
+    <div class="section">
+      <div class="section-title">Problem</div>
+      <p>
+        Biology researchers spend 8&ndash;10 hours per week on manual literature review
+        across fragmented sources. No unified tool exists to automatically collect,
+        deduplicate, score, and summarize papers from PubMed, bioRxiv, arXiv, GitHub,
+        HuggingFace, and Semantic Scholar.
+      </p>
+    </div>
+    <div class="section">
+      <div class="section-title">Solution</div>
+      <p>
+        BioTeam-AI is a multi-agent system powered by the Claude API that automates
+        the full research intelligence pipeline. 18 specialized LLM agents handle
+        literature monitoring, hypothesis generation, experiment design, and knowledge
+        management through a unified dashboard.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Architecture ────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Architecture</div>
+    <div class="arch-diagram">
+      <div class="arch-tiers">
+        <div class="arch-tier">
+          <div class="tier-label">Tier 1<br>Directors</div>
+          <div class="tier-items">
+            <span>Research Director</span>
+            <span>Knowledge Manager</span>
+            <span>Project Manager</span>
+          </div>
+        </div>
+        <div class="arch-arrow">&#9660; &nbsp; orchestrate &nbsp; &#9660;</div>
+        <div class="arch-tier">
+          <div class="tier-label t2">Tier 2<br>Teams</div>
+          <div class="tier-items">
+            <span>Literature Scout</span>
+            <span>Data Analyst</span>
+            <span>Methodology Advisor</span>
+            <span>Hypothesis Generator</span>
+            <span>Experiment Designer</span>
+            <span>Peer Reviewer</span>
+            <span>Compliance Officer</span>
+            <span>Writing Coach</span>
+            <span>Collaboration Facilitator</span>
+            <span>Tool Specialist</span>
+          </div>
+        </div>
+        <div class="arch-arrow">&#9660; &nbsp; delegate &nbsp; &#9660;</div>
+        <div class="arch-tier">
+          <div class="tier-label t3">Tier 3<br>Engines</div>
+          <div class="tier-items">
+            <span>Digest Engine</span>
+            <span>Ambiguity Engine</span>
+            <span>RCMXT Scoring</span>
+            <span>Citation Validator</span>
+            <span>Session Manifest</span>
+          </div>
+        </div>
+        <div class="arch-arrow">&#9660; &nbsp; powered by &nbsp; &#9660;</div>
+        <div class="arch-tier">
+          <div class="tier-label infra">Infra</div>
+          <div class="tier-items">
+            <span>FastAPI</span>
+            <span>SQLite + SQLModel</span>
+            <span>ChromaDB</span>
+            <span>Next.js 15</span>
+            <span>SSE Real-Time</span>
+            <span>Docker Compose</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Metrics ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Key Metrics</div>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value">18</div>
+        <div class="metric-label">LLM Agents<br>across 3 Tiers</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">6</div>
+        <div class="metric-label">Data Sources<br>Integrated</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">725+</div>
+        <div class="metric-label">Automated<br>Tests</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">$0.005</div>
+        <div class="metric-label">Per Digest Run<br>(vs $50 manual)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">962x</div>
+        <div class="metric-label">ROI on<br>LLM Cost</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">4.2s</div>
+        <div class="metric-label">Avg Pipeline<br>Execution</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">69</div>
+        <div class="metric-label">Source Files<br>100% Type-Safe</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">100%</div>
+        <div class="metric-label">Standalone<br>No Vendor Lock</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom Two-Column: Tech Stack + Features ────── -->
+  <div class="two-col">
+    <div>
+      <!-- ── Tech Stack ──────────────────────────────── -->
+      <div class="section">
+        <div class="section-title">Tech Stack</div>
+        <div class="tech-stack">
+          <span>Python 3.12</span>
+          <span>FastAPI</span>
+          <span>Anthropic Claude API</span>
+          <span>Haiku / Sonnet</span>
+          <span>Instructor</span>
+          <span>SQLModel</span>
+          <span>ChromaDB</span>
+          <span>Next.js 15</span>
+          <span>Tailwind CSS</span>
+          <span>shadcn/ui</span>
+          <span>SSE</span>
+          <span>Docker Compose</span>
+        </div>
+      </div>
+
+      <!-- ── Why AI for Science ──────────────────────── -->
+      <div class="section">
+        <div class="section-title">Why This Matters for AI in Science</div>
+        <div class="why-box">
+          <p>
+            This project is a practical demonstration that Claude can serve as
+            the backbone of a full scientific research workflow &mdash; not as a
+            chatbot, but as a coordinated team of specialized agents that
+            drastically reduce the cost and time of literature intelligence.
+            By achieving a 962x ROI at $0.005 per digest, it proves that
+            AI-driven research automation is economically viable for individual
+            labs. BioTeam-AI bridges the gap between frontier AI capabilities
+            and everyday scientific practice, directly aligned with Anthropic's
+            mission to make AI genuinely useful for advancing science.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <!-- ── Key Features ────────────────────────────── -->
+      <div class="section">
+        <div class="section-title">Key Features</div>
+        <ul class="features-list">
+          <li>Multi-source literature digest with word-boundary relevance scoring across PubMed, bioRxiv, arXiv, GitHub, HuggingFace, and Semantic Scholar</li>
+          <li>RCMXT reproducibility scoring: 5-dimension evidence quality assessment (Reproducibility, Clarity, Methodology, conteXt, Transparency)</li>
+          <li>Ambiguity detection engine with automated resolution workflows for contradictory findings</li>
+          <li>Real-time SSE activity feed with live agent status monitoring and streaming responses</li>
+          <li>Negative results knowledge base with full CRUD operations and semantic search</li>
+          <li>Direct query streaming interface with persistent conversation history and context retention</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

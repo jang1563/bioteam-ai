@@ -2,6 +2,8 @@
 
 **Personal AI Science Team for Biology Research**
 
+[Live Demo](https://jang1563.github.io/bioteam-ai/) | [Project Summary (PDF)](https://jang1563.github.io/bioteam-ai/summary.html)
+
 A multi-agent research automation system that orchestrates specialized AI agents for literature review, hypothesis generation, data analysis, and manuscript drafting — designed for solo biology researchers and small lab groups.
 
 Built with Claude (Anthropic) as the LLM backbone, integrating 6 academic data sources with a real-time dashboard.
