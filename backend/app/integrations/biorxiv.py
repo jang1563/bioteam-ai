@@ -143,10 +143,14 @@ class BiorxivClient:
         if not patterns:
             return all_papers[:max_results]
 
+        # Require at least 2 keyword matches to filter out irrelevant papers
+        min_matches = min(2, len(patterns))
+
         matched = []
         for paper in all_papers:
             text = f"{paper.title} {paper.abstract}"
-            if any(pat.search(text) for pat in patterns):
+            hit_count = sum(1 for pat in patterns if pat.search(text))
+            if hit_count >= min_matches:
                 matched.append(paper)
                 if len(matched) >= max_results:
                     break
@@ -155,21 +159,25 @@ class BiorxivClient:
 
     @staticmethod
     def _to_paper(item: dict, server: str) -> BiorxivPaper | None:
-        """Convert a bioRxiv API response item to BiorxivPaper."""
-        doi = item.get("doi", "")
+        """Convert a bioRxiv API response item to BiorxivPaper.
+
+        The /pubs endpoint uses preprint_* prefixed keys (e.g. preprint_doi,
+        preprint_title), while /details uses unprefixed keys. Support both.
+        """
+        doi = item.get("preprint_doi", "") or item.get("doi", "")
         if not doi:
             return None
 
         # Authors come as a semicolon-separated string
-        authors_str = item.get("authors", "")
+        authors_str = item.get("preprint_authors", "") or item.get("authors", "")
         authors = [a.strip() for a in authors_str.split(";") if a.strip()] if authors_str else []
 
         return BiorxivPaper(
             doi=doi,
-            title=item.get("title", ""),
+            title=item.get("preprint_title", "") or item.get("title", ""),
             authors=authors,
-            category=item.get("category", ""),
-            date=item.get("date", ""),
-            abstract=item.get("abstract", ""),
+            category=item.get("preprint_category", "") or item.get("category", ""),
+            date=item.get("preprint_date", "") or item.get("date", ""),
+            abstract=item.get("preprint_abstract", "") or item.get("abstract", ""),
             server=server,
         )

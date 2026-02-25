@@ -137,10 +137,14 @@ class HuggingFaceClient:
         if not patterns:
             return all_papers[:max_results]
 
+        # Require at least 2 keyword matches to filter out irrelevant papers
+        min_matches = min(2, len(patterns))
+
         matched = []
         for paper in all_papers:
             text = f"{paper.title} {paper.summary}"
-            if any(pat.search(text) for pat in patterns):
+            hit_count = sum(1 for pat in patterns if pat.search(text))
+            if hit_count >= min_matches:
                 matched.append(paper)
                 if len(matched) >= max_results:
                     break
