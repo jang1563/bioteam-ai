@@ -2,6 +2,7 @@
 
 import os
 import sys
+import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
@@ -12,6 +13,11 @@ from app.db.database import create_db_and_tables
 from app.db.database import engine as db_engine
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
 from sqlmodel import Session
+
+
+def _uid() -> str:
+    """Generate a unique suffix to avoid UNIQUE constraint collisions across runs."""
+    return uuid.uuid4().hex[:8]
 
 
 def setup_module():
@@ -73,10 +79,11 @@ def test_topic_profile_categories_json():
 
 def test_digest_entry_create():
     """Should create a DigestEntry."""
+    ext_id = f"2502.{_uid()}"
     entry = DigestEntry(
         topic_id="topic-1",
         source="arxiv",
-        external_id="2502.12345",
+        external_id=ext_id,
         title="Test Paper",
         authors=["Author A", "Author B"],
         abstract="Test abstract",
@@ -101,7 +108,7 @@ def test_digest_entry_metadata_json():
     entry = DigestEntry(
         topic_id="topic-1",
         source="github",
-        external_id="user/repo",
+        external_id=f"user/repo-{_uid()}",
         title="Cool Repo",
         metadata_extra={"stars": 500, "language": "Python"},
     )

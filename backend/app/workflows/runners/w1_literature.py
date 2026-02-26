@@ -16,6 +16,7 @@ SYNTHESIZE has a human checkpoint for Director review.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from app.agents.base import observe
@@ -236,15 +237,25 @@ class W1LiteratureReviewRunner:
                     payload={"step": step.id},
                 )
 
+            step_start = time.time()
+
             if step.id in ("NEGATIVE_CHECK", "CITATION_CHECK", "RCMXT_SCORE", "INTEGRITY_CHECK", "REPORT"):
                 # Code-only steps
                 result = await self._run_code_step(step, query, instance)
+                step_ms = int((time.time() - step_start) * 1000)
                 self._step_results[step.id] = result
-                self.engine.advance(instance, step.id, step_result={"type": "code_only"})
+                self.engine.advance(
+                    instance, step.id,
+                    step_result={"type": "code_only"},
+                    agent_id="code_only",
+                    status="completed",
+                    duration_ms=step_ms,
+                )
                 await self._persist(instance)
             elif step.id in _METHOD_MAP:
                 # Agent steps — call specific method
                 result = await self._run_agent_step(step, query, instance)
+                step_ms = int((time.time() - step_start) * 1000)
                 self._step_results[step.id] = result
 
                 if not result.is_success:
@@ -263,7 +274,13 @@ class W1LiteratureReviewRunner:
                 if result.cost > 0:
                     self.engine.deduct_budget(instance, result.cost)
 
-                self.engine.advance(instance, step.id)
+                self.engine.advance(
+                    instance, step.id,
+                    agent_id=step.agent_id,
+                    status="completed",
+                    duration_ms=step_ms,
+                    cost=result.cost,
+                )
                 await self._persist(instance)
 
                 # Broadcast step completion
@@ -325,10 +342,18 @@ class W1LiteratureReviewRunner:
                     agent_id=step.agent_id,
                 )
 
+            step_start = time.time()
+
             if step.id in ("CITATION_CHECK", "RCMXT_SCORE", "INTEGRITY_CHECK", "REPORT"):
                 result = await self._run_code_step(step, query, instance)
+                step_ms = int((time.time() - step_start) * 1000)
                 self._step_results[step.id] = result
-                self.engine.advance(instance, step.id)
+                self.engine.advance(
+                    instance, step.id,
+                    agent_id="code_only",
+                    status="completed",
+                    duration_ms=step_ms,
+                )
                 await self._persist(instance)
             else:
                 # Graceful degradation: skip optional agents if unavailable
@@ -338,18 +363,30 @@ class W1LiteratureReviewRunner:
                     deg_mode = agent.spec.degradation_mode if agent else None
                     if deg_mode == "skip":
                         logger.warning("Skipping %s: agent %s unavailable (degradation=skip)", step.id, agent_id)
-                        self.engine.advance(instance, step.id)
+                        step_ms = int((time.time() - step_start) * 1000)
+                        self.engine.advance(
+                            instance, step.id,
+                            agent_id=agent_id,
+                            status="skipped",
+                            duration_ms=step_ms,
+                        )
                         await self._persist(instance)
                         continue
 
                 result = await self._run_agent_step(step, query, instance)
+                step_ms = int((time.time() - step_start) * 1000)
                 self._step_results[step.id] = result
                 if not result.is_success:
                     # For optional agents with degradation_mode="skip", skip on failure
                     agent_obj = self.registry.get(agent_id) if agent_id else None
                     if agent_obj and agent_obj.spec.degradation_mode == "skip":
                         logger.warning("Skipping failed %s (degradation=skip): %s", step.id, result.error)
-                        self.engine.advance(instance, step.id)
+                        self.engine.advance(
+                            instance, step.id,
+                            agent_id=agent_id or "",
+                            status="skipped",
+                            duration_ms=step_ms,
+                        )
                         await self._persist(instance)
                         continue
                     self.engine.fail(instance, result.error or "Agent step failed")
@@ -357,7 +394,13 @@ class W1LiteratureReviewRunner:
                     break
                 if result.cost > 0:
                     self.engine.deduct_budget(instance, result.cost)
-                self.engine.advance(instance, step.id)
+                self.engine.advance(
+                    instance, step.id,
+                    agent_id=step.agent_id,
+                    status="completed",
+                    duration_ms=step_ms,
+                    cost=result.cost,
+                )
                 await self._persist(instance)
 
             if self.sse_hub:

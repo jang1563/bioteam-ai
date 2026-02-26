@@ -111,16 +111,36 @@ class WorkflowEngine:
         instance: WorkflowInstance,
         step_id: str,
         step_result: dict | None = None,
+        *,
+        agent_id: str = "",
+        status: str = "completed",
+        duration_ms: int = 0,
+        cost: float = 0.0,
     ) -> None:
         """Record step completion and advance to next step.
 
         If the workflow is already RUNNING, this stays in RUNNING.
+
+        Args:
+            instance: The workflow instance.
+            step_id: Completed step identifier.
+            step_result: Optional result summary dict.
+            agent_id: Agent that executed the step.
+            status: Step outcome ("completed" | "failed" | "skipped").
+            duration_ms: Wall-clock duration of the step.
+            cost: Actual LLM cost for this step.
         """
         # Record in step_history
-        entry = {
+        entry: dict = {
             "step_id": step_id,
+            "status": status,
             "completed_at": datetime.now(timezone.utc).isoformat(),
+            "duration_ms": duration_ms,
         }
+        if agent_id:
+            entry["agent_id"] = agent_id
+        if cost > 0:
+            entry["cost"] = cost
         if step_result:
             entry["result_summary"] = str(step_result)[:500]
 
