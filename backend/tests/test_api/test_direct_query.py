@@ -573,6 +573,60 @@ def test_routed_agent_in_api_response():
     set_registry(None)
 
 
+def test_empty_context_grounding_prompt():
+    """When memory is empty, prompt should instruct LLM to label as general knowledge."""
+    classification = QueryClassification(
+        type="simple_query",
+        reasoning="General biology question.",
+        target_agent="knowledge_manager",
+    )
+    mock = MockLLMLayer({"sonnet:QueryClassification": classification})
+
+    rd_spec = BaseAgent.load_spec("research_director")
+    rd = ResearchDirectorAgent(spec=rd_spec, llm=mock)
+
+    # KM with no seeded memory — will produce empty context
+    km_spec = BaseAgent.load_spec("knowledge_manager")
+    km = KnowledgeManagerAgent(spec=km_spec, llm=mock)
+
+    asyncio.run(run_direct_query(
+        query="What is CRISPR-Cas9?",
+        research_director=rd,
+        knowledge_manager=km,
+    ))
+
+    # Check the answer generation call (complete_raw) for empty-context grounding
+    raw_calls = [c for c in mock.call_log if c["method"] == "complete_raw"]
+    assert len(raw_calls) >= 1, "Expected at least 1 complete_raw call for answer"
+    last_msg = raw_calls[-1]["messages"][-1]["content"]
+    assert "general knowledge" in last_msg.lower(), \
+        f"Empty-context prompt should mention 'general knowledge': {last_msg[:200]}"
+    assert "Do NOT cite specific DOIs" in last_msg, \
+        f"Empty-context prompt should warn against citing DOIs: {last_msg[:200]}"
+    print("  PASS: Empty-context grounding prompt includes general knowledge disclaimer")
+
+
+def test_populated_context_grounding_prompt():
+    """When memory has results, prompt should instruct LLM to cite from context."""
+    rd, km = setup_agents()  # This has seeded memory
+
+    mock = rd.llm  # Get the mock to inspect call_log
+    asyncio.run(run_direct_query(
+        query="What is spaceflight anemia?",
+        research_director=rd,
+        knowledge_manager=km,
+    ))
+
+    raw_calls = [c for c in mock.call_log if c["method"] == "complete_raw"]
+    assert len(raw_calls) >= 1
+    last_msg = raw_calls[-1]["messages"][-1]["content"]
+    assert "CRITICAL" in last_msg, \
+        f"Populated-context prompt should have CRITICAL citation instruction: {last_msg[:200]}"
+    assert "general knowledge" not in last_msg.lower(), \
+        f"Populated-context prompt should NOT mention general knowledge: {last_msg[:200]}"
+    print("  PASS: Populated-context grounding prompt uses CRITICAL citation rules")
+
+
 if __name__ == "__main__":
     print("Testing Direct Query Pipeline (E2E):")
     test_simple_query_e2e()
@@ -593,4 +647,6 @@ if __name__ == "__main__":
     test_stream_workflow_returns_done_immediately()
     test_stream_no_registry_returns_503()
     test_routed_agent_in_api_response()
+    test_empty_context_grounding_prompt()
+    test_populated_context_grounding_prompt()
     print("\nAll Direct Query E2E tests passed!")

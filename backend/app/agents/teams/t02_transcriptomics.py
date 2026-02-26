@@ -113,14 +113,49 @@ class TranscriptomicsAgent(BaseAgent):
             llm_response=meta,
         )
 
+    @staticmethod
+    def _format_prior_papers(prior_outputs: list) -> str:
+        """Format prior step outputs into readable paper list for LLM.
+
+        Extracts papers from SEARCH or SCREEN output dicts and formats
+        them as a numbered list with title, PMID, and truncated abstract.
+        Falls back to string representation if no structured papers found.
+        """
+        if not prior_outputs:
+            return "No papers provided."
+        papers: list[dict] = []
+        for output in prior_outputs:
+            if not isinstance(output, dict):
+                continue
+            for p in output.get("papers", []):
+                if isinstance(p, dict):
+                    papers.append(p)
+            for d in output.get("decisions", []):
+                if isinstance(d, dict) and d.get("decision") == "include":
+                    papers.append(d)
+        if not papers:
+            # Fallback: stringify as before (covers non-standard output shapes)
+            return "\n".join(f"- {p}" for p in prior_outputs)
+        lines = []
+        for i, p in enumerate(papers, 1):
+            title = p.get("title", "Unknown")
+            pmid = p.get("pmid", p.get("paper_id", ""))
+            abstract = (p.get("abstract", "") or "")[:300]
+            ref_id = f"PMID:{pmid}" if pmid else ""
+            entry = f"[{i}] {title}"
+            if ref_id:
+                entry += f" ({ref_id})"
+            if abstract:
+                entry += f"\n    {abstract}"
+            lines.append(entry)
+        return "\n\n".join(lines)
+
     async def screen_papers(self, context: ContextPackage) -> AgentOutput:
         """Screen papers for relevance to a literature review query.
 
         Used in W1 SCREEN step. Papers are passed via context.prior_step_outputs.
         """
-        papers_text = "\n".join(
-            f"- {p}" for p in context.prior_step_outputs
-        ) if context.prior_step_outputs else "No papers provided."
+        papers_text = self._format_prior_papers(context.prior_step_outputs)
 
         messages = [
             {
@@ -152,9 +187,7 @@ class TranscriptomicsAgent(BaseAgent):
 
         Used in W1 EXTRACT step. Included papers from SCREEN step are in context.prior_step_outputs.
         """
-        papers_text = "\n".join(
-            f"- {p}" for p in context.prior_step_outputs
-        ) if context.prior_step_outputs else "No papers provided."
+        papers_text = self._format_prior_papers(context.prior_step_outputs)
 
         messages = [
             {
@@ -173,6 +206,7 @@ class TranscriptomicsAgent(BaseAgent):
             model_tier=self.model_tier,
             response_model=ExtractionResult,
             system=self.system_prompt_cached,
+            max_tokens=16384,  # Extraction of many papers produces large structured output
         )
 
         return self.build_output(

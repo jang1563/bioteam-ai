@@ -88,6 +88,7 @@ class ContextPackage(BaseModel):
     negative_results: list[dict] = Field(default_factory=list)
     rcmxt_context: list[RCMXTScore] | None = None
     constraints: dict = Field(default_factory=dict)  # budget_remaining, deadline, director_notes, etc.
+    metadata: dict = Field(default_factory=dict)  # Pass-through data: available_papers, etc.
 
 
 class SSEEvent(BaseModel):

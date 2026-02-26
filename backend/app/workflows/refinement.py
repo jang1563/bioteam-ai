@@ -305,4 +305,5 @@ class RefinementLoop:
                 **original_context.constraints,
                 "refinement_mode": True,
             },
+            metadata={**original_context.metadata},  # Preserve available_papers etc.
         )

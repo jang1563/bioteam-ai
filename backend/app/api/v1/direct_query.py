@@ -324,6 +324,26 @@ async def run_direct_query(
             llm = research_director.llm
             context_text = _build_context_text(memory_context)
 
+            # Grounding instructions depend on whether context is available
+            if memory_context:
+                grounding = (
+                    "Cite specific sources using [N] notation when available. "
+                    "CRITICAL: Only cite papers, DOIs, and facts that appear in the "
+                    "knowledge base context above. Do not fabricate citations, "
+                    "author names, or experimental results."
+                )
+            else:
+                grounding = (
+                    "No papers were found in the knowledge base for this topic. "
+                    "You may provide a general answer based on your training knowledge, "
+                    "but you MUST clearly label it as "
+                    "'Based on general knowledge (not retrieved evidence)' "
+                    "at the top of your answer. "
+                    "Do NOT cite specific DOIs, PMIDs, or author names. "
+                    "Recommend the user run a W1 Literature Review for "
+                    "evidence-backed answers."
+                )
+
             # Build messages with conversation history for context
             answer_messages = list(conversation_history)  # Prior turns
             answer_messages.append({
@@ -332,9 +352,7 @@ async def run_direct_query(
                     f"Research question: {query}\n\n"
                     f"Relevant knowledge base context:\n{context_text}\n\n"
                     f"Provide a concise, evidence-based answer to the research question. "
-                    f"Cite specific sources using [N] notation when available. "
-                    f"CRITICAL: Only cite papers, DOIs, and facts that appear in the knowledge base context above. "
-                    f"Do not fabricate citations, author names, or experimental results. "
+                    f"{grounding} "
                     f"If the context is insufficient, clearly state what is known "
                     f"and what knowledge gaps remain rather than guessing."
                 ),
@@ -554,6 +572,27 @@ async def direct_query_stream(
             # Step 4: Stream answer
             llm = rd.llm
             context_text = _build_context_text(memory_context)
+
+            # Grounding instructions depend on whether context is available
+            if memory_context:
+                sse_grounding = (
+                    "Cite specific sources using [N] notation when available. "
+                    "CRITICAL: Only cite papers, DOIs, and facts that appear in the "
+                    "knowledge base context above. Do not fabricate citations, "
+                    "author names, or experimental results."
+                )
+            else:
+                sse_grounding = (
+                    "No papers were found in the knowledge base for this topic. "
+                    "You may provide a general answer based on your training knowledge, "
+                    "but you MUST clearly label it as "
+                    "'Based on general knowledge (not retrieved evidence)' "
+                    "at the top of your answer. "
+                    "Do NOT cite specific DOIs, PMIDs, or author names. "
+                    "Recommend the user run a W1 Literature Review for "
+                    "evidence-backed answers."
+                )
+
             answer_messages = list(conv_history)  # Prior turns for context
             answer_messages.append({
                 "role": "user",
@@ -561,9 +600,7 @@ async def direct_query_stream(
                     f"Research question: {query}\n\n"
                     f"Relevant knowledge base context:\n{context_text}\n\n"
                     f"Provide a concise, evidence-based answer to the research question. "
-                    f"Cite specific sources using [N] notation when available. "
-                    f"CRITICAL: Only cite papers, DOIs, and facts that appear in the knowledge base context above. "
-                    f"Do not fabricate citations, author names, or experimental results. "
+                    f"{sse_grounding} "
                     f"If the context is insufficient, clearly state what is known "
                     f"and what knowledge gaps remain rather than guessing."
                 ),

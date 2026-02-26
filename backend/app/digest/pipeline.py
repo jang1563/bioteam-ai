@@ -47,6 +47,7 @@ class DigestPipeline:
 
     def __init__(self, digest_agent=None) -> None:
         self._digest_agent = digest_agent
+        self._executor = ThreadPoolExecutor(max_workers=3)
         self._clients = {
             SOURCE_PUBMED: PubMedClient(),
             SOURCE_S2: SemanticScholarClient(),
@@ -125,7 +126,7 @@ class DigestPipeline:
         try:
             return await asyncio.wait_for(
                 loop.run_in_executor(
-                    ThreadPoolExecutor(max_workers=1),
+                    self._executor,
                     self._fetch_sync,
                     source,
                     topic,

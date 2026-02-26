@@ -102,13 +102,32 @@ class ResearchDirectorAgent(BaseAgent):
             f"--- Agent Output ---\n{str(o)}" for o in context.prior_step_outputs
         )
 
+        # Build paper grounding section from metadata (injected by W1 runner)
+        papers_list = context.metadata.get("available_papers", "")
+        papers_section = ""
+        grounding_rules = ""
+        if papers_list:
+            papers_section = (
+                f"## Available Papers (you may ONLY cite from this list)\n"
+                f"{papers_list}\n\n"
+            )
+            grounding_rules = (
+                "\n\nGROUNDING RULES:\n"
+                "1. Only cite papers from the Available Papers list above.\n"
+                "2. Use the exact PMID/DOI from the list when citing.\n"
+                "3. If you know of a relevant paper NOT in the list, note it as "
+                "'(not retrieved in current search)' — do NOT present it as a cited source.\n"
+                "4. In sources_cited, include ONLY papers from the Available Papers list."
+            )
+
         messages = [
             {
                 "role": "user",
                 "content": (
                     f"Research question: {context.task_description}\n\n"
+                    f"{papers_section}"
                     f"Agent outputs to synthesize:\n{prior_outputs}\n\n"
-                    f"Synthesize these into a coherent report."
+                    f"Synthesize these into a coherent report.{grounding_rules}"
                 ),
             }
         ]

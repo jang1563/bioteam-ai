@@ -120,6 +120,8 @@ class DigestScheduler:
                                     .order_by(DigestEntry.relevance_score.desc())
                                     .limit(10)
                                 ).all()
+                                for entry in entries:
+                                    session.expunge(entry)
                             await send_digest_email(report, topic, list(entries))
                         except Exception as email_err:
                             logger.warning("Email send failed for '%s': %s", topic.name, email_err)

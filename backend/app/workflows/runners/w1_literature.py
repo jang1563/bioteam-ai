@@ -462,6 +462,10 @@ class W1LiteratureReviewRunner:
             negative_results=negative_results,
         )
 
+        # For SYNTHESIZE: inject clean paper list for grounding
+        if step.id == "SYNTHESIZE":
+            context.metadata["available_papers"] = self._format_papers_for_prompt()
+
         # Apply pending director notes to context
         from app.workflows.note_processor import NoteProcessor
         pending = NoteProcessor.get_pending_notes(instance, step.id)
@@ -520,6 +524,38 @@ class W1LiteratureReviewRunner:
             result_meta.stopped_reason,
         )
         return refined_output, result_meta.total_cost
+
+    def _format_papers_for_prompt(self) -> str:
+        """Extract clean numbered paper list from SEARCH results for LLM grounding.
+
+        Used to give SYNTHESIZE an explicit list of citable papers,
+        preventing hallucination of papers not in the search results.
+        """
+        search_result = self._step_results.get("SEARCH")
+        if not search_result or not hasattr(search_result, "output"):
+            return "(No papers retrieved)"
+        output = search_result.output
+        if not isinstance(output, dict):
+            return "(No papers retrieved)"
+        papers = output.get("papers", [])
+        if not papers:
+            return "(No papers retrieved)"
+        lines = []
+        for i, p in enumerate(papers, 1):
+            title = p.get("title", "Unknown")
+            pmid = p.get("pmid", "")
+            doi = p.get("doi", "")
+            authors = p.get("authors", [])
+            year = p.get("year", "")
+            first_author = authors[0] if authors else "Unknown"
+            ref_ids = []
+            if pmid:
+                ref_ids.append(f"PMID:{pmid}")
+            if doi:
+                ref_ids.append(f"DOI:{doi}")
+            id_str = ", ".join(ref_ids) if ref_ids else "no ID"
+            lines.append(f"[{i}] {first_author} et al. ({year}). {title} [{id_str}]")
+        return "\n".join(lines)
 
     async def _run_code_step(
         self,
@@ -739,6 +775,12 @@ class W1LiteratureReviewRunner:
                 for issue in report.issues
             ],
         }
+
+        if report.unverified_count > 0:
+            report_dict["unverified_warning"] = (
+                f"{report.unverified_count} citation(s) not verified against retrieved "
+                f"literature. These may reference papers not in the current search."
+            )
 
         return AgentOutput(
             agent_id="code_only",

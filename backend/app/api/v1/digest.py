@@ -303,8 +303,8 @@ async def run_digest(topic_id: str) -> ReportResponse:
                         .limit(10)
                     ).all()
                 asyncio.create_task(send_digest_email(report, topic, list(entries)))
-            except Exception:
-                pass  # Never fail the API response due to email
+            except Exception as e:
+                logger.error("Failed to send digest email for topic %s: %s", topic_id, e)
 
         return _report_response(report)
     finally:
