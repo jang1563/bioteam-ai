@@ -652,7 +652,31 @@ class W1LiteratureReviewRunner:
             synthesis_text = synth_result.output.get("summary", "")
             sources_cited = synth_result.output.get("sources_cited", [])
             if sources_cited:
-                inline_refs = [{"doi": s} for s in sources_cited if isinstance(s, str) and s.startswith("10.")]
+                # Parse structured citation strings for DOIs and PMIDs
+                # sources_cited may be full strings like:
+                #   "Alfrey CP, ... J Appl Physiol. 1996;... [PMID: 8828651]"
+                import re
+                inline_refs = []
+                for s in sources_cited:
+                    if not isinstance(s, str):
+                        continue
+                    ref: dict[str, str] = {}
+                    # Extract PMID from "[PMID: 12345678]" or "PMID: 12345678"
+                    pmid_match = re.search(r'PMID:\s*(\d{7,9})', s, re.IGNORECASE)
+                    if pmid_match:
+                        ref["pmid"] = pmid_match.group(1)
+                    # Extract DOI from "10.XXXX/..."
+                    doi_match = re.search(r'(10\.\d{4,9}/[^\s,;\]\)]+)', s)
+                    if doi_match:
+                        ref["doi"] = doi_match.group(1)
+                    # Extract first author for fallback matching
+                    first_author = s.split(",")[0].split(" ")[0].strip() if s else ""
+                    if first_author:
+                        ref["first_author"] = first_author
+                    if ref:
+                        inline_refs.append(ref)
+                if not inline_refs:
+                    inline_refs = None
 
         report = validator.validate(synthesis_text, inline_refs=inline_refs)
 

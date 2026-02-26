@@ -143,6 +143,9 @@ class CitationValidator:
         if title := ref.get("title"):
             if title.strip().lower() in self._known_titles:
                 return True
+        if first_author := ref.get("first_author"):
+            if first_author.strip().lower() in self._known_authors:
+                return True
         return False
 
     @staticmethod

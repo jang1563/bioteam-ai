@@ -57,6 +57,9 @@ chroma_data/
 # Backups
 backups/
 
+# Results (real API run outputs)
+backend/results/*.json
+
 # Logs
 *.log
 logs/

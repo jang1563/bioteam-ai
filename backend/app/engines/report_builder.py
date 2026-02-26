@@ -35,6 +35,10 @@ def build_prisma_flow(step_results: dict[str, AgentOutput]) -> PRISMAFlow:
     if neg_result and hasattr(neg_result, 'output') and isinstance(neg_result.output, dict):
         prisma.negative_results_found = neg_result.output.get("negative_results_found", 0)
 
+    # Consistency clamp: screened cannot exceed identified (LLM may hallucinate counts)
+    if prisma.records_screened > prisma.records_identified > 0:
+        prisma.records_screened = prisma.records_identified
+
     return prisma
 
 

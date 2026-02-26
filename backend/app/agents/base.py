@@ -213,12 +213,20 @@ class BaseAgent(ABC):
             output_tokens=output_tokens,
             cached_input_tokens=cached_input_tokens,
         )
+        # Resolve model_version from MODEL_MAP when LLM tokens were actually used,
+        # so session manifest correctly records this call. Leave empty for
+        # code-only/memory-only steps that don't call an LLM.
+        resolved_version = ""
+        if input_tokens > 0 or output_tokens > 0:
+            from app.config import MODEL_MAP
+            resolved_version = MODEL_MAP.get(self.model_tier, "")
         return AgentOutput(
             agent_id=self.agent_id,
             output=output,
             output_type=output_type,
             summary=summary,
             model_tier=self.model_tier,
+            model_version=resolved_version,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cached_input_tokens=cached_input_tokens,
