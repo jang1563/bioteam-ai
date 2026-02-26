@@ -16,10 +16,14 @@ Checkers covered (6):
 
 
 import pytest
+from app.agents.registry import create_registry
 from app.engines.integrity.finding_models import RetractionStatus
 from app.engines.integrity.gene_name_checker import GeneNameChecker
 from app.engines.integrity.retraction_checker import RetractionChecker
 from app.engines.integrity.statistical_checker import StatisticalChecker
+from app.llm.mock_layer import MockLLMLayer
+from app.models.workflow import WorkflowInstance
+from app.workflows.runners.w7_integrity import W7IntegrityRunner
 
 # ══════════════════════════════════════════════════════════════════
 # Ground-truth datasets
@@ -471,6 +475,37 @@ class TestUnifiedReport:
                 tn += 1
         results["retraction"] = _metrics(tp, fp, fn, tn)
 
+        # --- W7 System (planted errors) ---
+        from tests.benchmarks.test_system_w7_integrity import (
+            PLANTED_CATEGORIES,
+            PLANTED_TEXT,
+            WAKEFIELD_DOI,
+        )
+
+        w7_runner = W7IntegrityRunner(registry=create_registry(MockLLMLayer()))
+        w7_runner._retraction_checker = RetractionChecker(
+            crossref_client=_MockCrossrefClient({
+                WAKEFIELD_DOI: RetractionStatus(doi=WAKEFIELD_DOI, is_retracted=True),
+            }),
+        )
+        w7_inst = WorkflowInstance(template="W7", query=PLANTED_TEXT, budget_total=3.0, budget_remaining=3.0)
+        w7_inst = await w7_runner.run(w7_inst)
+        w7_report = w7_inst.session_manifest.get("integrity_report", {})
+        w7_findings = w7_report.get("findings", [])
+        detected_cats = [f.get("category") for f in w7_findings]
+
+        tp = fp = fn = 0
+        remaining_cats = list(detected_cats)
+        for cat in PLANTED_CATEGORIES:
+            if cat in remaining_cats:
+                tp += 1
+                remaining_cats.remove(cat)
+            else:
+                fn += 1
+        fp = len(remaining_cats)
+        tn = 1 if w7_report.get("total_findings", 0) == len(w7_findings) else 0  # clean section proxy
+        results["system_w7"] = _metrics(tp, fp, fn, tn)
+
         # --- Print combined report ---
         print("\n" + "=" * 60)
         print("  UNIFIED INTEGRITY BENCHMARK REPORT")
@@ -498,8 +533,13 @@ class TestUnifiedReport:
 
         # Regression gate: every checker must have ≥ 85% recall
         for name, m in results.items():
-            assert m["R"] >= 0.85, f"{name} recall {m['R']:.3f} dropped below 85%"
-            assert m["P"] >= 0.85, f"{name} precision {m['P']:.3f} dropped below 85%"
+            if name == "system_w7":
+                # System-level has different thresholds
+                assert m["R"] >= 0.75, f"{name} recall {m['R']:.3f} dropped below 75%"
+                assert m["P"] >= 0.80, f"{name} precision {m['P']:.3f} dropped below 80%"
+            else:
+                assert m["R"] >= 0.85, f"{name} recall {m['R']:.3f} dropped below 85%"
+                assert m["P"] >= 0.85, f"{name} precision {m['P']:.3f} dropped below 85%"
 
         # Overall aggregate should be ≥ 90%
         assert agg["R"] >= 0.90, f"Aggregate recall {agg['R']:.3f} dropped below 90%"

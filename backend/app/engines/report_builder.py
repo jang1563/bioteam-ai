@@ -110,10 +110,12 @@ def generate_report(
         elif hasattr(result, 'output') and result.output:
             report[f"{step_id.lower()}_summary"] = str(result.output)[:200]
 
-    # Build and attach SessionManifest
+    # Build and attach SessionManifest (merge with existing entries like integrity_quick_check)
     manifest = build_session_manifest(query, instance, step_results)
-    report["session_manifest"] = manifest
-    instance.session_manifest = manifest
+    existing = dict(instance.session_manifest) if instance.session_manifest else {}
+    existing.update(manifest)
+    report["session_manifest"] = existing
+    instance.session_manifest = existing
 
     return AgentOutput(
         agent_id="code_only",
