@@ -140,6 +140,7 @@ class ResearchDirectorAgent(BaseAgent):
             model_tier=model_tier,
             response_model=SynthesisReport,
             system=self.system_prompt_cached,
+            max_tokens=16384,  # Synthesis of many papers produces large structured output
         )
 
         return self.build_output(

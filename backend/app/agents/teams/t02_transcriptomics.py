@@ -173,6 +173,7 @@ class TranscriptomicsAgent(BaseAgent):
             model_tier=self.model_tier,
             response_model=ScreeningResult,
             system=self.system_prompt_cached,
+            max_tokens=16384,  # Screening many papers produces large structured output
         )
 
         return self.build_output(
