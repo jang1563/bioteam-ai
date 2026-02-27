@@ -569,6 +569,7 @@ def _sse_event(event: str, data: dict) -> str:
 async def direct_query_stream(
     query: str = Query(min_length=1, max_length=2000, description="Research question"),
     conversation_id: str | None = Query(default=None, description="Continue existing conversation"),
+    target_agent: str | None = Query(default=None, description="Skip RD classification and route directly to this agent"),
 ) -> StreamingResponse:
     """SSE endpoint for streaming Direct Query responses.
 
@@ -600,48 +601,60 @@ async def direct_query_stream(
         conv_history = _load_conversation_history(conversation_id)
 
         try:
-            # Step 1: Classify query
             context = ContextPackage(task_description=query)
-            classification_output = await rd.execute(context)
 
-            if not classification_output.is_success:
-                yield _sse_event("error", {"detail": f"Classification failed: {classification_output.error}"})
-                return
-
-            total_cost += classification_output.cost
-            total_tokens += classification_output.input_tokens + classification_output.output_tokens
-            if classification_output.model_version:
-                model_versions.append(classification_output.model_version)
-
-            classification = classification_output.output
-            classification_type = classification.get("type", "simple_query")
-            target_agent = classification.get("target_agent")
-
-            yield _sse_event("classification", {
-                "type": classification_type,
-                "reasoning": classification.get("reasoning", ""),
-                "target_agent": target_agent,
-                "workflow_type": classification.get("workflow_type"),
-            })
-
-            # If needs_workflow, no streaming — send done immediately
-            if classification_type != "simple_query":
-                duration_ms = int((time.time() - start) * 1000)
-                yield _sse_event("done", {
-                    "classification_type": classification_type,
+            if target_agent:
+                # Fast path: skip Research Director classification, route directly
+                classification_type = "simple_query"
+                resolved_target = target_agent
+                yield _sse_event("classification", {
+                    "type": "simple_query",
+                    "reasoning": f"Direct agent chat with {target_agent}",
                     "target_agent": target_agent,
-                    "routed_agent": None,
-                    "workflow_type": classification.get("workflow_type"),
-                    "total_cost": total_cost,
-                    "total_tokens": total_tokens,
-                    "model_versions": model_versions,
-                    "duration_ms": duration_ms,
-                    "sources": [],
+                    "workflow_type": None,
                 })
-                return
+            else:
+                # Standard path: Step 1 — classify via Research Director
+                classification_output = await rd.execute(context)
+
+                if not classification_output.is_success:
+                    yield _sse_event("error", {"detail": f"Classification failed: {classification_output.error}"})
+                    return
+
+                total_cost += classification_output.cost
+                total_tokens += classification_output.input_tokens + classification_output.output_tokens
+                if classification_output.model_version:
+                    model_versions.append(classification_output.model_version)
+
+                classification = classification_output.output
+                classification_type = classification.get("type", "simple_query")
+                resolved_target = classification.get("target_agent")
+
+                yield _sse_event("classification", {
+                    "type": classification_type,
+                    "reasoning": classification.get("reasoning", ""),
+                    "target_agent": resolved_target,
+                    "workflow_type": classification.get("workflow_type"),
+                })
+
+                # If needs_workflow, no streaming — send done immediately
+                if classification_type != "simple_query":
+                    duration_ms = int((time.time() - start) * 1000)
+                    yield _sse_event("done", {
+                        "classification_type": classification_type,
+                        "target_agent": resolved_target,
+                        "routed_agent": None,
+                        "workflow_type": classification.get("workflow_type"),
+                        "total_cost": total_cost,
+                        "total_tokens": total_tokens,
+                        "model_versions": model_versions,
+                        "duration_ms": duration_ms,
+                        "sources": [],
+                    })
+                    return
 
             # Step 2: Resolve specialist
-            routed_agent, specialist_prompt = _resolve_specialist(_registry, target_agent)
+            routed_agent, specialist_prompt = _resolve_specialist(_registry, resolved_target)
 
             # Step 3: Retrieve memory
             memory_output = await km.execute(context)
@@ -735,7 +748,7 @@ async def direct_query_stream(
 
             yield _sse_event("done", {
                 "classification_type": classification_type,
-                "target_agent": target_agent,
+                "target_agent": resolved_target,
                 "workflow_type": None,
                 "routed_agent": routed_agent,
                 "conversation_id": result_conv_id,

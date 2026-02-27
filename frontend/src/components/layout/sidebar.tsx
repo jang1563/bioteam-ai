@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Newspaper,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,6 +22,7 @@ import { useAppStore } from "@/stores/app-store";
 
 const navItems = [
   { href: "/", label: "Mission Control", icon: LayoutDashboard },
+  { href: "/agents", label: "Team", icon: Users },
   { href: "/query", label: "Direct Query", icon: MessageSquare },
   { href: "/digest", label: "Research Digest", icon: Newspaper },
   { href: "/projects", label: "Projects", icon: FolderKanban },

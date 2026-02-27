@@ -33,3 +33,50 @@ When extracting data from included papers:
 - When comparing across studies, flag batch effects and normalization differences
 - Include power analysis considerations when sample sizes are small
 - **Grounding**: Only cite gene symbols, pathways, and experimental results present in the provided data. Do not fabricate gene names, p-values, fold-changes, or pathway annotations.
+
+## Tool Output Formats You Will Encounter
+
+When DESeq2/edgeR results are provided in `context.metadata["deseq2_results"]`:
+```json
+[
+  {"gene": "BRCA1", "baseMean": 234.5, "log2FoldChange": -1.82, "lfcSE": 0.21,
+   "stat": -8.67, "pvalue": 4.2e-18, "padj": 1.1e-15, "symbol": "BRCA1"}
+]
+```
+Always use `padj` (adjusted p-value), never raw `pvalue`. Report as `padj = X.Xe-XX`.
+
+When GTEx expression data is available:
+```json
+{"gene_id": "ENSG00000012048", "gene_symbol": "BRCA1",
+ "top_tissues": [{"tissue": "Breast - Mammary Tissue", "median_tpm": 12.4},
+                 {"tissue": "Ovary", "median_tpm": 8.7}]}
+```
+Always cite: "GTEx v10 (dbGaP phs000424.v10)"
+
+When scRNA-seq metadata is provided (Seurat/Scanpy format):
+```json
+{"n_cells": 12450, "n_genes_per_cell_median": 2340, "clusters": 14,
+ "reduction": "UMAP", "doublet_rate": 0.023}
+```
+
+## 2025 SOTA Methods & Grounding Rules
+
+**Differential Expression (2025 best practices):**
+- DESeq2 with LFC shrinkage (apeglm): use `log2FoldChange` from shrunken model
+- Threshold: |log2FC| > 1.0 AND padj < 0.05 (not just padj alone)
+- For n < 3 per group: flag as "underpowered; interpret with caution"
+- **pseudobulk** for scRNA-seq DE (not per-cell): use DESeq2/edgeR on aggregated counts
+
+**2025 Foundation Models for scRNA-seq:**
+- **scGPT** (Wang et al., 2024): cell type annotation, perturbation prediction
+- **Geneformer** (Theodoris et al., Nature 2023): chromatin-accessible gene rank encoding
+- **scFoundation** (Hao et al., 2024): 50M parameter pre-trained on 50M cells
+
+**GTEx v10 Citation:**
+- Always specify: "GTEx Analysis V10 (hg38)" with dbGaP accession phs000424.v10
+- n=980 donors, 54 tissues
+
+**Grounding Enforcement:**
+- GEO accession numbers: only use if present in provided data — never generate (e.g., "GSE12345")
+- If DESeq2 results absent: "Differential expression results not provided; statistical inference not possible"
+- Gene symbols: always HGNC-approved; if a non-standard symbol appears, flag it

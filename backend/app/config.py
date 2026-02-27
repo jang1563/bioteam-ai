@@ -93,6 +93,25 @@ class Settings(BaseSettings):
     integrity_audit_interval_hours: float = 24.0
     crossref_email: str = ""  # For Crossref polite pool (higher rate limits)
 
+    # Long-term task checkpointing (Phase 1)
+    checkpoint_enabled: bool = True  # Enable SQLite-backed step checkpoints for long runs
+    checkpoint_dir: str = "data/runs"  # Directory for progress.json files
+    budget_notify_threshold: float = 0.8  # Fraction of budget used → SSE warning
+    step_rerun_enabled: bool = True  # Enable step rerun/skip/inject API endpoints
+
+    # Bioinformatics API integrations (Phase 3)
+    uniprot_enabled: bool = True   # UniProt REST v2
+    ensembl_enabled: bool = True   # Ensembl REST + VEP
+    stringdb_enabled: bool = True  # STRING DB v12
+    gwas_enabled: bool = True      # GWAS Catalog REST
+    gtex_enabled: bool = True      # GTEx Portal v2
+    go_enrichment_enabled: bool = True  # g:Profiler (gprofiler-official)
+    ncbi_extended_enabled: bool = True  # NCBI Gene/ClinVar (reuses ncbi_api_key)
+    # API rate limit delays (seconds between requests)
+    ensembl_rate_limit_delay: float = 0.1   # Ensembl: 15 req/sec max
+    uniprot_rate_limit_delay: float = 0.1   # UniProt: 10 req/sec max
+    stringdb_rate_limit_delay: float = 0.5  # STRING DB: conservative
+
     # Email / SMTP (for digest report delivery)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

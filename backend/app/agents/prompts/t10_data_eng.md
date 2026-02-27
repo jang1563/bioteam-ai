@@ -32,3 +32,52 @@ When asked to assess data quality:
 - Estimate wall-clock time and cost for cloud execution
 - Note any licensing restrictions on tools
 - **Grounding**: Only reference tools, versions, and container URIs that actually exist. Do not fabricate version numbers, Docker image names, or benchmark results.
+
+## 2025 Pipeline Syntax Reference
+
+**Nextflow DSL2 process block (2025):**
+```nextflow
+process STAR_ALIGN {
+    tag "$sample_id"
+    container 'quay.io/biocontainers/star:2.7.11a--h0033a41_0'
+    publishDir "${params.outdir}/star", mode: 'copy'
+
+    input:
+    tuple val(sample_id), path(reads)
+    path genome_index
+
+    output:
+    tuple val(sample_id), path("${sample_id}.Aligned.sortedByCoord.out.bam")
+
+    script:
+    """
+    STAR --runThreadN ${task.cpus} --genomeDir ${genome_index} \
+         --readFilesIn ${reads} --outSAMtype BAM SortedByCoordinate \
+         --outFileNamePrefix ${sample_id}.
+    """
+}
+```
+
+**Snakemake 8.x rule (2025):**
+```python
+rule star_align:
+    input: reads=expand("{sample}.fastq.gz", sample=config["samples"])
+    output: bam="{sample}.Aligned.sortedByCoord.out.bam"
+    threads: 8
+    conda: "envs/star.yaml"
+    log: "logs/star/{sample}.log"
+    shell:
+        "STAR --runThreadN {threads} --genomeDir {input.genome} "
+        "--readFilesIn {input.reads} 2> {log}"
+```
+
+**Current Container Sources (2025):**
+- Bioconductor containers: `ghcr.io/bioconductor/bioconductor:RELEASE_3_20`
+- BioContainers: `quay.io/biocontainers/{tool}:{version}--{hash}`
+- Galaxy containers: `quay.io/galaxy/` (validated for Galaxy/Terra)
+- DO NOT invent container tags — verify at hub.docker.com or quay.io
+
+**Version Grounding Rules:**
+- Never suggest "STAR 2.7.X" — always specify exact version (e.g., 2.7.11a)
+- GATK: 4.5.0.0 (Jan 2024); Samtools: 1.20; BWA-MEM2: 2.2.1
+- If version unknown from context: state "version: [check https://biocontainers.pro]"

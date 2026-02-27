@@ -51,6 +51,10 @@ benchmarks = [
     "pandas>=2.0.0",
     "statcheck>=0.0.7",
 ]
+bioinfo_apis = [
+    # Required only for GO/pathway enrichment (Phase 3)
+    "gprofiler-official>=1.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]

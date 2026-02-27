@@ -76,8 +76,15 @@ W8_STEPS: list[WorkflowStepDef] = [
         id="BACKGROUND_LIT",
         agent_id="knowledge_manager",
         output_schema="LiteratureSearchResult",
-        next_step="INTEGRITY_AUDIT",
+        next_step="NOVELTY_CHECK",
         estimated_cost=_estimate_step_cost("sonnet", est_input_tokens=2000, est_output_tokens=500),
+    ),
+    WorkflowStepDef(
+        id="NOVELTY_CHECK",
+        agent_id="code_only",
+        output_schema="NoveltyAssessment",
+        next_step="INTEGRITY_AUDIT",
+        estimated_cost=_estimate_step_cost("sonnet", est_input_tokens=6000, est_output_tokens=2000),
     ),
     WorkflowStepDef(
         id="INTEGRITY_AUDIT",
@@ -137,13 +144,13 @@ _METHOD_MAP: dict[str, tuple[str, str]] = {
     "BACKGROUND_LIT": ("knowledge_manager", "search_literature"),
     "CONTRADICTION_CHECK": ("ambiguity_engine", "detect_contradictions"),
     "METHODOLOGY_REVIEW": ("methodology_reviewer", "run"),
-    "SYNTHESIZE_REVIEW": ("research_director", "synthesize"),
+    "SYNTHESIZE_REVIEW": ("research_director", "synthesize_peer_review"),
 }
 
-# Code-only steps
+# Code-only steps (including hybrid steps with internal LLM calls)
 _CODE_STEPS = frozenset({
     "INGEST", "PARSE_SECTIONS", "CITE_VALIDATION",
-    "INTEGRITY_AUDIT", "EVIDENCE_GRADE", "HUMAN_CHECKPOINT", "REPORT",
+    "NOVELTY_CHECK", "INTEGRITY_AUDIT", "EVIDENCE_GRADE", "HUMAN_CHECKPOINT", "REPORT",
 })
 
 
@@ -191,6 +198,7 @@ class W8PaperReviewRunner:
         instance: WorkflowInstance | None = None,
         budget: float = 3.0,
         query: str = "",
+        skip_human_checkpoint: bool = False,
     ) -> dict[str, Any]:
         """Execute the full W8 pipeline.
 
@@ -242,17 +250,22 @@ class W8PaperReviewRunner:
                     await self._persist(instance)
                     break
 
+                # Deduct cost for hybrid code steps that make LLM calls (e.g., NOVELTY_CHECK)
+                if result.cost > 0:
+                    self.engine.deduct_budget(instance, result.cost)
+
                 self.engine.advance(
                     instance, step.id,
                     step_result={"type": "code_only"},
-                    agent_id="code_only",
+                    agent_id=result.agent_id,
                     status="completed",
                     duration_ms=step_ms,
+                    cost=result.cost,
                 )
                 await self._persist(instance)
 
                 # Human checkpoint
-                if step.is_human_checkpoint:
+                if step.is_human_checkpoint and not skip_human_checkpoint:
                     self.engine.request_human(instance)
                     await self._persist(instance)
                     logger.info("W8 paused at %s for human review", step.id)
@@ -580,6 +593,8 @@ class W8PaperReviewRunner:
             return self._step_parse()
         elif step.id == "CITE_VALIDATION":
             return self._step_cite_validation()
+        elif step.id == "NOVELTY_CHECK":
+            return await self._step_novelty_check()
         elif step.id == "INTEGRITY_AUDIT":
             return await self._step_integrity_audit()
         elif step.id == "EVIDENCE_GRADE":
@@ -679,12 +694,17 @@ class W8PaperReviewRunner:
             )
 
     def _step_cite_validation(self) -> AgentOutput:
-        """CITE_VALIDATION: Validate citations extracted from claims."""
+        """CITE_VALIDATION: Validate citations extracted from claims.
+
+        For PDFs: parses reference list and validates DOIs via Crossref.
+        For DOCX without embedded DOIs: scans full text for any DOI/PMID patterns,
+        and reports the reference count with a transparency note.
+        """
         from app.engines.citation_validator import CitationValidator
 
         validator = CitationValidator()
 
-        # Register references from the paper's reference section
+        # Register references from claim supporting_refs (may contain raw DOI/PMID strings)
         claims_output = self._step_results.get("EXTRACT_CLAIMS")
         refs_as_sources = []
         if claims_output and hasattr(claims_output, "output") and isinstance(claims_output.output, dict):
@@ -703,9 +723,38 @@ class W8PaperReviewRunner:
         if refs_as_sources:
             validator.register_sources(refs_as_sources)
 
-        # Validate references section text
+        # Try parsed reference section first
         refs_text = self._parsed_paper.references_raw if self._parsed_paper else ""
+
+        # Fallback: scan full paper text for any embedded DOIs if reference section is empty
+        doi_pattern = re.compile(r"\b(10\.\d{4,9}/[-._;()/:A-Z0-9]+)\b", re.IGNORECASE)
+        full_text = self._parsed_paper.full_text if self._parsed_paper else ""
+        embedded_dois = list(set(doi_pattern.findall(full_text))) if not refs_text else []
+
         report = validator.validate(refs_text)
+
+        # Estimate reference count from full text if validator found nothing
+        ref_count_estimated = False
+        if report.total_citations == 0 and full_text:
+            # Count reference list entries by common patterns (numbered [1], (Author, Year), etc.)
+            numbered_refs = re.findall(r"^\s*\[?\d{1,3}\]?\s+\w", full_text, re.MULTILINE)
+            if len(numbered_refs) > 5:
+                ref_count_estimated = True
+
+        notes = []
+        if report.total_citations == 0 and not embedded_dois:
+            notes.append(
+                "Reference list not parseable for automatic DOI verification "
+                "(manuscript format does not embed DOIs/PMIDs in citation text). "
+                "Manual citation verification recommended."
+            )
+        if embedded_dois:
+            notes.append(f"Found {len(embedded_dois)} DOI(s) embedded in manuscript text.")
+        if ref_count_estimated:
+            notes.append(
+                f"Approximately {len(numbered_refs)} numbered references detected in text "
+                "(exact count unverified — manual check required)."
+            )
 
         report_dict = {
             "step": "CITE_VALIDATION",
@@ -713,6 +762,8 @@ class W8PaperReviewRunner:
             "verified": report.verified,
             "verification_rate": report.verification_rate,
             "is_clean": report.is_clean,
+            "embedded_dois_found": len(embedded_dois),
+            "notes": notes,
             "issues": [
                 {
                     "citation_ref": issue.citation_ref,
@@ -724,11 +775,16 @@ class W8PaperReviewRunner:
             ],
         }
 
+        if notes:
+            summary = f"Citation auto-check limited: {notes[0][:80]}"
+        else:
+            summary = f"Citations: {report.verified}/{report.total_citations} verified ({report.verification_rate:.0%})"
+
         return AgentOutput(
             agent_id="code_only",
             output=report_dict,
             output_type="CitationReport",
-            summary=f"Citations: {report.verified}/{report.total_citations} verified ({report.verification_rate:.0%})",
+            summary=summary,
         )
 
     async def _step_integrity_audit(self) -> AgentOutput:
@@ -768,6 +824,141 @@ class W8PaperReviewRunner:
                 agent_id="code_only",
                 output={"step": "INTEGRITY_AUDIT", "skipped": True, "error": str(e)},
                 summary=f"Integrity audit skipped: {e}",
+            )
+
+    async def _step_novelty_check(self) -> AgentOutput:
+        """NOVELTY_CHECK: Assess how novel the paper's findings are vs. recent landmark literature.
+
+        Searches for high-impact recent papers in the same subfield, then uses LLM
+        to compare the paper's key claims against established findings. Specifically
+        checks against landmark spaceflight/domain studies (NASA Twins Study, SOMA, etc.).
+        """
+        from app.models.messages import ContextPackage
+        from app.models.peer_review import NoveltyAssessment
+
+        if not self._llm_layer:
+            return AgentOutput(
+                agent_id="code_only",
+                output={"step": "NOVELTY_CHECK", "skipped": True, "reason": "no_llm_layer"},
+                summary="Novelty check skipped: LLM layer not available",
+            )
+
+        # 1. Gather paper claims
+        claims_output = self._step_results.get("EXTRACT_CLAIMS")
+        claims = []
+        if claims_output and hasattr(claims_output, "output") and isinstance(claims_output.output, dict):
+            claims = claims_output.output.get("claims", [])
+        main_findings = [c["claim_text"] for c in claims if c.get("claim_type") == "main_finding"][:12]
+        hypothesis = claims_output.output.get("stated_hypothesis", "") if claims_output and claims_output.output else ""
+
+        # 2. Background lit papers from previous step
+        lit_output = self._step_results.get("BACKGROUND_LIT")
+        background_papers: list[dict] = []
+        if lit_output and hasattr(lit_output, "output") and isinstance(lit_output.output, dict):
+            background_papers = lit_output.output.get("papers", [])
+
+        # 3. Additional landmark-focused search via KnowledgeManager
+        landmark_papers: list[dict] = []
+        km = self.registry.get("knowledge_manager") if self.registry else None
+        if km and self._paper_title:
+            # Build a targeted query for recent landmark papers
+            topic_words = " ".join(self._paper_title.split()[:6])
+            novelty_query = (
+                f"landmark major studies {topic_words} 2019 2020 2021 2022 2023 2024 "
+                f"NASA spaceflight omics immune transcriptomics"
+            )
+            try:
+                km_context = ContextPackage(task_description=novelty_query)
+                km_result = await km.search_literature(km_context)
+                if km_result and hasattr(km_result, "output") and isinstance(km_result.output, dict):
+                    landmark_papers = km_result.output.get("papers", [])
+            except Exception as e:
+                logger.warning("NOVELTY_CHECK landmark search failed: %s", e)
+
+        # Deduplicate all papers by PMID/DOI
+        seen: set[str] = set()
+        all_papers: list[dict] = []
+        for p in background_papers + landmark_papers:
+            key = p.get("pmid") or p.get("doi") or p.get("title", "")[:50]
+            if key and key not in seen:
+                seen.add(key)
+                all_papers.append(p)
+
+        # 4. Build LLM prompt for novelty assessment
+        paper_list_text = ""
+        for p in all_papers[:15]:
+            authors = p.get("authors", [])
+            author_str = f"{authors[0]} et al." if authors else "Unknown"
+            year = p.get("year", "")
+            title = p.get("title", "Unknown")
+            pmid = p.get("pmid", "")
+            abstract = p.get("abstract", "")[:300]
+            paper_list_text += f"\n- **{title}** ({author_str}, {year}, PMID:{pmid})\n  {abstract}\n"
+
+        findings_text = "\n".join(f"- {f}" for f in main_findings) if main_findings else "(none extracted)"
+
+        system_prompt = (
+            "You are an expert scientific peer reviewer specializing in novelty assessment. "
+            "Your task is to determine whether a paper's key findings have already been established "
+            "in prior landmark studies, or whether they represent genuine contributions. "
+            "Be specific: cite actual paper titles/authors when noting overlap. "
+            "Be fair: acknowledge that replication has value, but distinguish confirmatory from novel work. "
+            "Pay special attention to recent high-impact studies that may have pre-established the same findings."
+        )
+
+        user_prompt = f"""Assess the novelty of the following paper's key findings relative to existing literature.
+
+PAPER TITLE: {self._paper_title}
+
+STATED HYPOTHESIS: {hypothesis or "(not stated)"}
+
+KEY CLAIMS FROM THIS PAPER:
+{findings_text}
+
+RELATED PAPERS FOUND IN LITERATURE:
+{paper_list_text if paper_list_text else "(no related papers retrieved)"}
+
+IMPORTANT CONTEXT — Check specifically whether these findings have already been reported in:
+- NASA Twins Study (Scott/Mark Kelly, Science 2019) — comprehensive spaceflight omics, T cell changes
+- Inspiration4/SOMA package (Nature 2024) — largest civilian spaceflight omics, 64 astronauts, immune profiling
+- Any prior ISS crew investigations or ground-based microgravity immune studies
+
+Rate novelty from 0.0 (completely replicates prior work) to 1.0 (entirely novel findings).
+For each established finding, name the specific prior paper.
+For each unique contribution, explain what makes it genuinely new.
+Provide 2-3 actionable recommendations for how the authors can reframe or strengthen the novelty argument."""
+
+        try:
+            novelty_result, meta = await self._llm_layer.complete_structured(
+                messages=[{"role": "user", "content": user_prompt}],
+                model_tier="sonnet",
+                response_model=NoveltyAssessment,
+                system=system_prompt,
+                max_tokens=2500,
+            )
+
+            return AgentOutput(
+                agent_id="knowledge_manager",
+                output={"step": "NOVELTY_CHECK", **novelty_result.model_dump(mode="json")},
+                output_type="NoveltyAssessment",
+                model_tier="sonnet",
+                model_version=meta.model_version,
+                input_tokens=meta.input_tokens,
+                output_tokens=meta.output_tokens,
+                cost=meta.cost,
+                summary=(
+                    f"Novelty score: {novelty_result.novelty_score:.2f} — "
+                    f"{len(novelty_result.already_established)} established, "
+                    f"{len(novelty_result.unique_contributions)} novel, "
+                    f"{len(novelty_result.landmark_papers_missing)} missing landmark refs"
+                ),
+            )
+        except Exception as e:
+            logger.warning("NOVELTY_CHECK LLM call failed: %s", e)
+            return AgentOutput(
+                agent_id="code_only",
+                output={"step": "NOVELTY_CHECK", "skipped": True, "error": str(e)},
+                summary=f"Novelty check skipped: {e}",
             )
 
     async def _step_evidence_grade(self) -> AgentOutput:

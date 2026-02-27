@@ -33,6 +33,10 @@ LEGAL_TRANSITIONS: dict[tuple[str, str], str] = {
     ("WAITING_HUMAN", "RUNNING"): "Director approves / modifies",
     ("WAITING_HUMAN", "CANCELLED"): "Director cancels",
     ("WAITING_HUMAN", "PAUSED"): "24h timeout, auto-pause + notify",
+    # From WAITING_DIRECTION (DC — auto-continues after timeout)
+    ("WAITING_DIRECTION", "RUNNING"): "User responds or auto-continue timeout",
+    ("WAITING_DIRECTION", "CANCELLED"): "Director cancels during direction check",
+    ("RUNNING", "WAITING_DIRECTION"): "DC step reached — waiting for direction response",
     # From OVER_BUDGET
     ("OVER_BUDGET", "RUNNING"): "Director approves overage",
     ("OVER_BUDGET", "CANCELLED"): "Director cancels",
@@ -234,6 +238,10 @@ class WorkflowEngine:
         instance.budget_remaining = max(0, instance.budget_remaining - actual_cost)
         instance.updated_at = datetime.now(timezone.utc)
         return instance.budget_remaining
+
+    def wait_for_direction(self, instance: WorkflowInstance) -> None:
+        """Move to WAITING_DIRECTION for a DC (Direction Check) step."""
+        self.transition(instance, "WAITING_DIRECTION")
 
     def can_transition(self, from_state: str, to_state: str) -> bool:
         """Check if a transition is legal without performing it."""

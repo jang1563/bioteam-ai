@@ -149,3 +149,62 @@ class ResearchDirectorAgent(BaseAgent):
             summary=result.summary[:200],
             llm_response=meta,
         )
+
+    async def synthesize_peer_review(self, context: ContextPackage) -> AgentOutput:
+        """Synthesize all W8 analysis steps into a structured peer review report.
+
+        Returns PeerReviewSynthesis with decision, comments, and summary_assessment.
+        Used exclusively by W8 SYNTHESIZE_REVIEW step.
+        """
+        from app.models.peer_review import PeerReviewSynthesis
+
+        prior_outputs = "\n\n".join(
+            f"--- Analysis Output ---\n{str(o)}" for o in context.prior_step_outputs
+        )
+
+        paper_title = context.metadata.get("paper_title", "this paper")
+
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Generate a structured peer review for: {paper_title}\n\n"
+                    f"Based on the following systematic analyses:\n\n"
+                    f"{prior_outputs}\n\n"
+                    "Produce a peer review with:\n"
+                    "1. A 2-3 paragraph summary_assessment\n"
+                    "2. A recommended editorial decision (accept/minor_revision/major_revision/reject)\n"
+                    "3. decision_reasoning explaining the recommendation\n"
+                    "4. A list of structured comments (major/minor/suggestion/question), each with "
+                    "category, section, comment text, and evidence_basis\n"
+                    "5. confidence_in_conclusions (0.0-1.0)\n\n"
+                    "Ground all comments in the analysis outputs above. "
+                    "Do not invent concerns not supported by the analyses."
+                ),
+            }
+        ]
+
+        model_tier = self.spec.model_tier_secondary or self.model_tier
+
+        result, meta = await self.llm.complete_structured(
+            messages=messages,
+            model_tier=model_tier,
+            response_model=PeerReviewSynthesis,
+            system=self.system_prompt_cached,
+            max_tokens=8192,
+        )
+
+        decision = result.decision
+        n_major = sum(1 for c in result.comments if c.category == "major")
+        n_minor = sum(1 for c in result.comments if c.category == "minor")
+        summary = (
+            f"Decision: {decision} | {n_major} major, {n_minor} minor comments | "
+            f"Confidence: {result.confidence_in_conclusions:.2f}"
+        )
+
+        return self.build_output(
+            output=result.model_dump(),
+            output_type="PeerReviewSynthesis",
+            summary=summary,
+            llm_response=meta,
+        )

@@ -11,6 +11,7 @@ from app.models.agent import AgentOutput
 from app.models.evidence import SessionManifest
 from app.models.peer_review import (
     MethodologyAssessment,
+    NoveltyAssessment,
     PaperClaim,
     PeerReviewSynthesis,
     ReviewComment,
@@ -92,6 +93,17 @@ def build_peer_review_report(
     if lit_result and hasattr(lit_result, "output") and isinstance(lit_result.output, dict):
         literature_comparison = lit_result.output
 
+    # Novelty assessment
+    novelty_assessment = None
+    novelty_result = step_results.get("NOVELTY_CHECK")
+    if novelty_result and hasattr(novelty_result, "output") and isinstance(novelty_result.output, dict):
+        raw = {k: v for k, v in novelty_result.output.items() if k != "step"}
+        if raw and not raw.get("skipped"):
+            try:
+                novelty_assessment = NoveltyAssessment(**raw)
+            except Exception:
+                pass
+
     # Integrity audit
     integrity_audit = {}
     integrity_result = step_results.get("INTEGRITY_AUDIT")
@@ -119,14 +131,51 @@ def build_peer_review_report(
     if rcmxt_result and hasattr(rcmxt_result, "output") and isinstance(rcmxt_result.output, dict):
         rcmxt_scores = rcmxt_result.output.get("scores", [])
 
-    # Synthesis
+    # Synthesis — try strict parse first, then map from generic research-director output
     synthesis = None
+    synth_raw: dict = {}
     synth_result = step_results.get("SYNTHESIZE_REVIEW")
     if synth_result and hasattr(synth_result, "output") and isinstance(synth_result.output, dict):
+        synth_raw = synth_result.output
         try:
-            synthesis = PeerReviewSynthesis(**synth_result.output)
+            synthesis = PeerReviewSynthesis(**synth_raw)
         except Exception:
-            pass
+            # Generic research-director synthesis: map known fields → PeerReviewSynthesis
+            summary_text = synth_raw.get("summary") or synth_raw.get("summary_assessment", "")
+            confidence_text = synth_raw.get("confidence_assessment", "")
+            # Extract decision from confidence_assessment or key_findings text
+            decision: str = "major_revision"
+            combined = " ".join([
+                str(synth_raw.get("key_findings", [])),
+                confidence_text,
+            ]).lower()
+            if "reject" in combined:
+                decision = "reject"
+            elif "minor revision" in combined or "minor_revision" in combined:
+                decision = "minor_revision"
+            elif "accept" in combined and "major" not in combined:
+                decision = "accept"
+
+            # Build ReviewComment list from key_findings + evidence_gaps + next_steps
+            from app.models.peer_review import ReviewComment
+            comments: list[ReviewComment] = []
+            for item in synth_raw.get("key_findings", []):
+                cat = "major" if any(kw in str(item).lower() for kw in ["major", "critical", "concern"]) else "minor"
+                comments.append(ReviewComment(category=cat, section="General", comment=str(item)))
+            for item in synth_raw.get("evidence_gaps", []):
+                comments.append(ReviewComment(category="minor", section="Evidence", comment=str(item)))
+            for item in synth_raw.get("next_steps", []):
+                comments.append(ReviewComment(category="suggestion", section="Suggestions", comment=str(item)))
+
+            try:
+                synthesis = PeerReviewSynthesis(
+                    summary_assessment=summary_text,
+                    decision=decision,
+                    decision_reasoning=confidence_text or summary_text[:500],
+                    comments=comments,
+                )
+            except Exception:
+                pass
 
     # Session manifest
     manifest = build_w8_session_manifest(instance, step_results)
@@ -136,6 +185,7 @@ def build_peer_review_report(
         claims_extracted=claims,
         citation_report=citation_report,
         literature_comparison=literature_comparison,
+        novelty_assessment=novelty_assessment,
         integrity_audit=integrity_audit,
         contradiction_findings=contradiction_findings,
         methodology_assessment=methodology_assessment,
@@ -200,6 +250,39 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
                 lines.append(f"{i}. **[{c.section}]** {c.comment}")
             lines.append("")
 
+    # Novelty Assessment (inserted before Methodology — high priority concern)
+    if report.novelty_assessment:
+        na = report.novelty_assessment
+        score_label = (
+            "High" if na.novelty_score >= 0.7
+            else "Moderate" if na.novelty_score >= 0.4
+            else "Low"
+        )
+        lines.append(f"## Novelty Assessment (Score: {na.novelty_score:.2f} — {score_label})\n")
+
+        if na.already_established:
+            lines.append("### Findings Already Established in Prior Work\n")
+            for item in na.already_established:
+                lines.append(f"- {item}")
+            lines.append("")
+
+        if na.unique_contributions:
+            lines.append("### Unique Contributions\n")
+            for item in na.unique_contributions:
+                lines.append(f"- {item}")
+            lines.append("")
+
+        if na.landmark_papers_missing:
+            lines.append("### Landmark Papers Authors Should Compare Against\n")
+            for item in na.landmark_papers_missing:
+                lines.append(f"- {item}")
+            lines.append("")
+
+        if na.novelty_recommendation:
+            lines.append("### Novelty Recommendation\n")
+            lines.append(na.novelty_recommendation)
+            lines.append("")
+
     # Methodology Assessment
     if report.methodology_assessment:
         ma = report.methodology_assessment
@@ -242,6 +325,21 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
         summary = report.literature_comparison.get("summary", "")
         if summary:
             lines.append(summary[:2000])
+        else:
+            # Fall back to listing retrieved papers
+            papers = report.literature_comparison.get("papers", [])
+            total = report.literature_comparison.get("total_found", len(papers))
+            dbs = ", ".join(report.literature_comparison.get("databases_searched", []))
+            lines.append(f"Retrieved {total} related paper(s) from {dbs}:\n")
+            for p in papers[:10]:
+                title = p.get("title", "Unknown")
+                authors = p.get("authors", [])
+                year = p.get("year", "")
+                pmid = p.get("pmid", "")
+                doi = p.get("doi", "")
+                ref = f"PMID:{pmid}" if pmid else (f"DOI:{doi}" if doi else "")
+                author_str = f"{authors[0]} et al." if authors else ""
+                lines.append(f"- **{title}** — {author_str} {year} {ref}")
         lines.append("")
 
     # Citation Integrity
@@ -249,9 +347,18 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
         total = report.citation_report.get("total_citations", 0)
         verified = report.citation_report.get("verified", 0)
         rate = report.citation_report.get("verification_rate", 0)
-        lines.append(f"## Citation Integrity\n")
-        lines.append(f"- Total citations: {total}")
-        lines.append(f"- Verified: {verified} ({rate:.0%})")
+        notes = report.citation_report.get("notes", [])
+        embedded = report.citation_report.get("embedded_dois_found", 0)
+        lines.append("## Citation Integrity\n")
+        if notes:
+            for note in notes:
+                lines.append(f"> ⚠️ {note}")
+            lines.append("")
+        if total > 0:
+            lines.append(f"- Total citations: {total}")
+            lines.append(f"- Verified: {verified} ({rate:.0%})")
+        if embedded > 0:
+            lines.append(f"- Embedded DOIs found in text: {embedded}")
         issues = report.citation_report.get("issues", [])
         if issues:
             lines.append(f"- Issues: {len(issues)}")

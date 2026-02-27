@@ -18,10 +18,11 @@ from sqlmodel import Field as SQLField
 
 WorkflowState = Literal[
     "PENDING", "RUNNING", "PAUSED", "WAITING_HUMAN",
+    "WAITING_DIRECTION",   # DC: waiting for user direction response (auto-continues after timeout)
     "COMPLETED", "FAILED", "CANCELLED", "OVER_BUDGET",
 ]
 
-WorkflowTemplate = Literal["direct_query", "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
+WorkflowTemplate = Literal["direct_query", "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9"]
 
 
 # === SQL Tables ===
@@ -54,6 +55,9 @@ class WorkflowInstance(SQLModel, table=True):
 
     # W8: path to paper PDF for peer review
     pdf_path: str | None = None
+
+    # W9: path to data manifest (JSON describing input files)
+    data_manifest_path: str | None = None
 
     # project_id for future multi-project support
     project_id: str | None = None
@@ -115,3 +119,10 @@ class WorkflowStepDef(BaseModel):
     is_human_checkpoint: bool = False
     is_loop_point: bool = False
     estimated_cost: float = 0.10
+    # Interaction type for long-running workflows (W9)
+    # HC = Human Checkpoint (blocks until user approves)
+    # DC = Direction Check (broadcasts summary, auto-continues after timeout)
+    # None = normal step, no interaction
+    interaction_type: Literal["HC", "DC", None] = None
+    # DC-only: minutes to wait before auto-continuing (default 60)
+    dc_auto_continue_minutes: int = 60

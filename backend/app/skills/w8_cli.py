@@ -18,12 +18,13 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 logger = logging.getLogger(__name__)
 
 
-async def run_w8(pdf_path: str, budget: float = 3.0) -> dict:
+async def run_w8(pdf_path: str, budget: float = 3.0, skip_human_checkpoint: bool = True) -> dict:
     """Run the W8 Paper Review pipeline.
 
     Args:
         pdf_path: Path to the paper PDF file.
         budget: Maximum budget in USD.
+        skip_human_checkpoint: If True, auto-continue past HUMAN_CHECKPOINT (default for CLI).
 
     Returns:
         Pipeline result dict with review report.
@@ -43,6 +44,7 @@ async def run_w8(pdf_path: str, budget: float = 3.0) -> dict:
     result = await runner.run(
         pdf_path=pdf_path,
         budget=budget,
+        skip_human_checkpoint=skip_human_checkpoint,
     )
 
     return result
@@ -54,11 +56,15 @@ def main() -> None:
     parser.add_argument("--budget", "-b", type=float, default=3.0, help="Max budget (USD)")
     parser.add_argument("--output", "-o", help="Output JSON file path")
     parser.add_argument("--markdown", "-m", help="Output Markdown report file path")
+    parser.add_argument("--pause-at-checkpoint", action="store_true",
+                        help="Pause at HUMAN_CHECKPOINT instead of auto-continuing")
     args = parser.parse_args()
 
-    logger.info("Starting W8 Paper Review: %s (budget: $%.2f)", args.pdf, args.budget)
+    skip_checkpoint = not args.pause_at_checkpoint
+    logger.info("Starting W8 Paper Review: %s (budget: $%.2f, checkpoint=%s)",
+                args.pdf, args.budget, "pause" if args.pause_at_checkpoint else "auto")
 
-    result = asyncio.run(run_w8(args.pdf, args.budget))
+    result = asyncio.run(run_w8(args.pdf, args.budget, skip_human_checkpoint=skip_checkpoint))
 
     # Extract markdown report if available
     step_results = result.get("step_results", {})

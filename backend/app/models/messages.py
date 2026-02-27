@@ -100,14 +100,19 @@ class SSEEvent(BaseModel):
         "workflow.step_started",
         "workflow.step_completed",
         "workflow.step_failed",
+        "workflow.step_error",                      # Phase 1: classified error (TRANSIENT/RECOVERABLE/etc.)
         "workflow.paused",
         "workflow.waiting_human",
+        "workflow.human_checkpoint",                # Phase 1: HC step reached
         "workflow.over_budget",
         "workflow.completed",
         "workflow.failed",
         "workflow.cancelled",
         "workflow.note_injected",
         "workflow.intervention",
+        "workflow.direction_check",                 # Phase 1: DC step — awaiting user direction
+        "workflow.direction_check_autocontinued",   # Phase 1: DC auto-continued after timeout
+        "workflow.error_checkpoint",                # Phase 1: EC — user must decide how to recover
         "agent.token_stream",
         "system.health_changed",
         "system.cost_alert",

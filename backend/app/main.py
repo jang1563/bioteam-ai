@@ -22,6 +22,7 @@ from app.api.v1.direct_query import router as dq_router
 from app.api.v1.integrity import router as integrity_router
 from app.api.v1.negative_results import router as nr_router
 from app.api.v1.sse import router as sse_router
+from app.api.v1.resume import router as resume_router
 from app.api.v1.workflows import router as workflows_router
 from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
@@ -36,6 +37,7 @@ from app.models.memory import EpisodicEvent  # noqa: F401
 from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401
 from app.models.negative_result import NegativeResult  # noqa: F401
 from app.models.task import Project, Task  # noqa: F401
+from app.models.session_checkpoint import SessionCheckpoint  # noqa: F401
 from app.models.workflow import StepCheckpoint, WorkflowInstance  # noqa: F401
 from app.workflows.engine import WorkflowEngine
 from fastapi import FastAPI, HTTPException, Request
@@ -119,6 +121,10 @@ async def lifespan(app: FastAPI):
         set_dq_registry(registry)
         set_workflow_deps(registry, engine, sse_hub=sse_hub)
         set_cold_start_deps(registry, memory)
+
+        # Wire up resume API
+        from app.api.v1.resume import set_dependencies as set_resume_deps
+        set_resume_deps(registry, engine, sse_hub=sse_hub)
 
         # Wire up backup manager
         db_url = settings.database_url
@@ -235,6 +241,7 @@ app.include_router(conversations_router)
 app.include_router(contradictions_router)
 app.include_router(digest_router)
 app.include_router(integrity_router)
+app.include_router(resume_router)
 
 
 @app.get("/")

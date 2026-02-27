@@ -30,13 +30,13 @@ from app.workflows.runners.w8_paper_review import (
 
 class TestW8Steps:
     def test_step_count(self):
-        assert len(W8_STEPS) == 12
+        assert len(W8_STEPS) == 13
 
     def test_step_ids(self):
         ids = [s.id for s in W8_STEPS]
         expected = [
             "INGEST", "PARSE_SECTIONS", "EXTRACT_CLAIMS", "CITE_VALIDATION",
-            "BACKGROUND_LIT", "INTEGRITY_AUDIT", "CONTRADICTION_CHECK",
+            "BACKGROUND_LIT", "NOVELTY_CHECK", "INTEGRITY_AUDIT", "CONTRADICTION_CHECK",
             "METHODOLOGY_REVIEW", "EVIDENCE_GRADE", "HUMAN_CHECKPOINT",
             "SYNTHESIZE_REVIEW", "REPORT",
         ]

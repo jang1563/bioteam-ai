@@ -37,7 +37,7 @@ class TestAgentRegistrySystem:
 
     def test_all_agents_registered(self):
         specs = self.registry.list_agents()
-        assert len(specs) == 21, f"Expected 21 agents, got {len(specs)}"
+        assert len(specs) == 23, f"Expected 23 agents, got {len(specs)}"
 
     def test_critical_agents_healthy(self):
         unhealthy = self.registry.check_critical_health()

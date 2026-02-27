@@ -130,6 +130,33 @@ class PeerReviewSynthesis(BaseModel):
     )
 
 
+class NoveltyAssessment(BaseModel):
+    """Novelty assessment comparing paper claims vs. recent landmark literature."""
+
+    novelty_score: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="0.0=fully replicates existing work, 1.0=entirely novel",
+    )
+    already_established: list[str] = Field(
+        default_factory=list,
+        description="Findings already reported in prior landmark studies, with specific citations",
+    )
+    unique_contributions: list[str] = Field(
+        default_factory=list,
+        description="Genuinely novel aspects not previously reported",
+    )
+    landmark_papers_missing: list[str] = Field(
+        default_factory=list,
+        description="Key recent papers authors should cite/compare against (with suggested action)",
+    )
+    novelty_recommendation: str = Field(
+        default="",
+        description="Specific recommendation for authors on how to frame novelty",
+    )
+
+
 class W8PeerReviewReport(BaseModel):
     """Final assembled peer review report."""
 
@@ -138,6 +165,7 @@ class W8PeerReviewReport(BaseModel):
     claims_extracted: list[PaperClaim] = Field(default_factory=list)
     citation_report: dict = Field(default_factory=dict)
     literature_comparison: dict = Field(default_factory=dict)
+    novelty_assessment: NoveltyAssessment | None = None
     integrity_audit: dict = Field(default_factory=dict)
     contradiction_findings: dict = Field(default_factory=dict)
     methodology_assessment: MethodologyAssessment | None = None
