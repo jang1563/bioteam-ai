@@ -4,13 +4,6 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings
 
-# Claude model ID mapping
-MODEL_MAP: dict[str, str] = {
-    "opus": "claude-opus-4-6",
-    "sonnet": "claude-sonnet-4-5-20250929",
-    "haiku": "claude-haiku-4-5-20251001",
-}
-
 ModelTier = Literal["opus", "sonnet", "haiku"]
 
 
@@ -52,6 +45,9 @@ class Settings(BaseSettings):
     default_max_tokens: int = 4096
     default_max_retries: int = 2
     default_temperature: float = 0.0  # v4.2: deterministic by default for reproducibility
+    model_opus: str = "claude-opus-4-6"
+    model_sonnet: str = "claude-sonnet-4-5-20250929"
+    model_haiku: str = "claude-haiku-4-5-20251001"
 
     # Backup scheduling
     backup_enabled: bool = True
@@ -76,6 +72,22 @@ class Settings(BaseSettings):
     celery_worker_concurrency: int = 4
     celery_task_time_limit: int = 3600  # seconds
 
+    # MCP Healthcare Connectors (Anthropic-hosted)
+    mcp_enabled: bool = False  # Master toggle — False = zero change to existing behavior
+    mcp_pubmed_url: str = "https://mcp.deepsense.ai/pubmed/mcp"
+    mcp_biorxiv_url: str = "https://mcp.deepsense.ai/biorxiv/mcp"
+    mcp_clinical_trials_url: str = "https://mcp.deepsense.ai/clinical_trials/mcp"
+    mcp_chembl_url: str = "https://mcp.deepsense.ai/chembl/mcp"
+    mcp_icd10_url: str = "https://mcp.deepsense.ai/icd10/mcp"
+    mcp_preferred_sources: str = "pubmed,biorxiv"  # Comma-separated active sources
+
+    # Programmatic Tool Calling (PTC)
+    ptc_enabled: bool = False  # Enable PTC for multi-tool orchestration
+    ptc_container_reuse: bool = True  # Reuse sandbox containers within a workflow
+
+    # Tool Search / Deferred Loading
+    deferred_tools_enabled: bool = False  # Enable deferred tool loading for context savings
+
     # Data Integrity Audit
     integrity_audit_enabled: bool = True
     integrity_audit_interval_hours: float = 24.0
@@ -92,3 +104,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_model_map() -> dict[str, str]:
+    """Resolve model map from settings (env-overridable)."""
+    return {
+        "opus": settings.model_opus,
+        "sonnet": settings.model_sonnet,
+        "haiku": settings.model_haiku,
+    }
+
+
+# Backward-compatible module-level mapping
+MODEL_MAP: dict[str, str] = get_model_map()

@@ -129,6 +129,41 @@ class MockLLMLayer:
         })
         return [_MockMessage(text="Mock tool response")], self._mock_meta(model_tier)
 
+    async def complete_with_ptc(
+        self,
+        messages: list[dict],
+        model_tier: ModelTier,
+        system: str | list[dict],
+        custom_tools: list[dict],
+        tool_implementations: dict[str, Any],
+        container_id: str | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> tuple[str, LLMResponse, str | None]:
+        """Return mock PTC response."""
+        self.call_log.append({
+            "method": "complete_with_ptc",
+            "model_tier": model_tier,
+            "messages": messages,
+            "tools": [t.get("name") for t in custom_tools],
+        })
+        return "Mock PTC result", self._mock_meta(model_tier), "mock-container-id"
+
+    def build_deferred_tools(
+        self,
+        always_loaded: list[dict],
+        deferred: list[dict],
+    ) -> list[dict]:
+        """Mock deferred tools builder."""
+        tool_search = {
+            "type": "tool_search_tool_bm25_20251119",
+            "name": "tool_search_tool_bm25",
+        }
+        deferred_tools = [
+            {**t, "defer_loading": True} for t in deferred
+        ]
+        return [tool_search] + always_loaded + deferred_tools
+
     def build_cached_system(self, text: str) -> list[dict]:
         return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 

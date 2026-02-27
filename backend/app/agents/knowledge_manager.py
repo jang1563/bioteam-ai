@@ -121,12 +121,76 @@ class KnowledgeManagerAgent(BaseAgent):
             summary=f"Found {len(all_results)} relevant items for: {query[:80]}",
         )
 
-    async def search_literature(self, context: ContextPackage) -> AgentOutput:
+    async def _search_literature_mcp(self, context: ContextPackage) -> AgentOutput:
+        """MCP-powered literature search via Anthropic healthcare connectors.
+
+        Delegates to Claude + MCP tools instead of direct API clients.
+        Falls back to traditional path on failure.
+        """
+        from app.config import settings as _settings
+        from app.integrations.mcp_connector import MCPConnector
+
+        mcp_sources = [
+            s.strip() for s in _settings.mcp_preferred_sources.split(",") if s.strip()
+        ]
+
+        try:
+            connector = MCPConnector(client=self.llm.raw_client)
+            mcp_result = await connector.search(
+                query=context.task_description,
+                sources=mcp_sources,
+                model_tier=self.model_tier,
+                max_results=20,
+            )
+
+            # Build LLMResponse for cost tracking
+            from app.llm.layer import LLMResponse
+
+            meta = LLMResponse(
+                model_version=mcp_result.model,
+                input_tokens=mcp_result.input_tokens,
+                output_tokens=mcp_result.output_tokens,
+                cached_input_tokens=mcp_result.cached_input_tokens,
+                cost=self.llm.estimate_cost(
+                    self.model_tier,
+                    mcp_result.input_tokens,
+                    mcp_result.output_tokens,
+                    mcp_result.cached_input_tokens,
+                ),
+            )
+
+            search_result = LiteratureSearchResult(
+                query=context.task_description,
+                databases_searched=[f"MCP:{s}" for s in mcp_sources],
+                total_found=len(mcp_result.papers),
+                papers=mcp_result.papers,
+                search_strategy=f"MCP connector: {', '.join(mcp_sources)}",
+            )
+
+            return self.build_output(
+                output=search_result.model_dump(),
+                output_type="LiteratureSearchResult",
+                summary=f"MCP found {len(mcp_result.papers)} papers for: {context.task_description[:80]}",
+                llm_response=meta,
+            )
+
+        except Exception as e:
+            logger.warning("MCP search failed, falling back to traditional: %s", e)
+            return await self.search_literature(context, _mcp_fallback=True)
+
+    async def search_literature(
+        self, context: ContextPackage, _mcp_fallback: bool = False
+    ) -> AgentOutput:
         """Search external literature databases.
 
         Uses LLM to generate optimal search terms, then queries
-        PubMed and Semantic Scholar.
+        PubMed and Semantic Scholar. When mcp_enabled=True and
+        _mcp_fallback=False, delegates to MCP connectors instead.
         """
+        from app.config import settings as _settings
+
+        if _settings.mcp_enabled and not _mcp_fallback:
+            return await self._search_literature_mcp(context)
 
         class SearchTerms(BaseModel):
             pubmed_queries: list[str] = Field(

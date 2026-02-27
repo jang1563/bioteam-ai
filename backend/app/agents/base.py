@@ -233,6 +233,48 @@ class BaseAgent(ABC):
             cost=cost,
         )
 
+    def get_tool_list(self, full_definitions: list[dict]) -> list[dict]:
+        """Build tool list with optional deferred loading for context efficiency.
+
+        When deferred_tools_enabled=True, classifies tools using the tool
+        registry and defers rarely-used ones behind BM25 tool search.
+        Saves ~85% context tokens for deferred tool definitions.
+
+        Args:
+            full_definitions: Complete tool definitions for this agent.
+
+        Returns:
+            Tool list — unchanged if deferred disabled, or with tool_search
+            and defer_loading markers if enabled.
+        """
+        if not settings.deferred_tools_enabled:
+            return full_definitions
+
+        from app.llm.tool_registry import get_classification
+
+        classification = get_classification(self.agent_id)
+        always_names = set(classification.get("always_loaded", []))
+        deferred_names = set(classification.get("deferred", []))
+
+        # If no classification exists for this agent, return unchanged
+        if not always_names and not deferred_names:
+            return full_definitions
+
+        always = [t for t in full_definitions if t.get("name") in always_names]
+        deferred = [t for t in full_definitions if t.get("name") in deferred_names]
+
+        # Tools not in either list stay as always-loaded (safe default)
+        unclassified = [
+            t for t in full_definitions
+            if t.get("name") not in always_names and t.get("name") not in deferred_names
+        ]
+        always.extend(unclassified)
+
+        if not deferred:
+            return full_definitions
+
+        return self.llm.build_deferred_tools(always, deferred)
+
     @classmethod
     def load_spec(cls, spec_id: str) -> AgentSpec:
         """Load an AgentSpec from a YAML file."""

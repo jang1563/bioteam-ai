@@ -395,6 +395,176 @@ class LLMLayer:
         self._tag_langfuse_generation(aggregated)
         return responses, aggregated
 
+    @observe(name="llm.complete_with_ptc")
+    async def complete_with_ptc(
+        self,
+        messages: list[dict],
+        model_tier: ModelTier,
+        system: str | list[dict],
+        custom_tools: list[dict],
+        tool_implementations: dict[str, Any],
+        container_id: str | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> tuple[str, LLMResponse, str | None]:
+        """Programmatic Tool Calling — Claude writes Python to orchestrate tools.
+
+        Claude generates Python code that calls custom_tools in a sandbox.
+        Tool results stay in the sandbox; only print() output enters context.
+        Saves ~37% tokens compared to complete_with_tools for multi-tool scenarios.
+
+        CONSTRAINTS:
+        - Cannot use with MCP tools (use beta API with MCP instead)
+        - Cannot use with strict structured outputs (Instructor)
+        - Custom tools must have allowed_callers: ["code_execution_20260120"]
+
+        Args:
+            messages: Conversation messages.
+            model_tier: "opus", "sonnet", or "haiku".
+            system: System prompt.
+            custom_tools: Tool definitions (code_execution + custom tools).
+            tool_implementations: Map of tool name -> async callable(input_dict) -> result.
+            container_id: Optional container ID for reuse across calls.
+            max_tokens: Max output tokens.
+            temperature: Sampling temperature.
+
+        Returns:
+            Tuple of (final_text, LLMResponse metadata, container_id or None).
+        """
+        from app.llm.ptc_tools import PTC_CODE_EXECUTION_TYPE, ensure_allowed_callers
+
+        all_tools = ensure_allowed_callers(custom_tools)
+
+        # Ensure code_execution tool is present
+        has_code_exec = any(
+            t.get("type") == PTC_CODE_EXECUTION_TYPE for t in all_tools
+        )
+        if not has_code_exec:
+            all_tools.insert(0, {
+                "type": PTC_CODE_EXECUTION_TYPE,
+                "name": "code_execution",
+            })
+
+        kwargs: dict[str, Any] = {
+            "model": MODEL_MAP[model_tier],
+            "max_tokens": max_tokens or settings.default_max_tokens,
+            "messages": list(messages),
+            "tools": all_tools,
+            "temperature": temperature if temperature is not None else settings.default_temperature,
+        }
+        if system:
+            kwargs["system"] = system
+        if container_id:
+            kwargs["container"] = container_id
+
+        # PTC multi-turn loop: Claude writes code → code calls tools → we execute → resume
+        conversation = list(messages)
+        total_input = 0
+        total_output = 0
+        total_cached = 0
+        model_version = ""
+        new_container_id: str | None = None
+
+        for _ in range(10):  # Safety limit
+            response = await _retry_with_backoff(
+                coro_factory=lambda: self.raw_client.messages.create(**{
+                    **kwargs,
+                    "messages": conversation,
+                    **({"container": new_container_id} if new_container_id else {}),
+                }),
+                max_retries=3,
+                circuit_breaker=self.circuit_breaker,
+            )
+
+            usage = response.usage
+            total_input += getattr(usage, "input_tokens", 0)
+            total_output += getattr(usage, "output_tokens", 0)
+            total_cached += getattr(usage, "cache_read_input_tokens", 0) or 0
+            model_version = response.model
+
+            # Check for container ID in response
+            if hasattr(response, "container") and response.container:
+                new_container_id = getattr(response.container, "id", None)
+
+            # If model finished, extract final text
+            if response.stop_reason == "end_turn":
+                break
+
+            # Handle tool_use blocks (programmatic tool calls from code execution)
+            if response.stop_reason == "tool_use":
+                tool_results = []
+                for block in response.content:
+                    if getattr(block, "type", "") == "tool_use":
+                        tool_name = block.name
+                        tool_input = block.input
+                        impl = tool_implementations.get(tool_name)
+                        if impl:
+                            try:
+                                result = await impl(tool_input)
+                            except Exception as e:
+                                result = {"error": str(e)}
+                        else:
+                            result = {"error": f"Unknown tool: {tool_name}"}
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(result) if not isinstance(result, str) else result,
+                        })
+
+                conversation.append({"role": "assistant", "content": response.content})
+                conversation.append({"role": "user", "content": tool_results})
+                continue
+
+            # Any other stop reason — break
+            break
+
+        # Extract final text from last response
+        final_text = ""
+        for block in response.content:
+            if getattr(block, "type", "") == "text":
+                final_text += getattr(block, "text", "")
+
+        meta = LLMResponse(
+            model_version=model_version,
+            input_tokens=total_input,
+            output_tokens=total_output,
+            cached_input_tokens=total_cached,
+            stop_reason=response.stop_reason or "",
+            cost=self.estimate_cost(model_tier, total_input, total_output, total_cached),
+        )
+        self._tag_langfuse_generation(meta)
+        return final_text, meta, new_container_id
+
+    def build_deferred_tools(
+        self,
+        always_loaded: list[dict],
+        deferred: list[dict],
+    ) -> list[dict]:
+        """Build a tool list with deferred loading for context efficiency.
+
+        Always-loaded tools are included in full. Deferred tools are marked
+        for on-demand loading via BM25 search. Saves ~85% context tokens.
+
+        Args:
+            always_loaded: Tools that should always be available.
+            deferred: Tools that can be loaded on demand.
+
+        Returns:
+            Combined tool list with tool_search_tool and deferred markers.
+        """
+        tool_search = {
+            "type": "tool_search_tool_bm25_20251119",
+            "name": "tool_search_tool_bm25",
+        }
+
+        deferred_tools = []
+        for tool in deferred:
+            t = dict(tool)
+            t["defer_loading"] = True
+            deferred_tools.append(t)
+
+        return [tool_search] + always_loaded + deferred_tools
+
     def _tag_langfuse_generation(
         self,
         meta: LLMResponse,
