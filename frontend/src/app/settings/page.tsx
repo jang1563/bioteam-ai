@@ -14,24 +14,29 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(() => (
+    typeof window !== "undefined"
+      ? (localStorage.getItem("bioteam_api_key") ?? "")
+      : ""
+  ));
   const [saved, setSaved] = useState(false);
   const [health, setHealth] = useState<HealthResponse | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("bioteam_api_key") ?? "";
-    setApiKey(stored);
-    checkHealth();
-  }, []);
-
-  const checkHealth = async () => {
+  const checkHealth = useCallback(async () => {
     try {
       const data = await api.get<HealthResponse>("/health");
       setHealth(data);
     } catch {
       setHealth(null);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void checkHealth();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [checkHealth]);
 
   const saveKey = () => {
     if (apiKey.trim()) {

@@ -130,16 +130,16 @@ class TestWorkflowCreateFuzzing:
         assert resp.status_code == 422
 
     def test_template_w0_out_of_range(self):
-        """W0 should be rejected (only W1-W6)."""
+        """W0 should be rejected (valid range is W1-W8)."""
         client = _wf_client()
         resp = client.post("/api/v1/workflows", json={"template": "W0", "query": "test"})
         assert resp.status_code == 422
 
-    def test_template_w7_out_of_range(self):
-        """W7 should be rejected (only W1-W6)."""
+    def test_template_w7_in_range(self):
+        """W7 should be accepted (valid range is W1-W8)."""
         client = _wf_client()
         resp = client.post("/api/v1/workflows", json={"template": "W7", "query": "test"})
-        assert resp.status_code == 422
+        assert resp.status_code == 200
 
     def test_template_w1_with_trailing_space(self):
         """'W1 ' with trailing space should be rejected."""

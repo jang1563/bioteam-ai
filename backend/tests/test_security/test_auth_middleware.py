@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from app.db.database import create_db_and_tables
 from app.main import app
+from app.security.stream_token import issue_stream_token
 from fastapi.testclient import TestClient
 
 
@@ -100,7 +101,7 @@ def test_bearer_prefix_required():
 
 
 def _sse_auth_client():
-    """Create a test app with auth middleware and a simple /api/v1/sse endpoint."""
+    """Create a test app with auth middleware and SSE-style endpoints."""
     from app.middleware.auth import APIKeyAuthMiddleware
     from fastapi import FastAPI
 
@@ -114,6 +115,10 @@ def _sse_auth_client():
     @test_app.get("/api/v1/agents")
     async def fake_agents():
         return {"status": "agents_ok"}
+
+    @test_app.get("/api/v1/direct-query/stream")
+    async def fake_direct_query_stream():
+        return {"status": "dq_stream_ok"}
 
     return TestClient(test_app)
 
@@ -158,6 +163,54 @@ def test_sse_bearer_header_also_works():
         assert resp.status_code == 200
 
 
+def test_direct_query_stream_query_param_auth_valid():
+    """Direct Query stream endpoint should accept ?token= query param."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        client = _sse_auth_client()
+        resp = client.get("/api/v1/direct-query/stream?token=sse-secret")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "dq_stream_ok"
+
+
+def test_direct_query_stream_query_param_auth_invalid():
+    """Direct Query stream endpoint with wrong query token should get 403."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        client = _sse_auth_client()
+        resp = client.get("/api/v1/direct-query/stream?token=wrong-token")
+        assert resp.status_code == 403
+
+
+def test_direct_query_stream_signed_token_auth_valid():
+    """Direct Query stream should accept short-lived signed stream token."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "signed-secret"
+        client = _sse_auth_client()
+        token = issue_stream_token(
+            api_key="signed-secret",
+            path="/api/v1/direct-query/stream",
+            ttl_seconds=120,
+        )
+        resp = client.get(f"/api/v1/direct-query/stream?token={token}")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "dq_stream_ok"
+
+
+def test_direct_query_stream_signed_token_wrong_path_rejected():
+    """Signed token bound to another path should be rejected."""
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "signed-secret"
+        client = _sse_auth_client()
+        token = issue_stream_token(
+            api_key="signed-secret",
+            path="/api/v1/sse",
+            ttl_seconds=120,
+        )
+        resp = client.get(f"/api/v1/direct-query/stream?token={token}")
+        assert resp.status_code == 403
+
+
 def test_non_sse_query_param_rejected():
     """Non-SSE endpoints should NOT accept query param auth."""
     with patch("app.middleware.auth.settings") as mock_settings:
@@ -180,5 +233,9 @@ if __name__ == "__main__":
     test_sse_query_param_auth_invalid()
     test_sse_no_auth_returns_401()
     test_sse_bearer_header_also_works()
+    test_direct_query_stream_query_param_auth_valid()
+    test_direct_query_stream_query_param_auth_invalid()
+    test_direct_query_stream_signed_token_auth_valid()
+    test_direct_query_stream_signed_token_wrong_path_rejected()
     test_non_sse_query_param_rejected()
     print("\nAll Auth Middleware tests passed!")

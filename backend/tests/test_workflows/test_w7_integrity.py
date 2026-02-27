@@ -178,14 +178,12 @@ def test_state_reset_between_runs():
     # Create an instance
     instance = WorkflowInstance(template="W7", budget_total=3.0, budget_remaining=3.0)
 
-    # The run method should reset state (we can't run the full pipeline easily
-    # without mocking all agents, but we can verify the reset happens)
-    # We'll use a partial approach: call run and let it fail on COLLECT (no agent),
-    # but the reset should have happened first
-    try:
-        asyncio.get_event_loop().run_until_complete(runner.run(instance))
-    except Exception:
-        pass
+    # Fail immediately after reset so we can assert reset behavior deterministically.
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("forced failure")
+
+    runner._run_step = _boom  # type: ignore[method-assign]
+    asyncio.run(runner.run(instance))
 
     # State should be reset regardless of whether the full pipeline completed
     assert runner._all_findings == []

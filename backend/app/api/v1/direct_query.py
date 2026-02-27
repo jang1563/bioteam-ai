@@ -10,6 +10,7 @@ v5: Registry-backed handler replaces 503 stub.
 v6: Full answer pipeline — classify → retrieve → generate answer.
     Added 30s timeout, $0.50 cost cap per PRD requirements.
 v7: Specialist routing + SSE streaming endpoint.
+v8: Citation post-validation (hallucination guard), seed_papers prioritization.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -75,6 +77,10 @@ class DirectQueryResponse(BaseModel):
     answer: str | None = None
     sources: list[dict] = Field(default_factory=list)
     memory_context: list[dict] = Field(default_factory=list)
+    ungrounded_citations: list[str] = Field(
+        default_factory=list,
+        description="DOI/PMID patterns in the answer not found in retrieved sources",
+    )
 
     # Metadata
     total_cost: float = 0.0
@@ -148,6 +154,79 @@ def _extract_sources(memory_context: list[dict]) -> list[dict]:
             source_entry["title"] = metadata["title"]
         sources.append(source_entry)
     return sources
+
+
+# Patterns for extracting citation identifiers from LLM answers
+_DOI_PATTERN = re.compile(r"\b10\.\d{4,9}/[^\s,;)\]>\"']+", re.IGNORECASE)
+_PMID_PATTERN = re.compile(r"\bPMID[:\s]+(\d{5,9})\b", re.IGNORECASE)
+
+
+def _validate_answer_citations(answer: str, sources: list[dict]) -> tuple[str, list[str]]:
+    """Post-validate citations in LLM answer against retrieved sources.
+
+    Extracts DOI/PMID patterns from the answer and checks each against the
+    known sources list.  Returns the (possibly annotated) answer and a list
+    of any ungrounded citation strings found.
+
+    The answer text is not modified; ungrounded citations are reported so
+    the caller can decide how to surface them (warning log, response field).
+    """
+    if not answer:
+        return answer, []
+
+    # Build a set of normalised DOIs from sources for O(1) lookup
+    source_dois: set[str] = set()
+    for src in sources:
+        doi = src.get("doi", "")
+        if doi:
+            source_dois.add(doi.lower().strip())
+
+    ungrounded: list[str] = []
+
+    for doi in _DOI_PATTERN.findall(answer):
+        if doi.lower().strip() not in source_dois:
+            ungrounded.append(f"DOI:{doi}")
+
+    # PMIDs — we don't have a lookup table but we can flag any cited when
+    # no sources were retrieved (memory_context is empty → no grounding)
+    if not sources:
+        for pmid in _PMID_PATTERN.findall(answer):
+            ungrounded.append(f"PMID:{pmid}")
+
+    if ungrounded:
+        logger.warning(
+            "Citation post-validation: %d ungrounded citation(s) detected: %s",
+            len(ungrounded),
+            ", ".join(ungrounded[:5]),
+        )
+
+    return answer, ungrounded
+
+
+def _prioritize_context_by_seed_papers(
+    memory_context: list[dict],
+    seed_papers: list[str],
+) -> list[dict]:
+    """Reorder memory context so seed_paper DOIs appear first.
+
+    seed_papers are DOIs/PMIDs the user explicitly wants included.
+    Matching items are moved to the front; the rest retain their order.
+    """
+    if not seed_papers or not memory_context:
+        return memory_context
+
+    seed_set = {s.lower().strip() for s in seed_papers}
+
+    prioritized = []
+    rest = []
+    for item in memory_context:
+        doi = item.get("metadata", {}).get("doi", "")
+        if doi and doi.lower().strip() in seed_set:
+            prioritized.append(item)
+        else:
+            rest.append(item)
+
+    return prioritized + rest
 
 
 # === Pipeline function (decoupled from FastAPI for testing) ===
@@ -301,6 +380,7 @@ async def run_direct_query(
     answer: str | None = None
     sources: list[dict] = []
     routed_agent: str | None = None
+    ungrounded_citations: list[str] = []
 
     if classification_type == "simple_query":
         # 2a: Resolve specialist agent for domain-grounded answers
@@ -314,6 +394,10 @@ async def run_direct_query(
             total_tokens += memory_output.input_tokens + memory_output.output_tokens
             if memory_output.model_version:
                 model_versions.append(memory_output.model_version)
+
+        # Prioritize seed papers (user-specified DOIs) in context ordering
+        if seed_papers:
+            memory_context = _prioritize_context_by_seed_papers(memory_context, seed_papers)
 
         # Cost cap check before answer generation
         if total_cost >= DIRECT_QUERY_COST_CAP:
@@ -387,6 +471,12 @@ async def run_direct_query(
         # Extract structured sources from memory context
         sources = _extract_sources(memory_context)
 
+        # Post-validate citations in the answer against retrieved sources
+        if answer:
+            answer, ungrounded_citations = _validate_answer_citations(answer, sources)
+        else:
+            ungrounded_citations: list[str] = []
+
     duration_ms = int((time.time() - start) * 1000)
 
     # Save conversation turn
@@ -412,6 +502,7 @@ async def run_direct_query(
         answer=answer,
         sources=sources,
         memory_context=memory_context,
+        ungrounded_citations=ungrounded_citations if classification_type == "simple_query" else [],
         total_cost=total_cost,
         total_tokens=total_tokens,
         model_versions=model_versions,
@@ -538,10 +629,14 @@ async def direct_query_stream(
                 duration_ms = int((time.time() - start) * 1000)
                 yield _sse_event("done", {
                     "classification_type": classification_type,
+                    "target_agent": target_agent,
+                    "routed_agent": None,
                     "workflow_type": classification.get("workflow_type"),
                     "total_cost": total_cost,
                     "total_tokens": total_tokens,
+                    "model_versions": model_versions,
                     "duration_ms": duration_ms,
+                    "sources": [],
                 })
                 return
 
@@ -639,8 +734,12 @@ async def direct_query_stream(
             )
 
             yield _sse_event("done", {
+                "classification_type": classification_type,
+                "target_agent": target_agent,
+                "workflow_type": None,
                 "routed_agent": routed_agent,
                 "conversation_id": result_conv_id,
+                "answer": full_answer,
                 "total_cost": total_cost,
                 "total_tokens": total_tokens,
                 "model_versions": model_versions,

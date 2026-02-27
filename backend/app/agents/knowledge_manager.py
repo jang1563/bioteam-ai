@@ -247,6 +247,15 @@ class KnowledgeManagerAgent(BaseAgent):
             response_model=SearchTerms,
             system=self.system_prompt_cached,
         )
+        # Guard against malformed/empty model outputs from mocks or provider drift.
+        pubmed_queries = [q.strip() for q in terms.pubmed_queries if isinstance(q, str) and q.strip()]
+        if not pubmed_queries:
+            pubmed_queries = [context.task_description]
+        semantic_queries = [
+            q.strip() for q in terms.semantic_scholar_queries if isinstance(q, str) and q.strip()
+        ]
+        if not semantic_queries:
+            semantic_queries = [context.task_description]
 
         # Execute actual API searches
         # Only calls real APIs if clients were injected or NCBI_EMAIL is configured.
@@ -267,7 +276,7 @@ class KnowledgeManagerAgent(BaseAgent):
         # PubMed search: parallel multi-query (blocking I/O → thread pool)
         if has_pubmed:
             pubmed = self._pubmed or PubMedClient()
-            per_query_limit = max(5, 20 // len(terms.pubmed_queries))
+            per_query_limit = max(5, 20 // len(pubmed_queries))
 
             async def _run_pm_query(q: str) -> list:
                 with ThreadPoolExecutor(max_workers=1) as pool:
@@ -276,7 +285,7 @@ class KnowledgeManagerAgent(BaseAgent):
                         timeout=15.0,
                     )
 
-            pm_tasks = [_run_pm_query(q) for q in terms.pubmed_queries]
+            pm_tasks = [_run_pm_query(q) for q in pubmed_queries]
             pm_results = await asyncio.gather(*pm_tasks, return_exceptions=True)
 
             pm_total = 0
@@ -288,8 +297,8 @@ class KnowledgeManagerAgent(BaseAgent):
                     papers.append(p.to_dict())
                 pm_total += len(result)
 
-            databases_searched.append(f"PubMed ({len(terms.pubmed_queries)} queries)")
-            logger.info("PubMed returned %d papers from %d queries", pm_total, len(terms.pubmed_queries))
+            databases_searched.append(f"PubMed ({len(pubmed_queries)} queries)")
+            logger.info("PubMed returned %d papers from %d queries", pm_total, len(pubmed_queries))
         else:
             databases_searched.append("PubMed")
             logger.debug("PubMed skipped (no NCBI_EMAIL configured)")
@@ -297,7 +306,7 @@ class KnowledgeManagerAgent(BaseAgent):
         # Semantic Scholar search: parallel multi-query (blocking I/O → thread pool)
         if has_s2:
             s2 = self._s2 or SemanticScholarClient()
-            per_s2_limit = max(5, 10 // len(terms.semantic_scholar_queries))
+            per_s2_limit = max(5, 10 // len(semantic_queries))
 
             async def _run_s2_query(q: str) -> list:
                 with ThreadPoolExecutor(max_workers=1) as pool:
@@ -306,7 +315,7 @@ class KnowledgeManagerAgent(BaseAgent):
                         timeout=15.0,
                     )
 
-            s2_tasks = [_run_s2_query(q) for q in terms.semantic_scholar_queries]
+            s2_tasks = [_run_s2_query(q) for q in semantic_queries]
             s2_results = await asyncio.gather(*s2_tasks, return_exceptions=True)
 
             s2_total = 0
@@ -318,8 +327,8 @@ class KnowledgeManagerAgent(BaseAgent):
                     papers.append(p.to_dict())
                 s2_total += len(result)
 
-            databases_searched.append(f"Semantic Scholar ({len(terms.semantic_scholar_queries)} queries)")
-            logger.info("S2 returned %d papers from %d queries", s2_total, len(terms.semantic_scholar_queries))
+            databases_searched.append(f"Semantic Scholar ({len(semantic_queries)} queries)")
+            logger.info("S2 returned %d papers from %d queries", s2_total, len(semantic_queries))
         else:
             databases_searched.append("Semantic Scholar")
             logger.debug("Semantic Scholar skipped (no client configured)")

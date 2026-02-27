@@ -132,11 +132,13 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
     """
     from app.agents.ambiguity_engine import AmbiguityEngineAgent
     from app.agents.base import BaseAgent
+    from app.agents.claim_extractor import ClaimExtractorAgent
     from app.agents.data_integrity_auditor import DataIntegrityAuditorAgent
     from app.agents.digest_agent import DigestAgent
     from app.agents.experimental_designer import ExperimentalDesignerAgent
     from app.agents.integrative_biologist import IntegrativeBiologistAgent
     from app.agents.knowledge_manager import KnowledgeManagerAgent
+    from app.agents.methodology_reviewer import MethodologyReviewerAgent
     from app.agents.project_manager import ProjectManagerAgent
     from app.agents.qa_agents import (
         BiologicalPlausibilityQA,
@@ -180,6 +182,8 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
         (StatisticalRigorQA, "qa_statistical_rigor", {}),
         (BiologicalPlausibilityQA, "qa_biological_plausibility", {}),
         (ReproducibilityQA, "qa_reproducibility", {}),
+        (ClaimExtractorAgent, "claim_extractor", {}),
+        (MethodologyReviewerAgent, "methodology_reviewer", {}),
     ]
 
     for agent_cls, spec_id, extra_kwargs in agent_defs:

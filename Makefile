@@ -8,7 +8,7 @@ help: ## Show this help
 # === Development Modes ===
 
 dev-local: ## Run backend locally (no Docker, fastest iteration)
-	uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+	uv run uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload
 
 dev-minimal: ## Docker: backend + frontend only (no Langfuse)
 	docker compose -f docker-compose.dev.yml up --build
@@ -73,12 +73,12 @@ celery-worker: ## Start Celery worker (requires Redis)
 # === Cold Start ===
 
 cold-start: ## Run Cold Start protocol
-	uv run python scripts/cold_start.py
+	uv run pytest backend/tests/test_cold_start/ -q
 
 # === Backup ===
 
 backup: ## Run manual backup
-	./scripts/backup.sh
+	cd backend && uv run python scripts/run_backup.py
 
 # === Cleanup ===
 

@@ -183,7 +183,7 @@ class TestRefinementLoop:
         context = _make_context()
         mock_agent = MagicMock()
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=error_output)
         )
         assert result_meta.stopped_reason == "skipped"
@@ -210,7 +210,7 @@ class TestRefinementLoop:
         context = _make_context()
         mock_agent = MagicMock()
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=good_output)
         )
 
@@ -244,7 +244,7 @@ class TestRefinementLoop:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=revised_output)
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=initial_output)
         )
 
@@ -289,7 +289,7 @@ class TestRefinementLoop:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=_make_output(cost=0.01))
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=_make_output())
         )
 
@@ -313,7 +313,7 @@ class TestRefinementLoop:
         context = _make_context()
         mock_agent = MagicMock()
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=_make_output())
         )
 
@@ -346,7 +346,7 @@ class TestRefinementLoop:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=_make_output(cost=0.01))
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=_make_output())
         )
 
@@ -371,7 +371,7 @@ class TestRefinementLoop:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(side_effect=RuntimeError("LLM call failed"))
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=_make_output())
         )
 
@@ -419,7 +419,7 @@ class TestRefinementLoop:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(side_effect=[better, worse])
 
-        result_output, result_meta = asyncio.get_event_loop().run_until_complete(
+        result_output, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=initial)
         )
 
@@ -591,7 +591,7 @@ class TestRunnerRefinementIntegration:
         with patch("app.workflows.runners.w1_literature.settings") as mock_settings:
             mock_settings.refinement_enabled = False
 
-            result, cost = asyncio.get_event_loop().run_until_complete(
+            result, cost = asyncio.run(
                 runner._maybe_refine(mock_agent, context, output, instance)
             )
 
@@ -613,7 +613,7 @@ class TestRunnerRefinementIntegration:
         with patch("app.workflows.runners.w2_hypothesis.settings") as mock_settings:
             mock_settings.refinement_enabled = False
 
-            result, cost = asyncio.get_event_loop().run_until_complete(
+            result, cost = asyncio.run(
                 runner._maybe_refine(mock_agent, context, output, instance)
             )
 
@@ -635,7 +635,7 @@ class TestRunnerRefinementIntegration:
         with patch("app.workflows.runners.w3_data_analysis.settings") as mock_settings:
             mock_settings.refinement_enabled = True
 
-            result, cost = asyncio.get_event_loop().run_until_complete(
+            result, cost = asyncio.run(
                 runner._maybe_refine(mock_agent, context, output, instance)
             )
 
@@ -671,7 +671,7 @@ class TestCostTracking:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=revised_output)
 
-        _, result_meta = asyncio.get_event_loop().run_until_complete(
+        _, result_meta = asyncio.run(
             loop.refine(agent=mock_agent, context=context, initial_output=_make_output())
         )
 

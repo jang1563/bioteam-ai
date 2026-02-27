@@ -81,10 +81,11 @@ def _save_instance(instance: WorkflowInstance) -> None:
 class CreateWorkflowRequest(BaseModel):
     """Request to create a new workflow."""
 
-    template: str = Field(pattern=r"^W[1-6]$")  # "W1" through "W6"
+    template: str = Field(pattern=r"^W[1-8]$")  # "W1" through "W8"
     query: str = Field(min_length=1, max_length=2000)
     budget: float = Field(default=5.0, ge=0.1, le=100.0)
     seed_papers: list[str] = Field(default_factory=list, max_length=50)
+    pdf_path: str | None = Field(default=None, max_length=500)  # W8: path to paper PDF
 
 
 class CreateWorkflowResponse(BaseModel):
@@ -184,6 +185,7 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
         budget_total=request.budget,
         budget_remaining=request.budget,
         seed_papers=request.seed_papers,
+        pdf_path=request.pdf_path,
     )
 
     async with _lock:
@@ -204,7 +206,7 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
 
 
 # Templates that auto-start on creation
-_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6"}
+_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6", "W8"}
 
 
 def _get_runner(template: str, registry, engine, sse_hub, lab_kb, persist_fn):
@@ -238,6 +240,13 @@ def _get_runner(template: str, registry, engine, sse_hub, lab_kb, persist_fn):
         from app.workflows.runners.w6_ambiguity import W6AmbiguityRunner
         return W6AmbiguityRunner(
             registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
+        )
+    elif template == "W8":
+        from app.workflows.runners.w8_paper_review import W8PaperReviewRunner
+        llm_layer = getattr(registry.get("research_director"), "llm", None) if registry else None
+        return W8PaperReviewRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
+            llm_layer=llm_layer,
         )
     return None
 
@@ -316,11 +325,12 @@ async def _run_workflow_background(
                 payload={"template": template, "query": query[:200]},
             )
 
-        result = await runner.run(
-            query=query,
-            instance=instance,
-            budget=budget,
-        )
+        # W8 Paper Review needs pdf_path
+        run_kwargs: dict = {"query": query, "instance": instance, "budget": budget}
+        if template == "W8" and hasattr(instance, "pdf_path") and instance.pdf_path:
+            run_kwargs["pdf_path"] = instance.pdf_path
+
+        result = await runner.run(**run_kwargs)
 
         # Persist final state after run
         async with _lock:

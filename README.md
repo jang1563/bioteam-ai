@@ -37,7 +37,7 @@ Biology researchers spend ~30% of their time on literature review and synthesis.
 │  └──────────┘  └──────────┘  └──────────────────────┘   │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
 │  │ Workflows│  │ Cost     │  │ Memory               │   │
-│  │ W1-W6    │  │ Tracker  │  │ ChromaDB (3 coll.)   │   │
+│  │ W1-W8    │  │ Tracker  │  │ ChromaDB (3 coll.)   │   │
 │  └──────────┘  └──────────┘  └──────────────────────┘   │
 ├─────────────────────────────────────────────────────────┤
 │                SQLite (WAL) + ChromaDB                    │
@@ -61,10 +61,10 @@ Biology researchers spend ~30% of their time on literature review and synthesis.
 Every claim is scored on 5 axes, not a single confidence number:
 
 - **R**eproducibility (0-1): Independent replication status
-- **C**onsensus (0-1): Field-wide agreement level
-- **M**ethodology (0-1): Study design rigor
-- **X**-validation (0-1): Cross-method confirmation
-- **T**emporal (0-1): Recency and trend direction
+- **C**ondition Specificity (0-1): Context-dependent effect boundaries
+- **M**ethodological Robustness (0-1): Study design rigor
+- **X**-Omics Consistency (0-1, nullable): Cross-omics concordance
+- **T**emporal Stability (0-1): Consistency over time
 
 ## Tech Stack
 
@@ -102,7 +102,7 @@ cp .env.example .env
 # Edit .env — set ANTHROPIC_API_KEY
 
 # Run
-uvicorn backend.app.main:app --reload --port 8000
+uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
 ### Frontend
@@ -128,7 +128,8 @@ docker compose up
 | `GET` | `/api/v1/agents` | List all agents and status |
 | `POST` | `/api/v1/direct-query` | Submit a research question |
 | `GET` | `/api/v1/direct-query/stream` | SSE stream for query progress |
-| `POST` | `/api/v1/workflows` | Create a workflow (W1-W6) |
+| `POST` | `/api/v1/auth/stream-token` | Issue short-lived SSE auth token |
+| `POST` | `/api/v1/workflows` | Create a workflow (W1-W8) |
 | `GET/POST` | `/api/v1/digest/topics` | Manage digest topic profiles |
 | `POST` | `/api/v1/digest/topics/{id}/run` | Trigger paper fetch + summarize |
 | `GET` | `/api/v1/digest/reports` | Get AI-generated digest reports |
@@ -184,13 +185,18 @@ All papers link to real PubMed/arXiv URLs with full abstracts, authors, and rele
 ## Testing
 
 ```bash
-# Full suite (725 tests)
-python -m pytest backend/tests/ --ignore=backend/tests/test_integrations/test_semantic_scholar.py -q
+# Core suite (1500+ tests, excludes benchmarks and live-API integration tests)
+uv run pytest backend/tests/ --ignore=backend/tests/benchmarks \
+    --ignore=backend/tests/test_integrations/test_semantic_scholar.py -q
 
 # Specific modules
-python -m pytest backend/tests/test_digest/ -q        # Digest pipeline
-python -m pytest backend/tests/test_api/ -q            # API endpoints
-python -m pytest backend/tests/test_security/ -q       # Auth + fuzzing (106 tests)
+uv run pytest backend/tests/test_digest/ -q        # Digest pipeline
+uv run pytest backend/tests/test_api/ -q            # API endpoints
+uv run pytest backend/tests/test_security/ -q       # Auth + fuzzing
+uv run pytest backend/tests/test_workflows/ -q      # W1-W8 runners
+
+# Optional benchmarks (requires: uv sync --group benchmarks)
+uv run pytest backend/tests/benchmarks/ -q
 
 # Frontend build
 cd frontend && npm run build
@@ -213,19 +219,20 @@ All external APIs (PubMed, bioRxiv, arXiv, GitHub, HuggingFace, Semantic Scholar
 bioteam-ai/
 ├── backend/
 │   ├── app/
-│   │   ├── agents/          # 7 AI agents + specs + prompts
-│   │   ├── api/v1/          # REST endpoints (10 route files)
+│   │   ├── agents/          # 22 AI agents + specs + prompts
+│   │   ├── api/v1/          # REST endpoints (11 route files)
 │   │   ├── cost/            # LLM cost tracking + budgets
 │   │   ├── db/              # SQLite + migrations
 │   │   ├── digest/          # Multi-source paper pipeline
-│   │   ├── engines/         # RCMXT scorer, contradiction detector
-│   │   ├── integrations/    # 6 external API clients
+│   │   ├── engines/         # RCMXT, contradiction, integrity, PDF, W8 report
+│   │   ├── integrations/    # 8 external API clients + MCP connectors
 │   │   ├── llm/             # Anthropic layer + mock for testing
 │   │   ├── memory/          # ChromaDB semantic memory
 │   │   ├── middleware/      # Auth, rate limiting
 │   │   ├── models/          # Pydantic/SQLModel schemas
-│   │   └── workflows/       # W1-W6 pipeline runners
-│   └── tests/               # 725 tests across 18 categories
+│   │   ├── security/        # Stream token signing
+│   │   └── workflows/       # W1-W8 pipeline runners
+│   └── tests/               # 1500+ tests across 20 categories
 ├── frontend/
 │   └── src/
 │       ├── app/             # Next.js pages (/, /digest, /query, /lab-kb, /settings)
@@ -242,10 +249,12 @@ bioteam-ai/
 ## Security
 
 - **Auth**: Bearer token via `BIOTEAM_API_KEY` (empty = dev mode)
+- **SSE/Stream Auth**: Frontend issues a short-lived HMAC-signed token via `POST /api/v1/auth/stream-token` (TTL 120s) and passes it as `?token=...` for EventSource. On disconnect, the client re-issues a fresh token before reconnecting (exponential backoff).
 - **Rate Limiting**: Token bucket — 60 rpm global, 10 rpm expensive endpoints
 - **CORS**: Config-driven via `CORS_ORIGINS` env var
 - **Circuit Breaker**: 5 failures → 60s cooldown → probe
 - **Input Validation**: Pydantic + Literal types for all API inputs
+- **Citation Post-Validation**: Direct Query answers are scanned for DOI/PMID patterns; any citation not found in retrieved sources is flagged in `ungrounded_citations`
 - **Fuzzing**: 106 security tests (SQL injection, XSS, oversized payloads)
 
 ## License

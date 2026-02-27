@@ -285,9 +285,11 @@ export interface StreamClassification {
 
 export interface StreamDoneData {
   classification_type?: string;
+  target_agent?: string | null;
   workflow_type?: string | null;
   routed_agent: string | null;
   conversation_id?: string | null;
+  answer?: string | null;
   total_cost: number;
   total_tokens: number;
   model_versions: string[];

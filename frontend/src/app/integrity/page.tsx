@@ -38,7 +38,6 @@ import type {
   FindingStatus,
   IntegritySeverity,
   TriggerAuditRequest,
-  UpdateFindingRequest,
 } from "@/types/api";
 
 const severityColors: Record<IntegritySeverity, string> = {
@@ -204,7 +203,6 @@ export default function IntegrityPage() {
                     key={f.id}
                     finding={f}
                     onSelect={() => setSelectedFinding(f)}
-                    onUpdate={updateFinding}
                     onDelete={deleteFinding}
                   />
                 ))}
@@ -227,12 +225,10 @@ export default function IntegrityPage() {
 function FindingRow({
   finding,
   onSelect,
-  onUpdate,
   onDelete,
 }: {
   finding: AuditFinding;
   onSelect: () => void;
-  onUpdate: (id: string, req: UpdateFindingRequest) => Promise<AuditFinding>;
   onDelete: (id: string) => Promise<void>;
 }) {
   return (

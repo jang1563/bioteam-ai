@@ -21,7 +21,7 @@ WorkflowState = Literal[
     "COMPLETED", "FAILED", "CANCELLED", "OVER_BUDGET",
 ]
 
-WorkflowTemplate = Literal["direct_query", "W1", "W2", "W3", "W4", "W5", "W6", "W7"]
+WorkflowTemplate = Literal["direct_query", "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"]
 
 
 # === SQL Tables ===
@@ -51,6 +51,9 @@ class WorkflowInstance(SQLModel, table=True):
     rcmxt_scores: list[dict] = SQLField(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = SQLField(default_factory=lambda: datetime.now(timezone.utc))
+
+    # W8: path to paper PDF for peer review
+    pdf_path: str | None = None
 
     # project_id for future multi-project support
     project_id: str | None = None

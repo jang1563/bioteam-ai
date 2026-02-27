@@ -11,8 +11,11 @@ import random
 import warnings
 
 import pytest
-from app.engines.integrity.statistical_checker import StatisticalChecker
-from pysprite import grim as pysprite_grim
+
+# Skip entire module if optional benchmark dependencies are not installed.
+# Install with: uv sync --group benchmarks
+pysprite_grim = pytest.importorskip("pysprite", reason="pysprite not installed (uv sync --group benchmarks)").grim
+from app.engines.integrity.statistical_checker import StatisticalChecker  # noqa: E402
 
 # ── Helper ──
 

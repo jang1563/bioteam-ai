@@ -1,0 +1,36 @@
+# Agent Spec: Claim Extractor
+# Extracts structured scientific claims from paper text for peer review.
+
+id: claim_extractor
+name: Claim Extractor
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: cross_cutting
+criticality: optional
+
+system_prompt_file: claim_extractor.md
+
+output_schemas:
+  - PaperClaimsExtraction
+
+tools: []
+
+mcp_access: []
+
+literature_access: false
+
+few_shot_examples:
+  - input: "Results show that spaceflight-induced bone loss was 1.5% per month (p<0.001, n=12)"
+    expected: "main_finding claim with verbatim quote, section=Results, refs extracted"
+  - input: "Previous studies have shown that microgravity affects gene expression (Smith et al., 2020)"
+    expected: "background claim with supporting_refs=[DOI], section=Introduction"
+
+failure_modes:
+  - "Over-extraction: trivial statements flagged as claims — mitigated by confidence threshold"
+  - "Missing references: DOI/PMID not parsed from citation — mitigated by regex fallback"
+  - "Section misattribution: claim assigned to wrong section — mitigated by section context"
+
+degradation_mode: "skip"
+
+version: "0.1.0"

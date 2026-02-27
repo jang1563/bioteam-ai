@@ -183,7 +183,7 @@
   <h2><span class="icon">&#9881;</span> System Architecture</h2>
   <div class="arch-diagram">
 <span class="hl">┌─────────────────────────────────────────────────────────────────────────┐</span>
-<span class="hl">│                        Next.js 15 Dashboard                             │</span>
+<span class="hl">│                        Next.js 16 Dashboard                             │</span>
 <span class="hl">│</span>  Tailwind 4 + shadcn/ui + Zustand + React Flow + Playwright E2E       <span class="hl">│</span>
 <span class="hl">└────────────────────────────────┬────────────────────────────────────────┘</span>
                                  │  REST + SSE
@@ -372,7 +372,7 @@
 
 <!-- ═══════════ FRONTEND ═══════════ -->
 <section>
-  <h2><span class="icon">&#128421;</span> Dashboard (Next.js 15)</h2>
+  <h2><span class="icon">&#128421;</span> Dashboard (Next.js 16)</h2>
   <div class="grid grid-3">
     <div class="card">
       <h3>Mission Control</h3>
@@ -388,7 +388,7 @@
     </div>
     <div class="card">
       <h3>Security</h3>
-      <p>Bearer token auth, SSE query param fallback, CORS hardening, rate limit retry (429 + Retry-After).</p>
+      <p>Bearer auth + short-lived signed SSE stream tokens, CORS hardening, rate limit retry (429 + Retry-After).</p>
     </div>
     <div class="card">
       <h3>Accessibility</h3>
@@ -422,7 +422,7 @@
     <div class="card">
       <h3>Frontend</h3>
       <table>
-        <tr><td>Framework</td><td class="mono">Next.js 15 (App Router)</td></tr>
+        <tr><td>Framework</td><td class="mono">Next.js 16 (App Router)</td></tr>
         <tr><td>Styling</td><td class="mono">Tailwind CSS 4 + shadcn/ui</td></tr>
         <tr><td>State</td><td class="mono">Zustand</td></tr>
         <tr><td>Visualization</td><td class="mono">React Flow</td></tr>
@@ -448,7 +448,7 @@
         <tr><td><strong>negative_results</strong></td><td class="mono">/api/v1/negative-results</td><td>CRUD for Lab Knowledge Base</td></tr>
         <tr><td><strong>sse</strong></td><td class="mono">/api/v1/sse</td><td>Real-time event stream (token auth)</td></tr>
         <tr><td><strong>digest</strong></td><td class="mono">/api/v1/digest</td><td>6-source fetch, LLM summary, email</td></tr>
-        <tr><td><strong>direct_query</strong></td><td class="mono">/api/v1/query</td><td>Ad-hoc agent queries</td></tr>
+        <tr><td><strong>direct_query</strong></td><td class="mono">/api/v1/direct-query</td><td>Ad-hoc agent queries</td></tr>
         <tr><td><strong>conversations</strong></td><td class="mono">/api/v1/conversations</td><td>Chat history, context</td></tr>
         <tr><td><strong>cold_start</strong></td><td class="mono">/api/v1/cold-start</td><td>Initial system bootstrap</td></tr>
         <tr><td><strong>backup</strong></td><td class="mono">/api/v1/backup</td><td>Database backup/restore</td></tr>
@@ -463,7 +463,7 @@
   <div class="grid grid-4">
     <div class="card">
       <h3>Auth</h3>
-      <p>Bearer token (BIOTEAM_API_KEY). SSE uses ?token= query param. secrets.compare_digest. Empty = dev mode.</p>
+      <p>Bearer token (BIOTEAM_API_KEY). SSE uses short-lived signed stream token via ?token=. Empty key = dev mode.</p>
     </div>
     <div class="card">
       <h3>CORS</h3>
@@ -498,7 +498,7 @@
     <div class="timeline-item"><span class="hash">5daaf82</span> <span class="msg">Implement all 18 planned agents (11 new) with 63 tests</span></div>
     <div class="timeline-item"><span class="hash">8038ed9</span> <span class="msg">Add CI/CD pipeline and fix all lint issues</span></div>
     <div class="timeline-item"><span class="hash">807feff</span> <span class="msg">Add data source fixes, email delivery, and anti-hallucination guardrails</span></div>
-    <div class="timeline-item"><span class="hash">335aac4</span> <span class="msg">Add Next.js 15 dashboard frontend (56 files, full UI)</span></div>
+    <div class="timeline-item"><span class="hash">335aac4</span> <span class="msg">Add Next.js 16 dashboard frontend (56 files, full UI)</span></div>
     <div class="timeline-item"><span class="hash">f16f79b</span> <span class="msg">Security hardening Phase 2: a11y, error boundary, 106 fuzzing tests</span></div>
     <div class="timeline-item"><span class="hash">2cf9a46</span> <span class="msg">Initial commit: Week 5 backend complete (139 files, tag: v0.5-week5)</span></div>
   </div>

@@ -14,9 +14,12 @@ and will skip gracefully if statcheck crashes.
 
 import warnings
 
-import pandas as pd
 import pytest
-from app.engines.integrity.statistical_checker import (
+
+# Skip entire module if optional benchmark dependencies are not installed.
+# Install with: uv sync --group benchmarks
+pd = pytest.importorskip("pandas", reason="pandas not installed (uv sync --group benchmarks)")
+from app.engines.integrity.statistical_checker import (  # noqa: E402
     _APA_STAT_RE,
     _Z_STAT_RE,
     StatisticalChecker,

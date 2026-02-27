@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import tempfile
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
@@ -464,6 +465,125 @@ def test_stream_endpoint_emits_events():
     set_registry(None)
 
 
+def test_stream_endpoint_with_auth_query_token():
+    """SSE stream should work with BIOTEAM_API_KEY via ?token= auth."""
+    from app.api.v1.direct_query import router, set_registry
+    from app.middleware.auth import APIKeyAuthMiddleware
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    rd, km = setup_agents()
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    set_registry(registry)
+
+    app = FastAPI()
+    app.add_middleware(APIKeyAuthMiddleware)
+    app.include_router(router)
+    client = TestClient(app)
+
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        with client.stream(
+            "GET",
+            "/api/v1/direct-query/stream?query=What+is+spaceflight+anemia%3F&token=sse-secret",
+        ) as response:
+            assert response.status_code == 200
+            events = []
+            event_type = ""
+            for line in response.iter_lines():
+                if line.startswith("event: "):
+                    event_type = line[7:]
+                elif line.startswith("data: "):
+                    events.append({"event": event_type, "data": json.loads(line[6:])})
+
+    event_types = [e["event"] for e in events]
+    assert "classification" in event_types
+    assert "done" in event_types
+    set_registry(None)
+
+
+def test_stream_endpoint_with_auth_issued_stream_token():
+    """SSE stream should work with issued short-lived stream token."""
+    from app.api.v1.auth import router as auth_router
+    from app.api.v1.direct_query import router, set_registry
+    from app.middleware.auth import APIKeyAuthMiddleware
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    rd, km = setup_agents()
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    set_registry(registry)
+
+    app = FastAPI()
+    app.add_middleware(APIKeyAuthMiddleware)
+    app.include_router(auth_router)
+    app.include_router(router)
+    client = TestClient(app)
+
+    with patch("app.middleware.auth.settings") as mock_settings, patch("app.api.v1.auth.settings") as auth_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        auth_settings.bioteam_api_key = "sse-secret"
+
+        token_resp = client.post(
+            "/api/v1/auth/stream-token",
+            headers={"Authorization": "Bearer sse-secret"},
+            json={"path": "/api/v1/direct-query/stream"},
+        )
+        assert token_resp.status_code == 200, token_resp.text
+        stream_token = token_resp.json()["token"]
+        assert isinstance(stream_token, str) and len(stream_token) > 20
+
+        with client.stream(
+            "GET",
+            f"/api/v1/direct-query/stream?query=What+is+spaceflight+anemia%3F&token={stream_token}",
+        ) as response:
+            assert response.status_code == 200
+            events = []
+            event_type = ""
+            for line in response.iter_lines():
+                if line.startswith("event: "):
+                    event_type = line[7:]
+                elif line.startswith("data: "):
+                    events.append({"event": event_type, "data": json.loads(line[6:])})
+
+    event_types = [e["event"] for e in events]
+    assert "classification" in event_types
+    assert "done" in event_types
+    set_registry(None)
+
+
+def test_stream_endpoint_with_auth_invalid_query_token_rejected():
+    """SSE stream should reject invalid ?token= when auth is enabled."""
+    from app.api.v1.direct_query import router, set_registry
+    from app.middleware.auth import APIKeyAuthMiddleware
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    rd, km = setup_agents()
+    registry = AgentRegistry()
+    registry.register(rd)
+    registry.register(km)
+    set_registry(registry)
+
+    app = FastAPI()
+    app.add_middleware(APIKeyAuthMiddleware)
+    app.include_router(router)
+    client = TestClient(app)
+
+    with patch("app.middleware.auth.settings") as mock_settings:
+        mock_settings.bioteam_api_key = "sse-secret"
+        response = client.get(
+            "/api/v1/direct-query/stream?query=What+is+spaceflight+anemia%3F&token=wrong-token"
+        )
+        assert response.status_code == 403
+
+    set_registry(None)
+
+
 def test_stream_workflow_returns_done_immediately():
     """Workflow queries should emit classification + done, no tokens."""
     from app.api.v1.direct_query import router, set_registry
@@ -644,6 +764,8 @@ if __name__ == "__main__":
     test_specialist_unavailable_falls_back()
     test_resolve_specialist_helper()
     test_stream_endpoint_emits_events()
+    test_stream_endpoint_with_auth_query_token()
+    test_stream_endpoint_with_auth_issued_stream_token()
     test_stream_workflow_returns_done_immediately()
     test_stream_no_registry_returns_503()
     test_routed_agent_in_api_response()

@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from app.api.health import router as health_router
 from app.api.v1.agents import router as agents_router
+from app.api.v1.auth import router as auth_router
 from app.api.v1.backup import router as backup_router
 from app.api.v1.cold_start import router as cold_start_router
 from app.api.v1.contradictions import router as contradictions_router
@@ -222,6 +223,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 # Routes
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(dq_router)
 app.include_router(sse_router)
 app.include_router(agents_router)

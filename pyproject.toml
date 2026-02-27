@@ -34,6 +34,8 @@ dependencies = [
     "scipy>=1.12.0",
     "Pillow>=11.0.0",
     "imagehash>=4.3.0",
+    "pymupdf>=1.25.0",
+    "python-docx>=1.2.0",
 ]
 
 [dependency-groups]
@@ -41,6 +43,13 @@ dev = [
     "pytest>=9.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.11.0",
+]
+benchmarks = [
+    # Required only for GRIM cross-validation benchmark
+    "pysprite>=0.1.0",
+    # Required only for statcheck comparison benchmark
+    "pandas>=2.0.0",
+    "statcheck>=0.0.7",
 ]
 
 [build-system]

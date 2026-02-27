@@ -2,6 +2,8 @@
 
 import os
 import sys
+import tempfile
+from uuid import uuid4
 
 import pytest
 
@@ -9,6 +11,10 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
+
+# Use a fresh sqlite file for each pytest run by default to avoid stale schema drift.
+if os.environ.get("DATABASE_URL") == "sqlite:///test.db":
+    os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.gettempdir()}/bioteam_test_{uuid4().hex}.db"
 
 from app.agents.knowledge_manager import NoveltyAssessment
 from app.agents.project_manager import ProjectStatus

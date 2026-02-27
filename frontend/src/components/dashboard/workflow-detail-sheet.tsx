@@ -202,7 +202,7 @@ export function WorkflowDetailSheet() {
 
     const interval = setInterval(fetchWorkflow, 3000);
     return () => clearInterval(interval);
-  }, [selectedId, workflow?.state, fetchWorkflow]);
+  }, [selectedId, workflow, workflow?.state, fetchWorkflow]);
 
   const doIntervene = async (action: string) => {
     if (!selectedId) return;

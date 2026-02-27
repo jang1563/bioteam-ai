@@ -5,9 +5,9 @@ Checks: LLM API connectivity, SQLite DB, ChromaDB, PubMed API, CostTracker statu
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 
+from app.config import settings
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -33,7 +33,7 @@ async def health_check() -> HealthStatus:
 
     # 1. LLM API connectivity
     try:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        api_key = settings.anthropic_api_key
         if api_key and api_key != "test":
             import anthropic
             anthropic.AsyncAnthropic()  # validates key format
@@ -72,7 +72,7 @@ async def health_check() -> HealthStatus:
         has_warning = True
 
     # 4. PubMed API (check config)
-    ncbi_email = os.environ.get("NCBI_EMAIL", "")
+    ncbi_email = settings.ncbi_email
     if ncbi_email:
         checks["pubmed"] = {"status": "ok", "detail": f"email={ncbi_email[:20]}..."}
     else:
@@ -84,7 +84,6 @@ async def health_check() -> HealthStatus:
         from app.celery_app import is_celery_enabled
         if is_celery_enabled():
             import redis as redis_lib
-            from app.config import settings
             r = redis_lib.from_url(settings.celery_broker_url, socket_timeout=2)
             r.ping()
             checks["redis"] = {"status": "ok", "detail": "Connected"}

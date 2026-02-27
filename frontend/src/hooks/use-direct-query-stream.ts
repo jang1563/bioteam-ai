@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { API_BASE } from "@/lib/api-client";
+import { API_BASE, api } from "@/lib/api-client";
 import type { StreamStatus, StreamClassification, StreamDoneData } from "@/types/api";
+
+type ExecuteOptions = {
+  onDone?: (data: StreamDoneData) => void;
+};
 
 export function useDirectQueryStream() {
   const [status, setStatus] = useState<StreamStatus>("idle");
@@ -24,7 +28,7 @@ export function useDirectQueryStream() {
     setError(null);
   }, []);
 
-  const execute = useCallback((query: string, conversationId?: string | null) => {
+  const execute = useCallback(async (query: string, conversationId?: string | null, options: ExecuteOptions = {}) => {
     // Clean up previous connection
     esRef.current?.close();
     setStatus("classifying");
@@ -34,7 +38,7 @@ export function useDirectQueryStream() {
     setSources([]);
     setError(null);
 
-    const token = typeof window !== "undefined"
+    const apiKey = typeof window !== "undefined"
       ? localStorage.getItem("bioteam_api_key")
       : null;
 
@@ -42,8 +46,16 @@ export function useDirectQueryStream() {
     if (conversationId) {
       url += `&conversation_id=${encodeURIComponent(conversationId)}`;
     }
-    if (token) {
-      url += `&token=${encodeURIComponent(token)}`;
+    if (apiKey) {
+      try {
+        const streamToken = await api.post<{ token: string }>("/api/v1/auth/stream-token", {
+          path: "/api/v1/direct-query/stream",
+        });
+        url += `&token=${encodeURIComponent(streamToken.token)}`;
+      } catch {
+        // Backward-compatible fallback if stream-token endpoint is unavailable.
+        url += `&token=${encodeURIComponent(apiKey)}`;
+      }
     }
 
     const es = new EventSource(url);
@@ -76,6 +88,7 @@ export function useDirectQueryStream() {
         setSources(data.sources);
       }
       setStatus("done");
+      options.onDone?.(data);
       es.close();
       esRef.current = null;
     });
@@ -98,12 +111,13 @@ export function useDirectQueryStream() {
 
     // Native EventSource error (connection refused, etc.)
     es.onerror = () => {
-      if (status !== "done" && status !== "error") {
+      setStatus((prev) => {
+        if (prev === "done" || prev === "error") return prev;
         setError("Connection to server lost");
-        setStatus("error");
-        es.close();
-        esRef.current = null;
-      }
+        return "error";
+      });
+      es.close();
+      esRef.current = null;
     };
 
     return () => {

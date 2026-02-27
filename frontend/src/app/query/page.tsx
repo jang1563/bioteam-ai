@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,38 +54,36 @@ export default function QueryPage() {
   // Load conversations on mount
   useEffect(() => {
     convs.refresh();
-  }, []);
-
-  // When stream completes, update conversation state
-  useEffect(() => {
-    if (stream.status === "done" && stream.metadata) {
-      const newConvId = stream.metadata.conversation_id;
-      if (newConvId) {
-        setActiveConvId(newConvId);
-        // Add the new turn to local state
-        const newTurn: ConversationTurn = {
-          id: crypto.randomUUID(),
-          turn_number: activeTurns.length + 1,
-          query: query.trim(),
-          classification_type: stream.classification?.type ?? "simple_query",
-          routed_agent: stream.metadata.routed_agent,
-          answer: stream.streamedText || null,
-          sources: stream.metadata.sources ?? [],
-          cost: stream.metadata.total_cost,
-          duration_ms: stream.metadata.duration_ms,
-          created_at: new Date().toISOString(),
-        };
-        setActiveTurns((prev) => [...prev, newTurn]);
-        // Refresh sidebar
-        convs.refresh();
-      }
-      setQuery("");
-    }
-  }, [stream.status]);
+  }, [convs]);
 
   const handleSubmit = () => {
     if (!query.trim() || isActive) return;
-    stream.execute(query.trim(), activeConvId);
+    const submittedQuery = query.trim();
+    void stream.execute(submittedQuery, activeConvId, {
+      onDone: (data) => {
+        const newConvId = data.conversation_id;
+        if (newConvId) {
+          setActiveConvId(() => newConvId);
+          setActiveTurns((prev) => {
+            const newTurn: ConversationTurn = {
+              id: crypto.randomUUID(),
+              turn_number: prev.length + 1,
+              query: submittedQuery,
+              classification_type: data.classification_type ?? "simple_query",
+              routed_agent: data.routed_agent ?? null,
+              answer: data.answer ?? (stream.streamedText || null),
+              sources: data.sources ?? [],
+              cost: data.total_cost ?? 0,
+              duration_ms: data.duration_ms ?? 0,
+              created_at: new Date().toISOString(),
+            };
+            return [...prev, newTurn];
+          });
+          void convs.refresh();
+        }
+        setQuery("");
+      },
+    });
   };
 
   const handleNewConversation = () => {
@@ -425,7 +424,7 @@ function StreamResult({
           <p className="text-sm">
             This question requires a <strong>{classification.workflow_type}</strong> workflow for
             comprehensive analysis. Create one from the{" "}
-            <a href="/" className="text-primary underline">Mission Control</a> page.
+            <Link href="/" className="text-primary underline">Mission Control</Link> page.
           </p>
         </div>
       </CardContent>
