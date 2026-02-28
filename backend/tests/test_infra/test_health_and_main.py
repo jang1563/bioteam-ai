@@ -9,6 +9,8 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 import asyncio
 
+from app import __version__
+from app.api.health import VERSION as HEALTH_VERSION
 from app.api.health import HealthStatus, health_check
 
 # === HealthStatus Model Tests ===
@@ -38,7 +40,7 @@ def test_health_check_returns_status():
     result = asyncio.run(health_check())
     assert isinstance(result, HealthStatus)
     assert result.status in ("healthy", "degraded", "unhealthy")
-    assert result.version == "0.8.0"
+    assert result.version == HEALTH_VERSION
     assert "llm_api" in result.checks
     assert "database" in result.checks
     assert "chromadb" in result.checks
@@ -74,7 +76,7 @@ def test_root_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "BioTeam-AI"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == __version__
     assert data["status"] == "running"
     print("  PASS: root_endpoint")
 

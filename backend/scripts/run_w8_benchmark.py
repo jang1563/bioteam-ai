@@ -303,14 +303,36 @@ def _heuristic_concerns(decision_letter: str) -> list[dict]:
 
 
 async def _run_w8_on_article(article_id: str, source: str, data_dir: Path, budget: float):
-    """Run W8 pipeline on one article (if PDF available)."""
+    """Run W8 pipeline on one article.
+
+    Prefers text-based INGEST (from corpus JSON body_text) over PDF.
+    Falls back to PDF if corpus JSON lacks body_text.
+    """
     from app.agents.registry import create_registry
     from app.llm.layer import LLMLayer
     from app.workflows.runners.w8_paper_review import W8PaperReviewRunner
 
+    # Try article_data from corpus JSON (text-based, no PDF needed)
+    article_data = None
+    corpus_path = data_dir / f"{article_id}.json"
+    if corpus_path.exists():
+        with open(corpus_path) as f:
+            d = json.load(f)
+        if d.get("body_text") and len(d["body_text"]) > 100:
+            article_data = {
+                "article_id": d.get("article_id", article_id),
+                "title": d.get("title", ""),
+                "abstract": d.get("abstract", ""),
+                "body_text": d["body_text"],
+                "sections": d.get("sections", []),
+                "doi": d.get("doi", ""),
+            }
+            logger.info("  Using XML body_text for %s (%d chars)", article_id, len(d["body_text"]))
+
+    # Fallback: PDF file
     pdf_path = data_dir / f"{article_id}.pdf"
-    if not pdf_path.exists():
-        logger.warning("  PDF not found for %s, skipping W8 run", article_id)
+    if article_data is None and not pdf_path.exists():
+        logger.warning("  No body_text in corpus JSON and no PDF for %s — skipping", article_id)
         return
 
     llm = LLMLayer()
@@ -319,7 +341,8 @@ async def _run_w8_on_article(article_id: str, source: str, data_dir: Path, budge
 
     try:
         result = await runner.run(
-            pdf_path=str(pdf_path),
+            article_data=article_data,
+            pdf_path="" if article_data else str(pdf_path),
             budget=budget,
             skip_human_checkpoint=True,
         )

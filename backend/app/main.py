@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+from app import __version__
+
 from app.api.health import router as health_router
 from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
@@ -202,7 +204,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="BioTeam-AI",
     description="Personal AI Science Team for Biology Research",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -251,4 +253,4 @@ app.include_router(resume_router)
 
 @app.get("/")
 async def root():
-    return {"name": "BioTeam-AI", "version": "0.1.0", "status": "running"}
+    return {"name": "BioTeam-AI", "version": __version__, "status": "running"}

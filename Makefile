@@ -1,6 +1,6 @@
 # BioTeam-AI Makefile
 
-.PHONY: help dev-minimal dev-full dev-local stop test test-llm test-agents test-workflows test-digest test-celery test-e2e lint format db-init db-migrate db-reset cold-start backup celery-worker clean sandbox-build sandbox-build-fast sandbox-test
+.PHONY: help dev-minimal dev-full dev-local stop test test-llm test-agents test-workflows test-digest test-celery test-e2e lint format db-init db-migrate db-reset cold-start backup celery-worker clean sandbox-build sandbox-build-fast sandbox-test check-version
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -97,6 +97,17 @@ cold-start: ## Run Cold Start protocol
 
 backup: ## Run manual backup
 	cd backend && uv run python scripts/run_backup.py
+
+# === Version Check ===
+
+check-version: ## Verify project version is consistent across pyproject.toml and backend
+	@PY_VER=$$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])") && \
+	APP_VER=$$(python -c "import sys; sys.path.insert(0,'backend'); from app import __version__; print(__version__)") && \
+	if [ "$$PY_VER" != "$$APP_VER" ]; then \
+		echo "ERROR: Version mismatch — pyproject.toml=$$PY_VER  app/__init__.py=$$APP_VER"; exit 1; \
+	else \
+		echo "OK: project version $$PY_VER consistent"; \
+	fi
 
 # === Cleanup ===
 

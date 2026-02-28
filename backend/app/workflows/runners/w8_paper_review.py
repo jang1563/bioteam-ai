@@ -191,10 +191,71 @@ class W8PaperReviewRunner:
         if self._persist_fn:
             await self._persist_fn(instance)
 
+    def _init_from_article_data(self, article_data: dict) -> None:
+        """Pre-populate INGEST/PARSE_SECTIONS from eLife XML article dict.
+
+        Called when article_data is provided to run(), allowing W8 to operate
+        on pre-parsed text without requiring a PDF file.
+        """
+        from app.engines.pdf.parser import ParsedPaper, ParsedSection
+
+        self._paper_title = article_data.get("title", "")
+
+        raw_sections = article_data.get("sections") or []
+        sections = [
+            ParsedSection(
+                heading=s.get("heading") or s.get("title") or "",
+                text=s.get("text", ""),
+            )
+            for s in raw_sections
+            if s.get("text")
+        ]
+
+        # Fallback: wrap full body_text as single section
+        if not sections and article_data.get("body_text"):
+            sections = [ParsedSection(heading="Body", text=article_data["body_text"])]
+
+        full_text = article_data.get("body_text") or "\n\n".join(
+            f"## {s.heading}\n{s.text}" for s in sections
+        )
+
+        self._parsed_paper = ParsedPaper(
+            title=self._paper_title,
+            sections=sections,
+            full_text=full_text,
+            page_count=0,
+            references_raw="",
+        )
+
+        # Pre-populate step results so the main loop skips these steps
+        self._step_results["INGEST"] = AgentOutput(
+            agent_id="code_only",
+            output={
+                "step": "INGEST",
+                "source": "elife_xml",
+                "article_id": article_data.get("article_id", ""),
+            },
+        )
+        self._step_results["PARSE_SECTIONS"] = AgentOutput(
+            agent_id="code_only",
+            output={
+                "step": "PARSE_SECTIONS",
+                "title": self._paper_title,
+                "page_count": 0,
+                "sections": [
+                    {"heading": s.heading, "length": len(s.text), "figures": 0}
+                    for s in sections
+                ],
+                "has_references": False,
+                "source": "elife_xml",
+            },
+        )
+
     @observe(name="workflow.w8_paper_review")
     async def run(
         self,
         pdf_path: str = "",
+        article_data: dict | None = None,
         instance: WorkflowInstance | None = None,
         budget: float = 3.0,
         query: str = "",
@@ -204,6 +265,8 @@ class W8PaperReviewRunner:
 
         Args:
             pdf_path: Path to the paper PDF file.
+            article_data: Pre-parsed article dict (from eLife XML / to_w8_input()).
+                          If provided, skips INGEST and PARSE_SECTIONS steps.
             instance: Optional pre-created WorkflowInstance.
             budget: Maximum budget in USD.
             query: Optional query override (defaults to paper title).
@@ -214,7 +277,7 @@ class W8PaperReviewRunner:
         if instance is None:
             instance = WorkflowInstance(
                 template="W8",
-                query=query or pdf_path,
+                query=query or (article_data or {}).get("title", "") or pdf_path,
                 budget_total=budget,
                 budget_remaining=budget,
             )
@@ -223,9 +286,26 @@ class W8PaperReviewRunner:
         await self._persist(instance)
         self._step_results = {}
 
+        # Pre-populate parsed paper from article_data (text-based INGEST)
+        if article_data:
+            self._init_from_article_data(article_data)
+
         for step in W8_STEPS:
             if instance.state not in ("RUNNING",):
                 break
+
+            # Skip pre-populated steps (INGEST/PARSE_SECTIONS injected from article_data)
+            if step.id in self._step_results:
+                self.engine.advance(
+                    instance, step.id,
+                    step_result={"type": "pre_populated", "source": "elife_xml"},
+                    agent_id="code_only",
+                    status="completed",
+                    duration_ms=0,
+                    cost=0.0,
+                )
+                await self._persist(instance)
+                continue
 
             # Broadcast step start
             if self.sse_hub:

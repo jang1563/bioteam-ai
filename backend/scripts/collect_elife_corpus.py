@@ -120,7 +120,11 @@ async def collect_corpus(
 
         out_path = CORPUS_DIR / f"{article.article_id}.json"
         data = article.to_ground_truth()
-        data["body_text_preview"] = article.body_text[:500]
+        data["body_text"] = article.body_text
+        data["sections"] = [
+            {"heading": s.title, "text": s.text, "section_type": s.section_type}
+            for s in article.sections
+        ]
         data["sections_count"] = len(article.sections)
         data["collected_at"] = datetime.now(timezone.utc).isoformat()
 

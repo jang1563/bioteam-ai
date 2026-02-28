@@ -573,3 +573,43 @@ export interface HealthResponse {
   dependencies: Record<string, string>;
   timestamp: string;
 }
+
+// === Phase 2 Panel Types ===
+
+export type ContradictionType =
+  | "conditional_truth"
+  | "technical_artifact"
+  | "interpretive_framing"
+  | "statistical_noise"
+  | "temporal_dynamics"
+  | "unknown";
+
+export interface ContradictionEntry {
+  id: string;
+  types: ContradictionType[];
+  description: string;
+  claim_a: string;
+  claim_b: string;
+  source_a: string;
+  source_b: string;
+  workflow_id: string | null;
+  detected_at: string;
+  resolution_hypothesis: string | null;
+  rcmxt_claim_a: RCMXTScore | null;
+  rcmxt_claim_b: RCMXTScore | null;
+}
+
+export interface ContradictionListResponse {
+  contradictions: ContradictionEntry[];
+  total: number;
+}
+
+export interface WorkflowSummary {
+  id: string;
+  template: string;
+  query: string;
+  state: WorkflowState;
+  rcmxt_scores: RCMXTScore[];
+  completed_at: string | null;
+  budget_used: number;
+}
