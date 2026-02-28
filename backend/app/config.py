@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     gtex_enabled: bool = True      # GTEx Portal v2
     go_enrichment_enabled: bool = True  # g:Profiler (gprofiler-official)
     ncbi_extended_enabled: bool = True  # NCBI Gene/ClinVar (reuses ncbi_api_key)
-    peer_review_corpus_enabled: bool = False  # eLife/PLOS open peer review corpus (Phase 6)
+    peer_review_corpus_enabled: bool = True   # eLife/PLOS open peer review corpus (Phase 6)
     # API rate limit delays (seconds between requests)
     ensembl_rate_limit_delay: float = 0.1   # Ensembl: 15 req/sec max
     uniprot_rate_limit_delay: float = 0.1   # UniProt: 10 req/sec max

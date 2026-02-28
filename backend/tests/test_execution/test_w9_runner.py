@@ -10,6 +10,7 @@ Covers:
 - Code step implementations: _pre_health_check, _ingest_data, _run_qc, _variant_annotation
 - Error handling: failing agent step produces is_success=False AgentOutput
 - Report builder integration
+- _maybe_execute_code: Docker sandbox integration (mocked)
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from app.models.agent import AgentOutput
 from app.models.workflow import WorkflowInstance
 from app.workflows.runners.w9_bioinformatics import (
     _CODE_STEPS,
+    _DOCKER_STEPS,
     _METHOD_MAP,
     W9_STEPS,
     W9BioinformaticsRunner,
@@ -539,3 +541,257 @@ def test_total_estimated_cost_under_50_dollars():
     """Sanity check: W9 total estimated cost should be reasonable."""
     total = sum(s.estimated_cost for s in W9_STEPS)
     assert total < 50.0, f"Total estimated cost ${total:.2f} exceeds $50 budget"
+
+
+# ---------------------------------------------------------------------------
+# _DOCKER_STEPS structure tests
+# ---------------------------------------------------------------------------
+
+
+def test_docker_steps_subset_of_all_steps():
+    all_ids = {s.id for s in W9_STEPS}
+    for step_id in _DOCKER_STEPS:
+        assert step_id in all_ids, f"{step_id} in _DOCKER_STEPS but not in W9_STEPS"
+
+
+def test_docker_steps_not_code_steps():
+    """_DOCKER_STEPS are agent steps (not code-only), so they shouldn't overlap _CODE_STEPS."""
+    overlap = _DOCKER_STEPS & _CODE_STEPS
+    assert not overlap, f"_DOCKER_STEPS/CODE_STEPS overlap: {overlap}"
+
+
+def test_docker_steps_contains_analysis_steps():
+    expected = {"GENOMIC_ANALYSIS", "EXPRESSION_ANALYSIS", "PROTEIN_ANALYSIS",
+                "PATHWAY_ENRICHMENT", "NETWORK_ANALYSIS"}
+    assert expected == _DOCKER_STEPS
+
+
+# ---------------------------------------------------------------------------
+# _maybe_execute_code unit tests (Docker mocked)
+# ---------------------------------------------------------------------------
+
+# DockerCodeRunner is lazily imported inside _maybe_execute_code, so patch at source
+_DOCKER_RUNNER_PATH = "app.execution.docker_runner.DockerCodeRunner"
+
+
+def _make_exec_result(exit_code: int = 0, stdout: str = "ok", runtime: float = 0.5):
+    from app.models.code_execution import ExecutionResult
+    return ExecutionResult(
+        stdout=stdout,
+        stderr="",
+        exit_code=exit_code,
+        runtime_seconds=runtime,
+    )
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_no_code_block(runner):
+    """Returns original result unchanged when no code_block in output."""
+    original = AgentOutput(
+        agent_id="t01_genomics",
+        output={"variants": 5},
+        summary="done",
+        is_success=True,
+        cost=0.1,
+    )
+    result = await runner._maybe_execute_code("GENOMIC_ANALYSIS", original)
+    assert result is original
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_null_code_block(runner):
+    """Returns original result when code_block is None."""
+    original = AgentOutput(
+        agent_id="t01_genomics",
+        output={"code_block": None},
+        summary="done",
+        is_success=True,
+    )
+    result = await runner._maybe_execute_code("GENOMIC_ANALYSIS", original)
+    assert result is original
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_malformed_code_block(runner):
+    """Returns original result when CodeBlock construction fails (e.g. not a dict)."""
+    original = AgentOutput(
+        agent_id="t01_genomics",
+        output={"code_block": "not-a-dict"},
+        summary="done",
+        is_success=True,
+    )
+    result = await runner._maybe_execute_code("GENOMIC_ANALYSIS", original)
+    assert result is original
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_success(runner):
+    """Successful Docker run merges execution_result into output dict."""
+    agent_out = AgentOutput(
+        agent_id="t01_genomics",
+        output={
+            "variants": 100,
+            "code_block": {"language": "python", "code": "print('hello')", "dependencies": []},
+        },
+        summary="done",
+        is_success=True,
+        cost=0.2,
+    )
+
+    with patch(_DOCKER_RUNNER_PATH) as MockRunner:
+        instance = MockRunner.return_value
+        instance.run = AsyncMock(return_value=_make_exec_result(exit_code=0, stdout="hello\n"))
+
+        result = await runner._maybe_execute_code("GENOMIC_ANALYSIS", agent_out)
+
+    assert result is not agent_out
+    assert result.is_success is True
+    assert result.cost == pytest.approx(0.2)
+    exec_r = result.output["execution_result"]
+    assert exec_r["exit_code"] == 0
+    assert exec_r["stdout"] == "hello\n"
+    assert exec_r["sandbox_used"] is True
+    assert "execution_warning" not in result.output
+    # Original fields preserved
+    assert result.output["variants"] == 100
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_nonzero_exit_adds_warning(runner):
+    """Non-zero exit code adds execution_warning to output."""
+    agent_out = AgentOutput(
+        agent_id="t01_genomics",
+        output={"code_block": {"language": "python", "code": "exit(1)", "dependencies": []}},
+        summary="done",
+        is_success=True,
+    )
+
+    with patch(_DOCKER_RUNNER_PATH) as MockRunner:
+        instance = MockRunner.return_value
+        instance.run = AsyncMock(return_value=_make_exec_result(exit_code=1, stdout=""))
+
+        result = await runner._maybe_execute_code("GENOMIC_ANALYSIS", agent_out)
+
+    assert result.output["execution_result"]["exit_code"] == 1
+    assert "execution_warning" in result.output
+    assert "1" in result.output["execution_warning"]
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_r_image_for_expression(runner):
+    """EXPRESSION_ANALYSIS step passes R image (image_r set)."""
+    agent_out = AgentOutput(
+        agent_id="t02_transcriptomics",
+        output={"code_block": {"language": "R", "code": "cat('ok')", "dependencies": []}},
+        summary="done",
+        is_success=True,
+    )
+
+    with patch(_DOCKER_RUNNER_PATH) as MockRunner:
+        instance = MockRunner.return_value
+        instance.run = AsyncMock(return_value=_make_exec_result())
+
+        await runner._maybe_execute_code("EXPRESSION_ANALYSIS", agent_out)
+
+        # image_r should be set to a non-None value for R steps
+        init_kwargs = MockRunner.call_args.kwargs
+        assert init_kwargs.get("image_r") is not None
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_python_image_for_other_steps(runner):
+    """Non-R steps pass image_r=None (use Python image)."""
+    agent_out = AgentOutput(
+        agent_id="t03_proteomics",
+        output={"code_block": {"language": "python", "code": "print(1)", "dependencies": []}},
+        summary="done",
+        is_success=True,
+    )
+
+    with patch(_DOCKER_RUNNER_PATH) as MockRunner:
+        instance = MockRunner.return_value
+        instance.run = AsyncMock(return_value=_make_exec_result())
+
+        await runner._maybe_execute_code("PROTEIN_ANALYSIS", agent_out)
+
+        init_kwargs = MockRunner.call_args.kwargs
+        assert init_kwargs.get("image_r") is None
+
+
+@pytest.mark.asyncio
+async def test_maybe_execute_code_non_dict_output(runner):
+    """If agent_result.output is not a dict, returns original unchanged."""
+    original = AgentOutput(
+        agent_id="t01_genomics",
+        output="plain string output",
+        summary="done",
+        is_success=True,
+    )
+    result = await runner._maybe_execute_code("GENOMIC_ANALYSIS", original)
+    assert result is original
+
+
+@pytest.mark.asyncio
+async def test_run_agent_step_triggers_docker_for_docker_steps(mock_registry):
+    """_run_agent_step calls _maybe_execute_code for steps in _DOCKER_STEPS."""
+    reg, mock_agent = mock_registry
+    code_block = {"language": "python", "code": "print(42)", "dependencies": []}
+    mock_agent.run = AsyncMock(return_value=AgentOutput(
+        agent_id="t01_genomics",
+        output={"result": "ok", "code_block": code_block},
+        summary="done",
+        is_success=True,
+        cost=0.1,
+    ))
+
+    runner = W9BioinformaticsRunner(registry=reg)
+
+    step = next(s for s in W9_STEPS if s.id == "GENOMIC_ANALYSIS")
+    instance = WorkflowInstance(template="W9", query="test", budget_total=50.0)
+
+    exec_result = _make_exec_result(stdout="42\n")
+    with (
+        patch(_DOCKER_RUNNER_PATH) as MockRunner,
+        patch("app.workflows.runners.w9_bioinformatics.settings") as mock_settings,
+    ):
+        mock_settings.docker_enabled = True
+        mock_settings.docker_timeout_seconds = 120
+        mock_settings.docker_memory_limit = "512m"
+        mock_settings.docker_cpu_limit = "1.0"
+        mock_settings.docker_image_python = "python:3.12-slim"
+        mock_settings.docker_image_r = "r-base:4.4"
+
+        instance_runner = MockRunner.return_value
+        instance_runner.run = AsyncMock(return_value=exec_result)
+
+        result = await runner._run_agent_step(step, instance)
+
+    assert result.output.get("execution_result") is not None
+    assert result.output["execution_result"]["stdout"] == "42\n"
+
+
+@pytest.mark.asyncio
+async def test_run_agent_step_skips_docker_when_disabled(mock_registry):
+    """_run_agent_step skips _maybe_execute_code when docker_enabled=False."""
+    reg, mock_agent = mock_registry
+    code_block = {"language": "python", "code": "print(42)", "dependencies": []}
+    mock_agent.run = AsyncMock(return_value=AgentOutput(
+        agent_id="t01_genomics",
+        output={"result": "ok", "code_block": code_block},
+        summary="done",
+        is_success=True,
+        cost=0.1,
+    ))
+
+    runner = W9BioinformaticsRunner(registry=reg)
+    step = next(s for s in W9_STEPS if s.id == "GENOMIC_ANALYSIS")
+    instance = WorkflowInstance(template="W9", query="test", budget_total=50.0)
+
+    with patch("app.workflows.runners.w9_bioinformatics.settings") as mock_settings:
+        mock_settings.docker_enabled = False
+
+        result = await runner._run_agent_step(step, instance)
+
+    # code_block should still be in output, but no execution_result
+    assert "execution_result" not in result.output
+    assert result.output.get("code_block") == code_block
