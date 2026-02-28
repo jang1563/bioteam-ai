@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import { X, Send, Radio } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,6 +119,7 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
     <Sheet open={!!agentId} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
+        showCloseButton={false}
         className="flex w-full flex-col p-0 sm:max-w-[600px]"
         aria-label={agent ? `Chat with ${agent.name}` : "Agent chat"}
       >
@@ -138,9 +139,9 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-base font-semibold">
+              <SheetTitle className="truncate text-base font-semibold">
                 {agent?.name ?? agentId ?? "Agent"}
-              </h2>
+              </SheetTitle>
               <Badge variant={stateBadge.variant} className="shrink-0 text-[10px]">
                 {stateBadge.label}
               </Badge>

@@ -35,16 +35,19 @@ export function AgentCharacterCard({ agent, onSelect }: AgentCharacterCardProps)
   const colors = AGENT_COLOR_CLASSES[character.color];
   const Icon = character.icon;
   const state = agent.state ?? "unknown";
+  const isUnavailable = state === "unavailable";
 
   return (
     <button
-      onClick={() => onSelect(agent.id)}
+      onClick={() => !isUnavailable && onSelect(agent.id)}
       aria-label={`${agent.name} — ${character.tagline}. Status: ${state}`}
+      aria-disabled={isUnavailable}
+      title={isUnavailable ? `${agent.name} is currently unavailable` : undefined}
       className={cn(
         "group flex flex-col items-center gap-2 rounded-xl border border-border p-4 text-center",
-        "transition-all duration-200 hover:border-primary/40 hover:bg-accent hover:shadow-md hover:scale-[1.03]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        state === "unavailable" && "opacity-60",
+        "transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        !isUnavailable && "hover:border-primary/40 hover:bg-accent hover:shadow-md hover:scale-[1.03]",
+        isUnavailable && "opacity-50 cursor-not-allowed",
       )}
     >
       {/* Avatar circle */}
