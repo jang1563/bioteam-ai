@@ -48,6 +48,8 @@ class SSEHub:
 
     def __init__(self) -> None:
         self._subscribers: list[asyncio.Queue[SSEEvent | None]] = []
+        # Per-workflow queues: workflow_id -> list of subscriber queues
+        self._workflow_queues: dict[str, list[asyncio.Queue[SSEEvent | None]]] = {}
 
     @property
     def subscriber_count(self) -> int:
@@ -83,6 +85,31 @@ class SSEHub:
         if queue in self._subscribers:
             self._subscribers.remove(queue)
 
+    def subscribe_workflow(self, workflow_id: str) -> asyncio.Queue[SSEEvent | None]:
+        """Create a workflow-specific subscriber queue.
+
+        Only receives events where event.workflow_id == workflow_id.
+
+        Args:
+            workflow_id: The workflow ID to filter events for.
+
+        Returns:
+            Queue that receives matching SSEEvent objects. None signals disconnect.
+        """
+        queue: asyncio.Queue[SSEEvent | None] = asyncio.Queue(maxsize=200)
+        if workflow_id not in self._workflow_queues:
+            self._workflow_queues[workflow_id] = []
+        self._workflow_queues[workflow_id].append(queue)
+        return queue
+
+    def unsubscribe_workflow(self, workflow_id: str, queue: asyncio.Queue[SSEEvent | None]) -> None:
+        """Remove a workflow-specific subscriber queue."""
+        queues = self._workflow_queues.get(workflow_id, [])
+        if queue in queues:
+            queues.remove(queue)
+        if not queues:
+            self._workflow_queues.pop(workflow_id, None)
+
     async def broadcast(self, event: SSEEvent) -> int:
         """Send an event to all connected subscribers.
 
@@ -104,6 +131,18 @@ class SSEHub:
         # Clean up full/dead queues
         for q in dead_queues:
             self._subscribers.remove(q)
+
+        # Also fan out to workflow-specific queues
+        if event.workflow_id and event.workflow_id in self._workflow_queues:
+            dead_workflow = []
+            for q in self._workflow_queues[event.workflow_id]:
+                try:
+                    q.put_nowait(event)
+                    sent += 1
+                except asyncio.QueueFull:
+                    dead_workflow.append(q)
+            for q in dead_workflow:
+                self._workflow_queues[event.workflow_id].remove(q)
 
         return sent
 
@@ -170,6 +209,36 @@ class SSEHub:
             },
         )
 
+    def create_workflow_response(self, workflow_id: str) -> StreamingResponse:
+        """Create a workflow-filtered SSE StreamingResponse.
+
+        Only events matching workflow_id are delivered.
+
+        Args:
+            workflow_id: Workflow ID to filter events for.
+
+        Returns:
+            StreamingResponse with text/event-stream content type.
+        """
+        queue = self.subscribe_workflow(workflow_id)
+
+        async def _gen():
+            try:
+                async for chunk in self.event_generator(queue):
+                    yield chunk
+            finally:
+                self.unsubscribe_workflow(workflow_id, queue)
+
+        return StreamingResponse(
+            _gen(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     async def disconnect_all(self) -> None:
         """Disconnect all subscribers (used during shutdown)."""
         for queue in self._subscribers:
@@ -178,6 +247,14 @@ class SSEHub:
             except asyncio.QueueFull:
                 pass
         self._subscribers.clear()
+        # Also disconnect workflow-specific queues
+        for queues in self._workflow_queues.values():
+            for q in queues:
+                try:
+                    q.put_nowait(None)
+                except asyncio.QueueFull:
+                    pass
+        self._workflow_queues.clear()
 
 
 def _format_sse(event: SSEEvent) -> str:
@@ -215,3 +292,16 @@ async def sse_endpoint():
     and system alerts as Server-Sent Events.
     """
     return sse_hub.create_response()
+
+
+@router.get("/sse/workflow/{workflow_id}")
+async def sse_workflow_endpoint(workflow_id: str):
+    """Workflow-specific SSE endpoint.
+
+    Delivers only events matching the given workflow_id.
+    Used by the Peer Review page and other workflow-specific UIs.
+
+    Connect via EventSource:
+        new EventSource('/api/v1/sse/workflow/w8_abc?token=...')
+    """
+    return sse_hub.create_workflow_response(workflow_id)

@@ -65,6 +65,7 @@ export type WorkflowState =
   | "RUNNING"
   | "PAUSED"
   | "WAITING_HUMAN"
+  | "WAITING_DIRECTION"
   | "COMPLETED"
   | "FAILED"
   | "CANCELLED"
@@ -155,6 +156,34 @@ export interface InterveneRequest {
   action: InterveneAction;
   note?: string;
   note_action?: NoteAction;
+}
+
+// === Resume / Intervention API (resume.py) ===
+
+export interface ResumeRequest {
+  budget_topup?: number;
+}
+
+export interface ResumeResponse {
+  workflow_id: string;
+  new_state: string;
+  budget_remaining: number;
+}
+
+export interface DirectionResponseRequest {
+  response: string; // "continue" | "focus:GENE1,GENE2" | "skip_X" | "adjust:<text>"
+}
+
+export interface StepInjectRequest {
+  result: Record<string, unknown>;
+  reason: string;
+}
+
+export interface StepActionResponse {
+  workflow_id: string;
+  step_id: string;
+  action: string;
+  new_state?: string;
 }
 
 export interface InterveneResponse {

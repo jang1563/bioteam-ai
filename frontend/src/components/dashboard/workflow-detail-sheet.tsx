@@ -32,7 +32,12 @@ import {
   Loader2,
   Clock,
   AlertCircle,
+  RefreshCw,
+  SkipForward,
+  DollarSign,
+  Navigation,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/stores/app-store";
 import { api } from "@/lib/api-client";
 import { WorkflowPipelineGraph } from "./workflow-pipeline-graph";
@@ -42,6 +47,8 @@ import type {
   InterveneResponse,
   NoteAction,
   WorkflowStatus,
+  ResumeResponse,
+  StepActionResponse,
 } from "@/types/api";
 
 const STEP_LABELS: Record<string, string> = {
@@ -170,6 +177,10 @@ export function WorkflowDetailSheet() {
   const [noteAction, setNoteAction] = useState<NoteAction>("FREE_TEXT");
   const [intervening, setIntervening] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  // Advanced intervention state
+  const [budgetTopup, setBudgetTopup] = useState("1.00");
+  const [directionInput, setDirectionInput] = useState("");
+  const [stepActioning, setStepActioning] = useState<string | null>(null);
 
   const fetchWorkflow = useCallback(async () => {
     if (!selectedId) return;
@@ -216,12 +227,57 @@ export function WorkflowDetailSheet() {
         },
       );
       if (action === "inject_note") setNote("");
-      // Refresh after intervention
       await fetchWorkflow();
     } catch {
       // error handled by API client
     } finally {
       setIntervening(false);
+    }
+  };
+
+  const doResume = async (withBudget = false) => {
+    if (!selectedId) return;
+    setIntervening(true);
+    try {
+      const body = withBudget ? { budget_topup: parseFloat(budgetTopup) || 0 } : {};
+      await api.post<ResumeResponse>(`/api/v1/workflows/${selectedId}/resume`, body);
+      await fetchWorkflow();
+    } catch {
+      // handled
+    } finally {
+      setIntervening(false);
+    }
+  };
+
+  const doDirectionResponse = async () => {
+    if (!selectedId || !directionInput.trim()) return;
+    setIntervening(true);
+    try {
+      await api.post(`/api/v1/workflows/${selectedId}/direction_response`, {
+        response: directionInput.trim(),
+      });
+      setDirectionInput("");
+      await fetchWorkflow();
+    } catch {
+      // handled
+    } finally {
+      setIntervening(false);
+    }
+  };
+
+  const doStepAction = async (stepId: string, action: "rerun" | "skip") => {
+    if (!selectedId) return;
+    setStepActioning(stepId);
+    try {
+      await api.post<StepActionResponse>(
+        `/api/v1/workflows/${selectedId}/steps/${stepId}/${action}`,
+        {},
+      );
+      await fetchWorkflow();
+    } catch {
+      // handled
+    } finally {
+      setStepActioning(null);
     }
   };
 
@@ -308,28 +364,55 @@ export function WorkflowDetailSheet() {
 
                     return (
                       <div key={stepId}>
-                        <button
-                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent text-left"
-                          onClick={() => hasData && toggleStep(stepId)}
-                          disabled={!hasData}
-                          aria-expanded={isExpanded}
-                          aria-label={`${STEP_LABELS[stepId] ?? stepId}: ${historyEntry ? "completed" : "pending"}`}
-                        >
-                          {stepStatusIcon(stepId, workflow)}
-                          <span className="font-medium flex-1">
-                            {STEP_LABELS[stepId] ?? stepId}
-                          </span>
-                          {historyEntry?.completed_at && (
-                            <span className="text-muted-foreground text-[10px]">
-                              {formatTime(historyEntry.completed_at as string)}
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="flex flex-1 items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent text-left"
+                            onClick={() => hasData && toggleStep(stepId)}
+                            disabled={!hasData}
+                            aria-expanded={isExpanded}
+                            aria-label={`${STEP_LABELS[stepId] ?? stepId}: ${historyEntry ? "completed" : "pending"}`}
+                          >
+                            {stepStatusIcon(stepId, workflow)}
+                            <span className="font-medium flex-1">
+                              {STEP_LABELS[stepId] ?? stepId}
                             </span>
+                            {historyEntry?.completed_at && (
+                              <span className="text-muted-foreground text-[10px]">
+                                {formatTime(historyEntry.completed_at as string)}
+                              </span>
+                            )}
+                            {hasData && (
+                              isExpanded
+                                ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </button>
+                          {/* Per-step Rerun / Skip controls */}
+                          {historyEntry && ["PAUSED", "FAILED", "OVER_BUDGET"].includes(workflow.state) && (
+                            <div className="flex gap-0.5 shrink-0">
+                              <button
+                                className="rounded p-1 text-muted-foreground hover:text-primary hover:bg-accent"
+                                title={`Rerun ${stepId}`}
+                                onClick={() => doStepAction(stepId, "rerun")}
+                                disabled={stepActioning === stepId}
+                                aria-label={`Rerun step ${STEP_LABELS[stepId] ?? stepId}`}
+                              >
+                                {stepActioning === stepId
+                                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                                  : <RefreshCw className="h-3 w-3" />}
+                              </button>
+                              <button
+                                className="rounded p-1 text-muted-foreground hover:text-amber-500 hover:bg-accent"
+                                title={`Skip ${stepId}`}
+                                onClick={() => doStepAction(stepId, "skip")}
+                                disabled={!!stepActioning}
+                                aria-label={`Skip step ${STEP_LABELS[stepId] ?? stepId}`}
+                              >
+                                <SkipForward className="h-3 w-3" />
+                              </button>
+                            </div>
                           )}
-                          {hasData && (
-                            isExpanded
-                              ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                              : <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                          )}
-                        </button>
+                        </div>
 
                         {/* Expanded step result */}
                         {isExpanded && hasData && (
@@ -354,6 +437,78 @@ export function WorkflowDetailSheet() {
                       Resume to continue with citation validation, evidence scoring, novelty
                       check, and final report.
                     </p>
+                  </div>
+                </>
+              )}
+
+              {/* WAITING_DIRECTION banner */}
+              {workflow.state === "WAITING_DIRECTION" && (
+                <>
+                  <Separator />
+                  <div className="rounded-md border border-violet-500/50 bg-violet-500/10 p-3 space-y-2">
+                    <p className="text-xs font-medium text-violet-500">Direction Check</p>
+                    <p className="text-xs text-muted-foreground">
+                      Provide research direction. Examples:
+                      <span className="block font-mono text-[10px] mt-1 space-y-0.5">
+                        <span className="block">continue</span>
+                        <span className="block">focus:BRCA1,TP53</span>
+                        <span className="block">skip_network_analysis</span>
+                        <span className="block">adjust:focus on epigenetics only</span>
+                      </span>
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={directionInput}
+                        onChange={(e) => setDirectionInput(e.target.value)}
+                        placeholder="continue"
+                        className="h-7 text-xs font-mono flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && doDirectionResponse()}
+                      />
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={intervening || !directionInput.trim()}
+                        onClick={doDirectionResponse}
+                        className="h-7 text-xs"
+                      >
+                        <Navigation className="mr-1 h-3 w-3" /> Send
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* OVER_BUDGET banner */}
+              {workflow.state === "OVER_BUDGET" && (
+                <>
+                  <Separator />
+                  <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 space-y-2">
+                    <p className="text-xs font-medium text-amber-500">Budget Exhausted</p>
+                    <p className="text-xs text-muted-foreground">
+                      Add budget to resume the workflow from where it stopped.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                      <Input
+                        type="number"
+                        min="0.5"
+                        max="50"
+                        step="0.5"
+                        value={budgetTopup}
+                        onChange={(e) => setBudgetTopup(e.target.value)}
+                        className="h-7 w-24 text-xs font-mono"
+                      />
+                      <span className="text-xs text-muted-foreground">USD top-up</span>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={intervening}
+                        onClick={() => doResume(true)}
+                        className="h-7 text-xs ml-auto"
+                      >
+                        <Play className="mr-1 h-3 w-3" /> Resume
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
@@ -430,13 +585,13 @@ export function WorkflowDetailSheet() {
                 <p className="mb-2 text-xs font-medium text-muted-foreground">
                   Interventions
                 </p>
-                <div className="flex gap-2" role="group" aria-label="Workflow intervention actions">
+                <div className="flex gap-2 flex-wrap" role="group" aria-label="Workflow intervention actions">
                   {workflow.state === "WAITING_HUMAN" && (
                     <Button
                       size="sm"
                       variant="default"
                       disabled={intervening}
-                      onClick={() => doIntervene("resume")}
+                      onClick={() => doResume()}
                       aria-label={`Approve and resume workflow ${workflow.template}`}
                     >
                       <Play className="mr-1 h-3 w-3" aria-hidden="true" /> Approve & Resume
@@ -453,18 +608,18 @@ export function WorkflowDetailSheet() {
                       <Pause className="mr-1 h-3 w-3" aria-hidden="true" /> Pause
                     </Button>
                   )}
-                  {workflow.state === "PAUSED" && (
+                  {(workflow.state === "PAUSED" || workflow.state === "FAILED") && (
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={intervening}
-                      onClick={() => doIntervene("resume")}
+                      onClick={() => doResume()}
                       aria-label={`Resume workflow ${workflow.template}`}
                     >
                       <Play className="mr-1 h-3 w-3" aria-hidden="true" /> Resume
                     </Button>
                   )}
-                  {["PENDING", "RUNNING", "PAUSED", "WAITING_HUMAN"].includes(workflow.state) && (
+                  {["PENDING", "RUNNING", "PAUSED", "WAITING_HUMAN", "WAITING_DIRECTION", "OVER_BUDGET"].includes(workflow.state) && (
                     <Button
                       size="sm"
                       variant="destructive"
@@ -478,7 +633,7 @@ export function WorkflowDetailSheet() {
                 </div>
 
                 {/* Inject Note */}
-                {["RUNNING", "PAUSED", "WAITING_HUMAN"].includes(workflow.state) && (
+                {["RUNNING", "PAUSED", "WAITING_HUMAN", "WAITING_DIRECTION"].includes(workflow.state) && (
                   <div className="mt-3 space-y-2">
                     <label htmlFor="note-action-select" className="sr-only">Note action type</label>
                     <Select value={noteAction} onValueChange={(v) => setNoteAction(v as NoteAction)}>

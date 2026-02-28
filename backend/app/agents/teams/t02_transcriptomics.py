@@ -4,14 +4,72 @@ Responsibilities:
 1. Gene expression analysis (default run)
 2. Paper screening for W1 Literature Review (SCREEN step)
 3. Data extraction from papers for W1 Literature Review (EXTRACT step)
+
+Integrations (config-gated):
+- GTEx Portal v2: tissue-level gene expression across 54 tissues (980 donors, V10)
 """
 
 from __future__ import annotations
+
+import asyncio
+import logging
+import re
 
 from app.agents.base import BaseAgent
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
+
+_GENE_PATTERN = re.compile(r"\b([A-Z][A-Z0-9]{1,7})\b")
+_GENE_STOPWORDS = {
+    "RNA", "DNA", "PCR", "WGS", "WES", "ChIP", "ATAC", "SNP", "CNV",
+    "NGS", "RBC", "WBC", "FC", "LFC", "AUC", "ROC", "CI", "OR", "HR",
+}
+
+
+def _extract_gene_candidates(text: str) -> list[str]:
+    candidates = _GENE_PATTERN.findall(text)
+    return [g for g in candidates if g not in _GENE_STOPWORDS][:5]
+
+
+async def _fetch_gtex_context(genes: list[str]) -> str:
+    """Fetch GTEx tissue expression data for gene candidates."""
+    if not genes:
+        return ""
+    parts: list[str] = []
+    try:
+        from app.integrations.gtex import GTEX_CITATION, GTExClient
+
+        client = GTExClient()
+
+        async def _fetch_one(gene: str) -> str:
+            try:
+                top = await client.get_top_expressed_tissues(gene, top_n=5)
+                if top:
+                    tissue_list = ", ".join(
+                        f"{t.get('tissueSiteDetailId','?')} (median TPM {t.get('median',0):.1f})"
+                        for t in top[:5]
+                    )
+                    return f"GTEx [{gene}] top tissues: {tissue_list}"
+            except Exception as e:
+                logger.debug("GTEx fetch failed for %s: %s", gene, e)
+            return ""
+
+        results = await asyncio.gather(*(_fetch_one(g) for g in genes[:4]))
+        for r in results:
+            if r:
+                parts.append(r)
+        if parts:
+            parts.append(f"Source: {GTEX_CITATION}")
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning("GTEx context fetch failed: %s", e)
+
+    return "\n".join(parts)
+
 
 # === Output Models ===
 
@@ -87,12 +145,30 @@ class TranscriptomicsAgent(BaseAgent):
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Answer a gene expression analysis query."""
+        task = context.task_description
+        genes = _extract_gene_candidates(task)
+        live_context = ""
+        if genes:
+            try:
+                live_context = await asyncio.wait_for(
+                    _fetch_gtex_context(genes), timeout=10.0
+                )
+            except asyncio.TimeoutError:
+                logger.debug("GTEx fetch timed out")
+
+        enrichment_block = (
+            f"\n\n--- Live Data Context (GTEx V10) ---\n{live_context}\n"
+            if live_context
+            else ""
+        )
+
         messages = [
             {
                 "role": "user",
                 "content": (
                     f"Analyze this gene expression query:\n\n"
-                    f"{context.task_description}\n\n"
+                    f"{task}"
+                    f"{enrichment_block}\n\n"
                     f"Provide a structured analysis including genes involved, "
                     f"datasets to consult, methodology, and confidence level."
                 ),
@@ -109,7 +185,7 @@ class TranscriptomicsAgent(BaseAgent):
         return self.build_output(
             output=result.model_dump(),
             output_type="GeneExpressionResult",
-            summary=result.summary[:200] if result.summary else f"Analyzed: {context.task_description[:100]}",
+            summary=result.summary[:200] if result.summary else f"Analyzed: {task[:100]}",
             llm_response=meta,
         )
 
