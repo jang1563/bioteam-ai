@@ -24,6 +24,8 @@ from app.api.v1.direct_query import router as dq_router
 from app.api.v1.integrity import router as integrity_router
 from app.api.v1.memory import router as memory_router
 from app.api.v1.negative_results import router as nr_router
+from app.api.v1.preprint_delta import router as preprint_delta_router
+from app.api.v1.preprint_delta import set_llm_layer as set_preprint_delta_llm
 from app.api.v1.rcmxt import router as rcmxt_router
 from app.api.v1.rcmxt import set_llm_layer as set_rcmxt_llm
 from app.api.v1.resume import router as resume_router
@@ -153,6 +155,9 @@ async def lifespan(app: FastAPI):
         # Wire up RCMXT scorer LLM
         set_rcmxt_llm(llm)
 
+        # Wire up Preprint Delta LLM
+        set_preprint_delta_llm(llm)
+
         # Wire up resume API
         from app.api.v1.resume import set_dependencies as set_resume_deps
         set_resume_deps(registry, engine, sse_hub=sse_hub)
@@ -280,6 +285,7 @@ app.include_router(integrity_router)
 app.include_router(memory_router)
 app.include_router(shadow_miner_router)
 app.include_router(rcmxt_router)
+app.include_router(preprint_delta_router)
 app.include_router(resume_router)
 
 
