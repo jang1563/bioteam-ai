@@ -313,6 +313,188 @@ function SearchResultCard({
   );
 }
 
+// ─── Shadow Miner Tab ─────────────────────────────────────────────────────────
+
+interface MineRunResult {
+  query: string;
+  augmented_query: string;
+  papers_fetched: number;
+  papers_classified: number;
+  negatives_found: number;
+  entries_created: number;
+  pmids_processed: string[];
+  errors: string[];
+}
+
+function ShadowMinerTab() {
+  const [query, setQuery] = useState("");
+  const [maxPapers, setMaxPapers] = useState("10");
+  const [minConf, setMinConf] = useState("0.6");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<MineRunResult | null>(null);
+  const [error, setError] = useState("");
+
+  async function handleMine() {
+    if (!query.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    setResult(null);
+    try {
+      const data = await api.post<MineRunResult>("/api/v1/shadow-miner/run", {
+        query: query.trim(),
+        max_papers: parseInt(maxPapers, 10),
+        min_confidence: parseFloat(minConf),
+      });
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Mining failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Description */}
+      <Card>
+        <CardContent className="py-4 text-sm text-muted-foreground space-y-1">
+          <p>
+            <strong className="text-foreground">Shadow Miner</strong> searches PubMed for papers
+            reporting negative or null results matching your topic, classifies each abstract with
+            an LLM (Haiku), and automatically stores confirmed negatives in the Lab KB.
+          </p>
+          <p className="text-xs opacity-70">
+            Tip: Keep &quot;Max papers&quot; ≤ 20 for reasonable response times. Each paper costs
+            ~$0.0002 in Haiku tokens.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Controls */}
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Research topic, e.g. CRISPR off-target effects in neurons"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleMine()}
+            className="flex-1"
+          />
+          <Button onClick={handleMine} disabled={!query.trim() || loading} className="shrink-0">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            {loading ? "Mining…" : "Mine PubMed"}
+          </Button>
+        </div>
+        <div className="flex gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              Max papers
+            </label>
+            <Input
+              type="number"
+              min={1}
+              max={50}
+              value={maxPapers}
+              onChange={(e) => setMaxPapers(e.target.value)}
+              className="w-20 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              Min confidence
+            </label>
+            <Input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              value={minConf}
+              onChange={(e) => setMinConf(e.target.value)}
+              className="w-20 text-sm"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="py-3 text-sm text-destructive">{error}</CardContent>
+        </Card>
+      )}
+
+      {/* Results */}
+      {result && (
+        <div className="space-y-3">
+          {/* Stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Papers fetched", value: result.papers_fetched },
+              { label: "Abstracts classified", value: result.papers_classified },
+              { label: "Negatives found", value: result.negatives_found },
+              {
+                label: "Entries created",
+                value: result.entries_created,
+                highlight: result.entries_created > 0,
+              },
+            ].map(({ label, value, highlight }) => (
+              <Card key={label} className={highlight ? "border-green-500/30 bg-green-50/30 dark:bg-green-950/20" : ""}>
+                <CardContent className="py-3 text-center">
+                  <p className={`text-2xl font-bold ${highlight ? "text-green-600" : ""}`}>{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Query info */}
+          <Card>
+            <CardContent className="py-3 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">Query:</span> {result.query}
+              </p>
+              <p className="text-xs text-muted-foreground font-mono break-all opacity-60">
+                {result.augmented_query}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Errors */}
+          {result.errors.length > 0 && (
+            <Card className="border-yellow-500/30 bg-yellow-50/30 dark:bg-yellow-950/20">
+              <CardContent className="py-3">
+                <p className="text-xs font-medium text-yellow-700 dark:text-yellow-400 mb-1">
+                  {result.errors.length} warning{result.errors.length > 1 ? "s" : ""}
+                </p>
+                {result.errors.map((e, i) => (
+                  <p key={i} className="text-xs text-muted-foreground font-mono">{e}</p>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {result.entries_created > 0 && (
+            <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+              {result.entries_created} new negative result{result.entries_created > 1 ? "s" : ""}{" "}
+              added to Lab KB. Switch to the &quot;Negative Results&quot; tab to view them.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!result && !loading && !error && (
+        <Card>
+          <CardContent className="py-14 flex flex-col items-center gap-3 text-muted-foreground">
+            <Database className="h-10 w-10 opacity-20" />
+            <p className="text-sm">Enter a research topic and click &quot;Mine PubMed&quot; to start.</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LabKBPage() {
@@ -339,6 +521,7 @@ export default function LabKBPage() {
         <TabsList>
           <TabsTrigger value="negative-results">Negative Results</TabsTrigger>
           <TabsTrigger value="semantic-search">Semantic Search</TabsTrigger>
+          <TabsTrigger value="shadow-miner">Shadow Miner</TabsTrigger>
         </TabsList>
 
         {/* ── Negative Results Tab ── */}
@@ -416,6 +599,11 @@ export default function LabKBPage() {
         {/* ── Semantic Search Tab ── */}
         <TabsContent value="semantic-search" className="mt-4">
           <SemanticSearchTab />
+        </TabsContent>
+
+        {/* ── Shadow Miner Tab ── */}
+        <TabsContent value="shadow-miner" className="mt-4">
+          <ShadowMinerTab />
         </TabsContent>
       </Tabs>
     </div>
