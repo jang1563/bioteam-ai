@@ -329,13 +329,14 @@ bioteam-ai/
 
 ## Security
 
-- **Auth**: Bearer token via `BIOTEAM_API_KEY` (empty = dev mode)
-- **SSE/Stream Auth**: Frontend issues a short-lived HMAC-signed token via `POST /api/v1/auth/stream-token` (TTL 120s) and passes it as `?token=...` for EventSource. On disconnect, the client re-issues a fresh token before reconnecting (exponential backoff).
+- **Auth**: Bearer token via `BIOTEAM_API_KEY` (empty = dev mode). Production requires `APP_ENV=production` + non-empty key.
+- **SSE/Stream Auth**: Frontend issues a short-lived HMAC-signed token via `POST /api/v1/auth/stream-token` (TTL 120s). Passed as `?token=...` for EventSource. Raw API key in SSE query param rejected (hardened Feb 2026).
 - **Rate Limiting**: Token bucket — 60 rpm global, 10 rpm expensive endpoints
 - **CORS**: Config-driven via `CORS_ORIGINS` env var
-- **Circuit Breaker**: 5 failures → 60s cooldown → probe
+- **Circuit Breaker**: 5 failures → 60s cooldown → single probe (HALF_OPEN state)
 - **Input Validation**: Pydantic + Literal types for all API inputs
-- **Citation Post-Validation**: Direct Query answers are scanned for DOI/PMID patterns; any citation not found in retrieved sources is flagged in `ungrounded_citations`
+- **Citation Post-Validation**: Direct Query answers scanned for DOI/PMID patterns and author-year references (e.g., "Smith et al. 2023"); unverified citations flagged in `ungrounded_citations`
+- **Docker Sandbox**: Agent-generated code runs in isolated containers (no network, read-only FS, memory/CPU caps, `--user nobody`)
 - **Fuzzing**: 106 security tests (SQL injection, XSS, oversized payloads)
 
 ## License
