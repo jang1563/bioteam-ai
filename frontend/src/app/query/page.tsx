@@ -28,6 +28,9 @@ import {
   Copy,
   AlertTriangle,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
 } from "lucide-react";
 import { useDirectQueryStream } from "@/hooks/use-direct-query-stream";
 import { useConversations } from "@/hooks/use-conversations";
@@ -260,58 +263,12 @@ export default function QueryPage() {
 
             {/* Streaming Progress (current turn being generated) */}
             {isActive && (
-              <Card>
-                <CardContent className="py-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Radio className="h-3 w-3 text-primary animate-pulse" />
-                    <span className="text-sm text-muted-foreground">
-                      {STATUS_LABELS[stream.status] ?? stream.status}
-                    </span>
-                  </div>
-
-                  {stream.classification && (
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={stream.classification.type === "needs_workflow" ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {stream.classification.type === "needs_workflow" ? (
-                          <>
-                            <Workflow className="mr-1 h-3 w-3" />
-                            {stream.classification.workflow_type} Recommended
-                          </>
-                        ) : (
-                          <>
-                            <Brain className="mr-1 h-3 w-3" />
-                            Direct Answer
-                          </>
-                        )}
-                      </Badge>
-                      {stream.classification.target_agent && (
-                        <Badge variant="outline" className="text-xs">
-                          <User className="mr-1 h-3 w-3" />
-                          {stream.classification.target_agent}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {stream.streamedText && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Answer</p>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {stream.streamedText}
-                        <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom" />
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <StreamingCard stream={stream} />
             )}
 
             {/* Workflow recommendation (no turns created for workflow queries) */}
             {stream.status === "done" && stream.classification && (
-              <StreamResult classification={stream.classification} />
+              <StreamResult classification={stream.classification} query={query} />
             )}
 
             {/* Empty state when no conversation and idle */}
@@ -384,6 +341,120 @@ export default function QueryPage() {
   );
 }
 
+// ─── Workflow type display metadata ──────────────────────────────────────────
+
+const WORKFLOW_META: Record<string, { label: string; description: string }> = {
+  literature_review: { label: "W1 Literature Review", description: "Full systematic review with PRISMA flow and RCMXT scoring" },
+  data_analysis: { label: "W3 Data Analysis", description: "Statistical analysis with Docker code execution" },
+  bioinformatics: { label: "W9 Bioinformatics", description: "RNA-seq / scRNA-seq / network analysis pipeline" },
+  hypothesis_generation: { label: "W2 Hypothesis Generation", description: "Multi-domain synthesis and novelty assessment" },
+  manuscript_writing: { label: "W4 Manuscript Writing", description: "Section-by-section drafting and figure planning" },
+  grant_proposal: { label: "W5 Grant Proposal", description: "Specific aims, budget, and reviewer anticipation" },
+  ambiguity_resolution: { label: "W6 Ambiguity Engine", description: "Contradiction detection and evidence synthesis" },
+  paper_review: { label: "W8 Paper Review", description: "Open peer review with RCMXT-graded critique" },
+  drug_discovery: { label: "W10 Drug Discovery", description: "Target identification and compound screening" },
+};
+
+// ─── Streaming card (live progress) ──────────────────────────────────────────
+
+const STATUS_ICONS: Record<string, string> = {
+  classifying: "Classifying query...",
+  retrieving: "Retrieving knowledge context...",
+  streaming: "Generating answer...",
+  done: "Complete",
+  error: "Error",
+};
+
+function StreamingCard({ stream }: { stream: ReturnType<typeof import("@/hooks/use-direct-query-stream").useDirectQueryStream> }) {
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+
+  return (
+    <Card>
+      <CardContent className="py-4 space-y-3">
+        {/* Status row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Radio className="h-3 w-3 text-primary animate-pulse" />
+            <span className="text-sm text-muted-foreground">
+              {STATUS_ICONS[stream.status] ?? stream.status}
+            </span>
+          </div>
+          {stream.sources.length > 0 && (
+            <button
+              onClick={() => setSourcesOpen((o) => !o)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <BookOpen className="h-3 w-3" />
+              {stream.sources.length} sources
+              {sourcesOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          )}
+        </div>
+
+        {/* Classification badge */}
+        {stream.classification && (
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={stream.classification.type === "needs_workflow" ? "default" : "secondary"}
+              className="text-xs"
+            >
+              {stream.classification.type === "needs_workflow" ? (
+                <>
+                  <Workflow className="mr-1 h-3 w-3" />
+                  {stream.classification.workflow_type
+                    ? WORKFLOW_META[stream.classification.workflow_type]?.label ?? stream.classification.workflow_type
+                    : "Workflow"} Recommended
+                </>
+              ) : (
+                <>
+                  <Brain className="mr-1 h-3 w-3" />
+                  Direct Answer
+                </>
+              )}
+            </Badge>
+            {stream.classification.target_agent && (
+              <Badge variant="outline" className="text-xs">
+                <User className="mr-1 h-3 w-3" />
+                {stream.classification.target_agent}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* Collapsible live sources preview */}
+        {sourcesOpen && stream.sources.length > 0 && (
+          <div className="rounded border border-border bg-muted/30 p-2 space-y-1">
+            {stream.sources.slice(0, 5).map((src, i) => (
+              <div key={i} className="text-xs text-muted-foreground truncate">
+                <span className="font-medium text-foreground">
+                  {src.title ? String(src.title) : "(No title)"}
+                </span>
+                {Boolean(src.year) && <span className="ml-1">({String(src.year)})</span>}
+              </div>
+            ))}
+            {stream.sources.length > 5 && (
+              <p className="text-xs text-muted-foreground">+{stream.sources.length - 5} more…</p>
+            )}
+          </div>
+        )}
+
+        {/* Live answer text */}
+        {stream.streamedText && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">Answer</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {stream.streamedText}
+              <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom" />
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Completed turn card ──────────────────────────────────────────────────────
+
 function TurnCard({ turn }: { turn: ConversationTurn }) {
   const [copied, setCopied] = useState(false);
 
@@ -448,20 +519,50 @@ function TurnCard({ turn }: { turn: ConversationTurn }) {
 
 function StreamResult({
   classification,
+  query,
 }: {
   classification: { type: string; reasoning: string; target_agent: string | null; workflow_type: string | null };
+  query: string;
 }) {
   if (classification.type !== "needs_workflow") return null;
 
+  const meta = classification.workflow_type
+    ? WORKFLOW_META[classification.workflow_type]
+    : null;
+
+  const missionControlUrl = `/`;
+
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="rounded-md border border-border bg-accent/50 p-3">
-          <p className="text-xs font-medium mb-1">Recommended Workflow</p>
-          <p className="text-sm">
-            This question requires a <strong>{classification.workflow_type}</strong> workflow for
-            comprehensive analysis. Create one from the{" "}
-            <Link href="/" className="text-primary underline">Mission Control</Link> page.
+    <Card className="border-primary/20 bg-primary/5">
+      <CardContent className="py-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-md bg-primary/10 p-1.5">
+            <Workflow className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">
+              {meta ? meta.label : classification.workflow_type ?? "Workflow"} Recommended
+            </p>
+            {meta && (
+              <p className="text-xs text-muted-foreground mt-0.5">{meta.description}</p>
+            )}
+            {classification.reasoning && (
+              <p className="text-xs text-muted-foreground mt-1 italic">
+                &ldquo;{classification.reasoning}&rdquo;
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={missionControlUrl}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Create Workflow
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            Launch from Mission Control with your query pre-loaded
           </p>
         </div>
       </CardContent>
@@ -509,8 +610,12 @@ function SourcesList({ sources }: { sources: Record<string, unknown>[] }) {
                         <p className="text-xs font-medium truncate">{String(src.title)}</p>
                       )
                     ) : null}
-                    {authors && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{authors}</p>
+                    {(authors || Boolean(src.journal)) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {authors}
+                        {authors && src.journal ? " · " : ""}
+                        {src.journal ? <em>{String(src.journal)}</em> : null}
+                      </p>
                     )}
                     {src.content_snippet ? (
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
