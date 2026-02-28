@@ -287,6 +287,7 @@ export interface ConversationTurn {
   routed_agent: string | null;
   answer: string | null;
   sources: Record<string, unknown>[];
+  ungrounded_citations?: string[];
   cost: number;
   duration_ms: number;
   created_at: string;

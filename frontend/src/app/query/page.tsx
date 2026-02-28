@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,9 @@ import {
   Pencil,
   Check,
   X,
+  Copy,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { useDirectQueryStream } from "@/hooks/use-direct-query-stream";
 import { useConversations } from "@/hooks/use-conversations";
@@ -42,6 +45,7 @@ export default function QueryPage() {
   const [query, setQuery] = useState("");
   const stream = useDirectQueryStream();
   const convs = useConversations();
+  const scrollBottomRef = useRef<HTMLDivElement>(null);
 
   // Active conversation state
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -50,6 +54,11 @@ export default function QueryPage() {
   const [editTitle, setEditTitle] = useState("");
 
   const isActive = stream.status !== "idle" && stream.status !== "done" && stream.status !== "error";
+
+  // Auto-scroll to bottom when turns update or streaming
+  useEffect(() => {
+    scrollBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeTurns.length, isActive]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -73,6 +82,7 @@ export default function QueryPage() {
               routed_agent: data.routed_agent ?? null,
               answer: data.answer ?? (stream.streamedText || null),
               sources: data.sources ?? [],
+              ungrounded_citations: data.ungrounded_citations ?? [],
               cost: data.total_cost ?? 0,
               duration_ms: data.duration_ms ?? 0,
               created_at: new Date().toISOString(),
@@ -313,6 +323,7 @@ export default function QueryPage() {
                 </div>
               </div>
             )}
+            <div ref={scrollBottomRef} />
           </div>
         </ScrollArea>
 
@@ -374,6 +385,16 @@ export default function QueryPage() {
 }
 
 function TurnCard({ turn }: { turn: ConversationTurn }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    const md = `**Q:** ${turn.query}\n\n**A:** ${turn.answer ?? ""}`;
+    void navigator.clipboard.writeText(md).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [turn.query, turn.answer]);
+
   return (
     <div className="space-y-2">
       {/* User query */}
@@ -386,21 +407,37 @@ function TurnCard({ turn }: { turn: ConversationTurn }) {
       {turn.answer && (
         <Card>
           <CardContent className="py-3 space-y-3">
-            <div className="flex items-center gap-2 mb-1">
-              {turn.routed_agent && (
-                <Badge variant="outline" className="text-xs">
-                  <User className="mr-1 h-3 w-3" />
-                  {turn.routed_agent}
-                </Badge>
-              )}
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />${turn.cost.toFixed(4)}
-              </span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />{(turn.duration_ms / 1000).toFixed(1)}s
-              </span>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                {turn.routed_agent && (
+                  <Badge variant="outline" className="text-xs">
+                    <User className="mr-1 h-3 w-3" />
+                    {turn.routed_agent}
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />${turn.cost.toFixed(4)}
+                </span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />{(turn.duration_ms / 1000).toFixed(1)}s
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleCopy}>
+                {copied ? <Check className="h-3 w-3 mr-1 text-emerald-500" /> : <Copy className="h-3 w-3 mr-1" />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
             </div>
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{turn.answer}</p>
+            {(turn.ungrounded_citations?.length ?? 0) > 0 && (
+              <div className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-medium">Unverified citations</span> — the following
+                  identifiers in the answer could not be matched to retrieved sources:{" "}
+                  <span className="font-mono">{turn.ungrounded_citations!.join(", ")}</span>
+                </div>
+              </div>
+            )}
             <SourcesList sources={turn.sources} />
           </CardContent>
         </Card>
@@ -444,35 +481,77 @@ function SourcesList({ sources }: { sources: Record<string, unknown>[] }) {
           Sources ({sources.length})
         </p>
         <div className="space-y-1.5">
-          {sources.map((src, i) => (
-            <div key={i} className="rounded border border-border bg-accent/20 p-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  {src.title ? (
-                    <p className="text-xs font-medium truncate">{String(src.title)}</p>
-                  ) : null}
-                  {src.content_snippet ? (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {String(src.content_snippet)}
-                    </p>
-                  ) : null}
+          {sources.map((src, i) => {
+            const doi = src.doi ? String(src.doi) : null;
+            const pmid = src.pmid ? String(src.pmid) : null;
+            const doiUrl = doi ? `https://doi.org/${doi}` : null;
+            const pmidUrl = pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` : null;
+            const authors = Array.isArray(src.authors)
+              ? (src.authors as string[]).slice(0, 3).join(", ") + (src.authors.length > 3 ? " et al." : "")
+              : null;
+
+            return (
+              <div key={i} className="rounded border border-border bg-accent/20 p-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    {src.title ? (
+                      doiUrl ? (
+                        <a
+                          href={doiUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium hover:underline text-foreground flex items-center gap-1 group"
+                        >
+                          <span className="truncate">{String(src.title)}</span>
+                          <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-0 group-hover:opacity-70" />
+                        </a>
+                      ) : (
+                        <p className="text-xs font-medium truncate">{String(src.title)}</p>
+                      )
+                    ) : null}
+                    {authors && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{authors}</p>
+                    )}
+                    {src.content_snippet ? (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {String(src.content_snippet)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {src.year ? (
+                      <Badge variant="outline" className="text-xs">{String(src.year)}</Badge>
+                    ) : null}
+                    {src.source_type ? (
+                      <Badge variant="secondary" className="text-xs">{String(src.source_type)}</Badge>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {src.year ? (
-                    <Badge variant="outline" className="text-xs">{String(src.year)}</Badge>
-                  ) : null}
-                  {src.source_type ? (
-                    <Badge variant="secondary" className="text-xs">{String(src.source_type)}</Badge>
-                  ) : null}
+                <div className="flex items-center gap-2 mt-1">
+                  {doiUrl && (
+                    <a
+                      href={doiUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground hover:text-primary font-mono flex items-center gap-0.5"
+                    >
+                      DOI: {doi}
+                    </a>
+                  )}
+                  {pmidUrl && (
+                    <a
+                      href={pmidUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground hover:text-primary flex items-center gap-0.5"
+                    >
+                      PMID: {pmid}
+                    </a>
+                  )}
                 </div>
               </div>
-              {src.doi ? (
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  DOI: {String(src.doi)}
-                </p>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </>

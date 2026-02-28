@@ -1,5 +1,6 @@
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
+aiosmtplib==5.1.0
 aiosignal==1.4.0
 alembic==1.18.4
 annotated-doc==0.0.4
@@ -11,6 +12,7 @@ backoff==2.2.1
 bcrypt==5.0.0
 biopython==1.86
 build==1.4.0
+celery==5.6.2
 certifi==2026.1.4
 charset-normalizer==3.4.4
 chromadb==1.5.0
@@ -38,6 +40,7 @@ httptools==0.7.1
 httpx==0.28.1
 huggingface_hub==1.4.1
 idna==3.11
+ImageHash==4.3.2
 importlib_metadata==8.7.1
 importlib_resources==6.5.2
 iniconfig==2.3.0
@@ -72,6 +75,7 @@ overrides==7.7.0
 packaging==25.0
 pluggy==1.6.0
 posthog==5.4.0
+PyMuPDF==1.27.1
 propcache==0.4.1
 protobuf==6.33.5
 pybase64==1.4.3
