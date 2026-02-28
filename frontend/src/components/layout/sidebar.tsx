@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   Users,
   FileSearch,
+  Network,
+  BarChart3,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,10 +27,13 @@ import { useAppStore } from "@/stores/app-store";
 const navItems = [
   { href: "/", label: "Mission Control", icon: LayoutDashboard },
   { href: "/agents", label: "Team", icon: Users },
+  { href: "/teams", label: "Research Teams", icon: Network },
   { href: "/query", label: "Direct Query", icon: MessageSquare },
   { href: "/digest", label: "Research Digest", icon: Newspaper },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/lab-kb", label: "Lab KB", icon: FlaskConical },
+  { href: "/quality", label: "Quality", icon: BarChart3 },
+  { href: "/evidence", label: "Evidence", icon: Layers },
   { href: "/integrity", label: "Integrity", icon: ShieldCheck },
   { href: "/peer-review", label: "Peer Review", icon: FileSearch },
   { href: "/settings", label: "Settings", icon: Settings },
