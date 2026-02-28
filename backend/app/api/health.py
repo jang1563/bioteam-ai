@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-VERSION = "0.6.0"
+VERSION = "0.8.0"
 
 
 class HealthStatus(BaseModel):
@@ -111,6 +111,18 @@ async def health_check() -> HealthStatus:
             has_warning = True
     except Exception:
         checks["cost_tracker"] = {"status": "ok", "detail": f"default (${50.0:.2f} budget)"}
+
+    # 7. Optional features (informational — never cause unhealthy)
+    checks["peer_review_corpus"] = {
+        "status": "ok" if settings.peer_review_corpus_enabled else "disabled",
+        "detail": "eLife/PLOS open peer review corpus (Phase 6)"
+        + (" — enabled" if settings.peer_review_corpus_enabled else " — set PEER_REVIEW_CORPUS_ENABLED=true to activate"),
+    }
+    checks["mcp_connectors"] = {
+        "status": "ok" if settings.mcp_enabled else "disabled",
+        "detail": f"preferred_sources={settings.mcp_preferred_sources}"
+        + ("" if settings.mcp_enabled else " — set MCP_ENABLED=true to activate"),
+    }
 
     # Build simplified dependencies map for frontend
     dependencies = {name: check["status"] for name, check in checks.items()}
