@@ -169,13 +169,35 @@ class ELifeXMLClient:
     # Public API
     # ------------------------------------------------------------------
 
-    async def fetch_article(self, article_id: str) -> ELifeArticle | None:
+    async def fetch_article(
+        self,
+        article_id: str,
+        meta: dict | None = None,
+    ) -> ELifeArticle | None:
         """Fetch and parse a single eLife article by its numeric ID.
 
-        Returns None if the article is not found or XML is malformed.
+        Resolves the correct CDN XML URL from the API metadata (to avoid 406
+        errors from the legacy elifesciences.org/articles/{id}.xml redirect).
+
+        Args:
+            article_id: eLife article numeric ID (string or int).
+            meta: Pre-fetched API metadata dict. If None, fetches it now.
+
+        Returns:
+            Parsed ELifeArticle, or None if not found / XML unavailable.
         """
         article_id = str(article_id).lstrip("0") or "0"
-        xml_url = f"{self.XML_BASE}/{article_id}.xml"
+
+        # Resolve correct XML URL via API metadata
+        if meta is None:
+            meta = await self.fetch_article_metadata(article_id)
+
+        # Prefer the versioned CDN URL from the API (avoids legacy redirect 406s)
+        xml_url = meta.get("xml") if meta else None
+        if not xml_url:
+            # Fallback: try the classic URL pattern
+            xml_url = f"{self.XML_BASE}/{article_id}.xml"
+
         try:
             resp = await self._get(xml_url)
         except httpx.HTTPError as e:
@@ -293,8 +315,30 @@ class ELifeXMLClient:
                 except ValueError:
                     pass
 
-                # Fetch full XML to check for decision letter
-                article = await self.fetch_article(article_id)
+                # Fast pre-filter via JSON API: check for decision letter presence
+                # and get the correct CDN XML URL in one call.
+                meta = await self.fetch_article_metadata(article_id)
+                if not meta:
+                    continue
+
+                # Re-check article type (list endpoint may include mixed types)
+                if meta.get("type", "") not in ("research-article", "short-report", "research-advance"):
+                    continue
+
+                # Skip if API indicates no decision letter exists
+                if "decisionLetter" not in meta:
+                    continue
+                if require_author_response and "authorResponse" not in meta:
+                    continue
+
+                # Subject filter (re-check from metadata if specified)
+                if subject:
+                    meta_subjects = [s.get("id", "").lower() for s in meta.get("subjects", [])]
+                    if not any(subject.lower() in s for s in meta_subjects):
+                        continue
+
+                # Fetch full XML — pass meta so fetch_article uses the correct CDN URL
+                article = await self.fetch_article(article_id, meta=meta)
                 if article is None:
                     continue
 
