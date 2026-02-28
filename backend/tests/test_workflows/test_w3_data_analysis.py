@@ -374,7 +374,7 @@ def test_run_agent_step_triggers_docker_for_execute_step():
     with (
         patch(_DOCKER_RUNNER_PATH) as MockRunner,
         patch("app.workflows.runners.w3_data_analysis.settings") as mock_settings,
-        patch("app.workflows.runners.w3_data_analysis.NoteProcessor") as mock_np,
+        patch("app.workflows.note_processor.NoteProcessor") as mock_np,
     ):
         mock_settings.docker_enabled = True
         mock_settings.docker_timeout_seconds = 120
@@ -416,7 +416,7 @@ def test_run_agent_step_skips_docker_for_non_execute_steps():
 
     with (
         patch("app.workflows.runners.w3_data_analysis.settings") as mock_settings,
-        patch("app.workflows.runners.w3_data_analysis.NoteProcessor") as mock_np,
+        patch("app.workflows.note_processor.NoteProcessor") as mock_np,
     ):
         mock_settings.docker_enabled = True
         mock_np.get_pending_notes.return_value = []
@@ -449,7 +449,7 @@ def test_run_agent_step_skips_docker_when_disabled():
 
     with (
         patch("app.workflows.runners.w3_data_analysis.settings") as mock_settings,
-        patch("app.workflows.runners.w3_data_analysis.NoteProcessor") as mock_np,
+        patch("app.workflows.note_processor.NoteProcessor") as mock_np,
     ):
         mock_settings.docker_enabled = False
         mock_np.get_pending_notes.return_value = []
