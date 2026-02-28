@@ -333,41 +333,51 @@ All 9 workflows (W1-W9) and all 18+ agents were implemented ahead of schedule. A
 
 ---
 
-## Next Steps (Updated 2026-02-27)
+## Next Steps (Updated 2026-02-28)
 
-### Immediate Priority: W9 + Open Peer Review Corpus Stabilization
+### Completed Since Last Update ✅
 
-The most recently added features (W9, Open Peer Review Corpus) have the least test coverage. Stabilize before moving to new features:
+- **W9 Docker sandbox tests** — 13 new tests added to `test_w9_runner.py` (commit 6dbf874)
+- **W3 Docker sandbox tests** — 10 new tests added to `test_w3_data_analysis.py` (commit d3a3bf1)
+- **Peer Review Corpus enabled** — `peer_review_corpus_enabled = True` in config (commit 6dbf874)
+- **Auth hardening** — SSE raw key removed; author-year citation validation; prod env guard (commit 6471a09)
+- **Full test suite** — 1648 passed, 0 failed (celery, PyMuPDF, ImageHash, aiosmtplib deps resolved)
+- **Frontend Phase 2 panels** — Teams, Quality, Evidence pages implemented (commit 72c2b4d)
+- **Docker code execution** — `DockerCodeRunner` fully implemented in `docker_runner.py` (commit eb330be)
+- **RCMXT annotation guidelines** — `docs/publication/rcmxt_annotation_guidelines.md` with per-axis rubrics and 3 anchor examples per axis (commit c764877)
 
-1. **W9 Bioinformatics tests** — `test_w9_runner.py` exists but needs validation with MockLLMLayer; ensure all 10 steps pass offline
-2. **Open Peer Review Corpus tests** — eLife XML parser, concern parser, benchmark runner need integration test coverage
-3. **Enable `peer_review_corpus_enabled = True`** in config once stable, add to health check
+### Publication Workstream (in progress — critical for papers)
 
-### Near-Term: Code Execution Sandbox (Phase 2 Blocker)
+Annotation guidelines written. Remaining steps to unblock Paper 1 (RCMXT):
 
-The code sandbox is the biggest missing feature from the original plan. Agents can generate Python/R code but cannot execute it:
-
-1. `backend/app/execution/docker_runner.py` — implement `DockerCodeRunner` for Python/R/Nextflow
-2. `Dockerfile.rnaseq`, `Dockerfile.singlecell`, `Dockerfile.genomics` — base images
-3. W3 (Data Analysis) and W9 (Bioinformatics) depend on this for real scientific value
-
-### Publication Workstream Start (0% progress, critical for papers)
-
-The publication workstream has not started. To unblock Paper 1 (RCMXT):
-
-1. Write RCMXT annotation guidelines (per-axis rubric with 3 anchor examples per axis)
+1. ✅ Write RCMXT annotation guidelines (per-axis rubric with 3 anchor examples per axis)
 2. Identify 5 domain expert candidates (lab colleagues at Weill Cornell Medicine)
-3. Begin curating 150 biological claims (50 spaceflight × 50 cancer genomics × 50 neuroscience)
+3. The 150-claim benchmark (`rcmxt_150_claims.json`) is ready — recruit annotators
 4. File IRB determination at Weill Cornell Medicine (for user study, Paper 4)
 5. Preregister calibration protocol on OSF (Week 8 target)
 
-### Next Feature: Frontend Phase 2 Panels
+### Next Feature: W9 Bioinformatics Full Integration
 
-The frontend currently has 3 panels (Mission Control, Projects, Lab KB). Phase 2 panels add research value:
+W9 generates code but Docker execution in the EXECUTE step needs end-to-end validation:
 
-1. **Teams panel** — per-team status, active agent list, recent outputs
-2. **Quality panel** — QA agent review results, RCMXT scores, contradiction flags
-3. **Evidence Explorer** — browse extracted claims with provenance and RCMXT scores
+1. Build bioinformatics Docker images: `make sandbox-build-python`, `make sandbox-build-rnaseq`
+2. Run W9 manually end-to-end with a small RNA-seq dataset
+3. Verify REPORT step output matches `SessionManifest` schema
+
+### Next Feature: Frontend Query Page Improvements
+
+The `/query` page is the primary user interface. Possible improvements:
+- Citation source cards with RCMXT scores inline
+- Streaming citation validation status (ungrounded citations highlighted in real time)
+- W1/W3/W9 workflow selector on the query page
+
+### Deferred (Phase 4):
+
+- Celery/Redis task queue (asyncio.gather sufficient for current scale)
+- HPC runner (SSH + Slurm)
+- PostgreSQL migration
+- OAuth 2.0 / NextAuth.js (dev mode auth sufficient for personal use)
+- Vercel cloud deployment
 
 ### Deferred (Phase 4):
 
