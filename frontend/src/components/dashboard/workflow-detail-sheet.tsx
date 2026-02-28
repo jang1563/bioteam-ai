@@ -104,6 +104,35 @@ const STEP_LABELS: Record<string, string> = {
   CLASSIFY: "Contradiction Classification",
   MINE_NEGATIVES: "Negative Results Mining",
   RESOLUTION_HYPOTHESES: "Resolution Hypotheses",
+  // W8 steps
+  PARSE_SECTIONS: "Parse Sections",
+  EXTRACT_CLAIMS: "Claim Extraction",
+  CITE_VALIDATION: "Citation Validation",
+  BACKGROUND_LIT: "Background Literature",
+  NOVELTY_CHECK_W8: "Novelty Assessment",
+  METHODOLOGY_REVIEW: "Methodology Review",
+  EVIDENCE_GRADE: "Evidence Grading (RCMXT)",
+  HUMAN_CHECKPOINT: "Human Checkpoint",
+  SYNTHESIZE_REVIEW: "Synthesize Review",
+  // W9 steps
+  PRE_HEALTH_CHECK: "Health Check",
+  INGEST_DATA: "Data Ingest",
+  GENOMIC_ANALYSIS: "Genomic Analysis (Ensembl/GWAS)",
+  EXPRESSION_ANALYSIS: "Expression Analysis (GTEx)",
+  PROTEIN_ANALYSIS: "Protein Analysis (UniProt)",
+  VARIANT_ANNOTATION: "Variant Annotation (VEP)",
+  PATHWAY_ENRICHMENT: "Pathway Enrichment (GO/KEGG)",
+  NETWORK_ANALYSIS: "Network Analysis (STRING)",
+  DC_PHASE_B: "Direction Check — Phase B",
+  CROSS_OMICS_INTEGRATION: "Cross-Omics Integration",
+  HC_INTEGRATION: "Human Checkpoint — Integration",
+  LITERATURE_COMPARISON: "Literature Comparison",
+  NOVELTY_ASSESSMENT: "Novelty Assessment",
+  CONTRADICTION_SCAN: "Contradiction Scan",
+  INTEGRITY_AUDIT: "Integrity Audit",
+  DC_NOVELTY: "Direction Check — Novelty",
+  EXPERIMENTAL_DESIGN: "Experimental Design",
+  GRANT_RELEVANCE: "Grant Relevance",
 };
 
 const WORKFLOW_STEPS: Record<string, string[]> = {
@@ -130,6 +159,20 @@ const WORKFLOW_STEPS: Record<string, string[]> = {
   ],
   W6: [
     "EVIDENCE_LANDSCAPE", "CLASSIFY", "MINE_NEGATIVES", "RESOLUTION_HYPOTHESES", "PRESENT",
+  ],
+  W8: [
+    "INGEST", "PARSE_SECTIONS", "EXTRACT_CLAIMS", "CITE_VALIDATION", "BACKGROUND_LIT",
+    "INTEGRITY_AUDIT", "CONTRADICTION_CHECK", "METHODOLOGY_REVIEW", "EVIDENCE_GRADE",
+    "HUMAN_CHECKPOINT", "SYNTHESIZE_REVIEW", "REPORT",
+  ],
+  W9: [
+    "PRE_HEALTH_CHECK", "SCOPE", "INGEST_DATA", "QC",
+    "GENOMIC_ANALYSIS", "EXPRESSION_ANALYSIS", "PROTEIN_ANALYSIS",
+    "VARIANT_ANNOTATION", "PATHWAY_ENRICHMENT", "NETWORK_ANALYSIS", "DC_PHASE_B",
+    "CROSS_OMICS_INTEGRATION", "HC_INTEGRATION",
+    "LITERATURE_COMPARISON", "NOVELTY_ASSESSMENT", "CONTRADICTION_SCAN",
+    "INTEGRITY_AUDIT", "DC_NOVELTY",
+    "EXPERIMENTAL_DESIGN", "GRANT_RELEVANCE", "REPORT",
   ],
 };
 
