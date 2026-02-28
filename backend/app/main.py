@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from app import __version__
 from app.api.health import router as health_router
 from app.api.v1.agents import router as agents_router
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.backup import router as backup_router
 from app.api.v1.cold_start import router as cold_start_router
@@ -21,12 +22,13 @@ from app.api.v1.conversations import router as conversations_router
 from app.api.v1.digest import router as digest_router
 from app.api.v1.direct_query import router as dq_router
 from app.api.v1.integrity import router as integrity_router
-from app.api.v1.analytics import router as analytics_router
 from app.api.v1.memory import router as memory_router
+from app.api.v1.negative_results import router as nr_router
+from app.api.v1.rcmxt import router as rcmxt_router
+from app.api.v1.rcmxt import set_llm_layer as set_rcmxt_llm
+from app.api.v1.resume import router as resume_router
 from app.api.v1.shadow_miner import router as shadow_miner_router
 from app.api.v1.shadow_miner import set_llm_layer as set_shadow_miner_llm
-from app.api.v1.negative_results import router as nr_router
-from app.api.v1.resume import router as resume_router
 from app.api.v1.sse import router as sse_router
 from app.api.v1.workflows import router as workflows_router
 from app.db.database import create_db_and_tables
@@ -147,6 +149,9 @@ async def lifespan(app: FastAPI):
 
         # Wire up Shadow Miner LLM
         set_shadow_miner_llm(llm)
+
+        # Wire up RCMXT scorer LLM
+        set_rcmxt_llm(llm)
 
         # Wire up resume API
         from app.api.v1.resume import set_dependencies as set_resume_deps
@@ -274,6 +279,7 @@ app.include_router(analytics_router)
 app.include_router(integrity_router)
 app.include_router(memory_router)
 app.include_router(shadow_miner_router)
+app.include_router(rcmxt_router)
 app.include_router(resume_router)
 
 
