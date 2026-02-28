@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { X, Send, Radio, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -64,25 +64,31 @@ function loadMessages(id: string): ChatMessage[] {
 }
 
 export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    agentId ? loadMessages(agentId) : [],
+  );
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [wasRestored, setWasRestored] = useState(false);
+  const [wasRestored, setWasRestored] = useState(() =>
+    agentId ? loadMessages(agentId).length > 0 : false,
+  );
 
   const { agent } = useAgentDetail(agentId);
   const { status, streamedText, error, execute } = useAgentStream(agentId);
 
-  // Load stored messages when the agent changes
-  useEffect(() => {
+  // Adjust state when agentId prop changes (React-recommended render-time pattern)
+  const [prevAgentId, setPrevAgentId] = useState(agentId);
+  if (agentId !== prevAgentId) {
+    setPrevAgentId(agentId);
     if (!agentId) {
       setMessages([]);
       setWasRestored(false);
-      return;
+    } else {
+      const stored = loadMessages(agentId);
+      setMessages(stored);
+      setWasRestored(stored.length > 0);
     }
-    const stored = loadMessages(agentId);
-    setMessages(stored);
-    setWasRestored(stored.length > 0);
-  }, [agentId]);
+  }
 
   const saveToStorage = useCallback((msgs: ChatMessage[]) => {
     if (typeof window === "undefined" || !agentId) return;
