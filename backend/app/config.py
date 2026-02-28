@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     mcp_icd10_url: str = "https://mcp.deepsense.ai/icd10/mcp"
     mcp_preferred_sources: str = "pubmed,biorxiv"  # Comma-separated active sources
 
+    # Code Execution Sandbox (Docker)
+    docker_enabled: bool = True   # Set False to skip Docker sandbox (agents output code only)
+    docker_timeout_seconds: int = 120   # Per-run timeout (max 600)
+    docker_memory_limit: str = "512m"   # Container RAM cap
+    docker_cpu_limit: str = "1.0"       # Container CPU cap
+    docker_image_python: str = "python:3.12-slim"   # Override with bioteam-python-analysis for full packages
+    docker_image_r: str = "r-base:4.4"              # Override with bioteam-rnaseq for Bioconductor
+
     # Programmatic Tool Calling (PTC)
     ptc_enabled: bool = False  # Enable PTC for multi-tool orchestration
     ptc_container_reuse: bool = True  # Reuse sandbox containers within a workflow

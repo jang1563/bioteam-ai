@@ -112,7 +112,19 @@ async def health_check() -> HealthStatus:
     except Exception:
         checks["cost_tracker"] = {"status": "ok", "detail": f"default (${50.0:.2f} budget)"}
 
-    # 7. Optional features (informational — never cause unhealthy)
+    # 7. Docker sandbox
+    if settings.docker_enabled:
+        from app.execution.docker_runner import DockerCodeRunner
+        runner = DockerCodeRunner()
+        if runner.is_available():
+            checks["docker"] = {"status": "ok", "detail": f"sandbox ready (timeout={settings.docker_timeout_seconds}s, mem={settings.docker_memory_limit})"}
+        else:
+            checks["docker"] = {"status": "warning", "detail": "Docker daemon not running — code execution unavailable (set DOCKER_ENABLED=false to suppress)"}
+            has_warning = True
+    else:
+        checks["docker"] = {"status": "disabled", "detail": "set DOCKER_ENABLED=true to enable code execution sandbox"}
+
+    # 8. Optional features (informational — never cause unhealthy)
     checks["peer_review_corpus"] = {
         "status": "ok" if settings.peer_review_corpus_enabled else "disabled",
         "detail": "eLife/PLOS open peer review corpus (Phase 6)"

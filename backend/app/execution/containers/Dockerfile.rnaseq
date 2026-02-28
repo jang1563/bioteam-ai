@@ -1,0 +1,42 @@
+# BioTeam-AI: RNA-seq analysis sandbox (R-based)
+# Includes: DESeq2, edgeR, limma, ggplot2, dplyr, pheatmap, clusterProfiler
+# Usage: docker build -f Dockerfile.rnaseq -t bioteam-rnaseq .
+# Security: run as nobody, no network, read-only rootfs
+# Note: Build takes ~15 min due to Bioconductor packages. Build once, use many times.
+
+FROM bioconductor/bioconductor_docker:RELEASE_3_20
+
+# System deps for R packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# CRAN packages
+RUN Rscript -e "install.packages(c( \
+    'ggplot2', \
+    'dplyr', \
+    'tidyr', \
+    'pheatmap', \
+    'RColorBrewer', \
+    'ggrepel', \
+    'cowplot', \
+    'data.table' \
+), repos='https://cran.r-project.org', quiet=TRUE)"
+
+# Bioconductor packages
+RUN Rscript -e "BiocManager::install(c( \
+    'DESeq2', \
+    'edgeR', \
+    'limma', \
+    'clusterProfiler', \
+    'org.Hs.eg.db', \
+    'AnnotationDbi', \
+    'GenomicFeatures', \
+    'Biostrings' \
+), ask=FALSE)"
+
+RUN mkdir -p /workspace
+USER nobody
+WORKDIR /workspace
