@@ -176,6 +176,7 @@ export default function DrugDiscoveryPage() {
   const [error, setError] = useState<string>("");
   const [reportCopied, setReportCopied] = useState(false);
   const [waitingHuman, setWaitingHuman] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const sseRef = useRef<EventSource | null>(null);
 
   const completedCount = Object.values(stepStatuses).filter(
@@ -320,6 +321,79 @@ export default function DrugDiscoveryPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function handleResume() {
+    if (!workflowId || resuming) return;
+    setResuming(true);
+    setError("");
+    try {
+      await api.post(`/api/v1/workflows/${workflowId}/intervene`, { action: "resume" });
+      setWaitingHuman(false);
+      setRunning(true);
+
+      // Re-subscribe to SSE for the resumed pipeline
+      stopSSE();
+      const token = typeof window !== "undefined" ? localStorage.getItem("bioteam_api_key") : null;
+      const sseUrl = `/api/v1/sse/workflow/${workflowId}${token ? `?token=${token}` : ""}`;
+      const es = new EventSource(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}${sseUrl}`,
+      );
+      sseRef.current = es;
+
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const etype = data.event_type as string;
+          if (etype === "workflow.step_started" || etype === "workflow.step_start") {
+            const sid = data.step_id as string;
+            setStepStatuses((prev) => ({ ...prev, [sid]: { state: "running" } }));
+          } else if (etype === "workflow.step_completed" || etype === "workflow.step_complete") {
+            const sid = data.step_id as string;
+            const payload = data.payload ?? {};
+            setStepStatuses((prev) => ({
+              ...prev,
+              [sid]: {
+                state: "completed",
+                summary: payload.summary as string | undefined,
+                duration_ms: payload.duration_ms as number | undefined,
+              },
+            }));
+          } else if (etype === "workflow.step_failed" || etype === "workflow.step_error") {
+            const sid = data.step_id as string;
+            setStepStatuses((prev) => ({
+              ...prev,
+              [sid]: { state: "failed", summary: data.payload?.error as string | undefined },
+            }));
+          } else if (etype === "workflow.waiting_human" || etype === "workflow.human_checkpoint") {
+            setWaitingHuman(true);
+          } else if (etype === "workflow.direction_check") {
+            const sid = data.step_id as string;
+            setStepStatuses((prev) => ({
+              ...prev,
+              [sid]: { state: "completed", summary: "Direction check — auto-continuing" },
+            }));
+          } else if (etype === "workflow.completed") {
+            stopSSE();
+            fetchReport(workflowId);
+          } else if (etype === "workflow.failed") {
+            stopSSE();
+            setError(data.payload?.error ?? "Workflow failed");
+            setRunning(false);
+          }
+        } catch {
+          // non-JSON SSE, ignore
+        }
+      };
+      es.onerror = () => {
+        stopSSE();
+        fetchReport(workflowId);
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resume workflow");
+    } finally {
+      setResuming(false);
+    }
+  }
+
   const hasReport = markdownReport.length > 0;
 
   return (
@@ -393,17 +467,31 @@ export default function DrugDiscoveryPage() {
           {/* Human checkpoint notification */}
           {waitingHuman && (
             <Card className="border-amber-500/50 bg-amber-500/10">
-              <CardContent className="pt-4 flex items-start gap-2">
-                <Pause className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                    Human Checkpoint (SCOPE)
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Review the scope definition and resume from the dashboard
-                    or resume API.
-                  </p>
+              <CardContent className="pt-4">
+                <div className="flex items-start gap-2">
+                  <Pause className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      Human Checkpoint — SCOPE Review
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Review the research scope definition above, then approve
+                      to continue the analysis pipeline.
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  size="sm"
+                  className="mt-3 w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+                  onClick={handleResume}
+                  disabled={resuming}
+                >
+                  {resuming ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Resuming…</>
+                  ) : (
+                    <><Play className="h-3.5 w-3.5" /> Approve &amp; Resume</>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           )}
