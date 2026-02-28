@@ -7,7 +7,6 @@ Supports two auth methods:
   1. Authorization: Bearer <token>  (standard REST endpoints)
   2. ?token=<token> query param     (SSE/EventSource — browsers can't set headers)
      - Supports short-lived signed stream tokens.
-     - Legacy raw API key query token still accepted for compatibility.
 
 Exempt paths: /health, /docs, /openapi.json, /redoc, /
 """
@@ -101,9 +100,6 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
 
         # Query auth is only valid on SSE-compatible paths.
         if source == "query" and path in _QUERY_PARAM_AUTH_PATHS:
-            if verify_stream_token(token=token, api_key=api_key, path=path):
-                return True
-            # Backward compatibility: allow raw API key in query.
-            return secrets.compare_digest(token, api_key)
+            return verify_stream_token(token=token, api_key=api_key, path=path)
 
         return False

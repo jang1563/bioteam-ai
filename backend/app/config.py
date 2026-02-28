@@ -10,12 +10,16 @@ ModelTier = Literal["opus", "sonnet", "haiku"]
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    # Runtime environment
+    app_env: str = "development"  # development | staging | production
+
     # API Keys
     anthropic_api_key: str = ""
     ncbi_api_key: str = ""
     ncbi_email: str = ""
     s2_api_key: str = ""
     bioteam_api_key: str = ""  # Empty = auth disabled (dev mode)
+    enforce_auth_in_production: bool = True
 
     # Database
     database_url: str = "sqlite:///data/bioteam.db"

@@ -264,6 +264,16 @@ def test_validate_answer_citations_flags_ungrounded_pmid_with_sources():
     print("  PASS: PMID validation with non-empty sources")
 
 
+def test_validate_answer_citations_flags_ungrounded_author_year():
+    """Author-year citation should be flagged when author is absent from sources."""
+    answer = "Prior work by Smith et al. (2022) supports this."
+    sources = [{"doi": "10.1234/test", "authors": ["Jane Doe", "Alex Kim"]}]
+
+    _, ungrounded = _validate_answer_citations(answer, sources)
+    assert "AUTHOR_YEAR:Smith et al. (2022)" in ungrounded
+    print("  PASS: author-year grounding validation")
+
+
 def test_prioritize_context_by_seed_papers_supports_pmid():
     """seed_papers should prioritize both DOI and PMID identifiers."""
     memory_context = [
@@ -498,7 +508,7 @@ def test_stream_endpoint_emits_events():
 
 
 def test_stream_endpoint_with_auth_query_token():
-    """SSE stream should work with BIOTEAM_API_KEY via ?token= auth."""
+    """SSE stream should reject raw BIOTEAM_API_KEY via ?token= auth."""
     from app.api.v1.direct_query import router, set_registry
     from app.middleware.auth import APIKeyAuthMiddleware
     from fastapi import FastAPI
@@ -517,22 +527,10 @@ def test_stream_endpoint_with_auth_query_token():
 
     with patch("app.middleware.auth.settings") as mock_settings:
         mock_settings.bioteam_api_key = "sse-secret"
-        with client.stream(
-            "GET",
-            "/api/v1/direct-query/stream?query=What+is+spaceflight+anemia%3F&token=sse-secret",
-        ) as response:
-            assert response.status_code == 200
-            events = []
-            event_type = ""
-            for line in response.iter_lines():
-                if line.startswith("event: "):
-                    event_type = line[7:]
-                elif line.startswith("data: "):
-                    events.append({"event": event_type, "data": json.loads(line[6:])})
-
-    event_types = [e["event"] for e in events]
-    assert "classification" in event_types
-    assert "done" in event_types
+        response = client.get(
+            "/api/v1/direct-query/stream?query=What+is+spaceflight+anemia%3F&token=sse-secret"
+        )
+        assert response.status_code == 403
     set_registry(None)
 
 
@@ -789,6 +787,7 @@ if __name__ == "__main__":
     test_build_context_text_empty()
     test_extract_sources()
     test_validate_answer_citations_flags_ungrounded_pmid_with_sources()
+    test_validate_answer_citations_flags_ungrounded_author_year()
     test_prioritize_context_by_seed_papers_supports_pmid()
     test_cost_cap_constant()
     test_timeout_constant()

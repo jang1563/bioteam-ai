@@ -90,7 +90,7 @@ class CitationValidator:
         Args:
             text: The synthesis text containing citations.
             inline_refs: Optional structured citation list. Each dict has:
-                         doi, pmid, title, first_author.
+                         doi, pmid, title.
 
         Returns:
             CitationReport with verification results and issues.

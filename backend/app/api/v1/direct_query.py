@@ -154,6 +154,10 @@ def _extract_sources(memory_context: list[dict]) -> list[dict]:
             source_entry["year"] = metadata["year"]
         if metadata.get("title"):
             source_entry["title"] = metadata["title"]
+        if metadata.get("authors"):
+            source_entry["authors"] = metadata["authors"]
+        if metadata.get("journal"):
+            source_entry["journal"] = metadata["journal"]
         sources.append(source_entry)
     return sources
 
@@ -161,6 +165,9 @@ def _extract_sources(memory_context: list[dict]) -> list[dict]:
 # Patterns for extracting citation identifiers from LLM answers
 _DOI_PATTERN = re.compile(r"\b10\.\d{4,9}/[^\s,;)\]>\"']+", re.IGNORECASE)
 _PMID_PATTERN = re.compile(r"\bPMID[:\s]+(\d{5,9})\b", re.IGNORECASE)
+_AUTHOR_YEAR_PATTERN = re.compile(
+    r"\b([A-Z][a-zA-Z\-']{1,40})\s+et al\.,?\s*\(?((?:19|20)\d{2})\)?"
+)
 
 
 def _normalize_doi(doi: str) -> str:
@@ -193,9 +200,10 @@ def _validate_answer_citations(answer: str, sources: list[dict]) -> tuple[str, l
     if not answer:
         return answer, []
 
-    # Build a set of normalised DOIs from sources for O(1) lookup
+    # Build lookup tables from retrieved sources for grounding checks.
     source_dois: set[str] = set()
     source_pmids: set[str] = set()
+    source_author_surnames: set[str] = set()
     for src in sources:
         doi = src.get("doi", "")
         if doi:
@@ -203,6 +211,14 @@ def _validate_answer_citations(answer: str, sources: list[dict]) -> tuple[str, l
         pmid = src.get("pmid", "")
         if pmid:
             source_pmids.add(_normalize_pmid(pmid))
+        authors = src.get("authors", [])
+        if isinstance(authors, list):
+            for author in authors:
+                if not author:
+                    continue
+                surname = str(author).strip().split()[-1].lower()
+                if surname:
+                    source_author_surnames.add(surname)
 
     ungrounded: list[str] = []
     seen_ungrounded: set[str] = set()
@@ -223,6 +239,13 @@ def _validate_answer_citations(answer: str, sources: list[dict]) -> tuple[str, l
             if key not in seen_ungrounded:
                 seen_ungrounded.add(key)
                 ungrounded.append(key)
+
+    # Validate "Surname et al. (YEAR)" style mentions against retrieved author list.
+    for surname, year in _AUTHOR_YEAR_PATTERN.findall(answer):
+        key = f"AUTHOR_YEAR:{surname} et al. ({year})"
+        if surname.lower() not in source_author_surnames and key not in seen_ungrounded:
+            seen_ungrounded.add(key)
+            ungrounded.append(key)
 
     if ungrounded:
         logger.warning(

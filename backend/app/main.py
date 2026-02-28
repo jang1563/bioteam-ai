@@ -48,6 +48,18 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 
+def _enforce_production_auth() -> None:
+    """Fail fast if production-like env runs without API key auth enabled."""
+    from app.config import settings as _s
+
+    env = (_s.app_env or "").strip().lower()
+    is_production = env in {"prod", "production"}
+    if is_production and _s.enforce_auth_in_production and not _s.bioteam_api_key:
+        raise RuntimeError(
+            "BIOTEAM_API_KEY must be set when APP_ENV is production."
+        )
+
+
 def _configure_langfuse() -> bool:
     """Initialize Langfuse tracing if configured. Returns True if enabled."""
     from app.config import settings as _s
@@ -88,6 +100,8 @@ def _shutdown_langfuse() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown."""
+    _enforce_production_auth()
+
     # Startup: create tables
     create_db_and_tables()
 

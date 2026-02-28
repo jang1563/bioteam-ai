@@ -9,12 +9,9 @@ import type { HealthResponse } from "@/types/api";
 
 export function Header() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [isDevMode, setIsDevMode] = useState(false);
-
-  useEffect(() => {
-    // Check dev mode on mount (client-side only)
-    setIsDevMode(!localStorage.getItem("bioteam_api_key"));
-  }, []);
+  const [isDevMode] = useState(() =>
+    typeof window !== "undefined" ? !localStorage.getItem("bioteam_api_key") : false,
+  );
 
   useEffect(() => {
     const check = async () => {

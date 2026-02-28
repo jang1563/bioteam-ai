@@ -124,13 +124,12 @@ def _sse_auth_client():
 
 
 def test_sse_query_param_auth_valid():
-    """SSE endpoint should accept ?token= query param."""
+    """SSE endpoint should reject raw API key query params."""
     with patch("app.middleware.auth.settings") as mock_settings:
         mock_settings.bioteam_api_key = "sse-secret"
         client = _sse_auth_client()
         resp = client.get("/api/v1/sse?token=sse-secret")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "sse_ok"
+        assert resp.status_code == 403
 
 
 def test_sse_query_param_auth_invalid():
@@ -164,13 +163,12 @@ def test_sse_bearer_header_also_works():
 
 
 def test_direct_query_stream_query_param_auth_valid():
-    """Direct Query stream endpoint should accept ?token= query param."""
+    """Direct Query stream should reject raw API key query params."""
     with patch("app.middleware.auth.settings") as mock_settings:
         mock_settings.bioteam_api_key = "sse-secret"
         client = _sse_auth_client()
         resp = client.get("/api/v1/direct-query/stream?token=sse-secret")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "dq_stream_ok"
+        assert resp.status_code == 403
 
 
 def test_direct_query_stream_query_param_auth_invalid():
