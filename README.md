@@ -6,7 +6,7 @@
 
 A multi-agent research automation system that orchestrates specialized AI agents for literature review, hypothesis generation, data analysis, and manuscript drafting — designed for solo biology researchers and small lab groups.
 
-Built with Claude (Anthropic) as the LLM backbone, integrating 6 academic data sources with a real-time dashboard.
+Built with Claude (Anthropic) as the LLM backbone, integrating 6 academic data sources with a real-time dashboard. 23 AI agents · 10 workflow templates · Docker code execution sandbox.
 
 ---
 
@@ -22,39 +22,66 @@ Biology researchers spend ~30% of their time on literature review and synthesis.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Next.js Dashboard                     │
-│         Mission Control · Digest · Query · Lab KB        │
-├──────────────────────┬──────────────────────────────────┤
-│    REST API (v1)     │         SSE (Real-time)          │
-├──────────────────────┴──────────────────────────────────┤
-│                   FastAPI Backend                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
-│  │ Agents   │  │ Engines  │  │ Integrations         │   │
-│  │ Director │  │ RCMXT    │  │ PubMed  · bioRxiv    │   │
-│  │ KM · PM  │  │ Ambiguity│  │ arXiv   · GitHub     │   │
-│  │ T02 · T10│  │ Digest   │  │ HF      · S2         │   │
-│  └──────────┘  └──────────┘  └──────────────────────┘   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
-│  │ Workflows│  │ Cost     │  │ Memory               │   │
-│  │ W1-W8    │  │ Tracker  │  │ ChromaDB (3 coll.)   │   │
-│  └──────────┘  └──────────┘  └──────────────────────┘   │
-├─────────────────────────────────────────────────────────┤
-│                SQLite (WAL) + ChromaDB                    │
-└─────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    Next.js Dashboard                        │
+│  Mission Control · Digest · Query · Teams · Quality         │
+│  Evidence · Peer Review · Integrity · Lab KB · Projects     │
+├──────────────────────┬─────────────────────────────────────┤
+│    REST API (v1)     │         SSE (Real-time)             │
+├──────────────────────┴─────────────────────────────────────┤
+│                   FastAPI Backend                            │
+│  ┌──────────┐  ┌──────────┐  ┌───────────────────────┐    │
+│  │ 23 Agents│  │ Engines  │  │ Integrations          │    │
+│  │ Director │  │ RCMXT    │  │ PubMed  · bioRxiv     │    │
+│  │ KM · PM  │  │ Ambiguity│  │ arXiv   · GitHub      │    │
+│  │ T01-T10  │  │ Digest   │  │ HF      · S2          │    │
+│  │ 3 QA     │  │ Integrity│  │ eLife Peer Review     │    │
+│  └──────────┘  └──────────┘  └───────────────────────┘    │
+│  ┌──────────┐  ┌──────────┐  ┌───────────────────────┐    │
+│  │ Workflows│  │ Cost     │  │ Memory + Execution    │    │
+│  │ W1-W10   │  │ Tracker  │  │ ChromaDB · Docker     │    │
+│  └──────────┘  └──────────┘  └───────────────────────┘    │
+├────────────────────────────────────────────────────────────┤
+│                SQLite (WAL) + ChromaDB                      │
+└────────────────────────────────────────────────────────────┘
 ```
 
-### Agent System
+### Agent System (23 agents)
+
+**Strategic Layer**
 
 | Agent | Role | Model |
 |-------|------|-------|
 | Research Director | Route queries, synthesize cross-domain findings | Sonnet / Opus |
 | Knowledge Manager | Maintain lab knowledge base, detect contradictions | Sonnet |
 | Project Manager | Track tasks, deadlines, resource allocation | Haiku |
-| Transcriptomics (T02) | RNA-seq analysis, gene expression, pathway enrichment | Sonnet |
-| Data Engineering (T10) | Pipeline design, format conversion, QC workflows | Haiku |
 | Ambiguity Engine | Detect conflicting claims, grade evidence quality | Sonnet |
 | Digest Agent | Summarize multi-source paper batches into reports | Haiku |
+| Claim Extractor | Extract structured claims with verbatim quotes | Haiku |
+| Data Integrity Auditor | Audit workflow outputs for statistical errors | Sonnet |
+
+**Domain Specialists (T01–T10)**
+
+| Agent | Specialty |
+|-------|-----------|
+| T01 Genomics | Variant analysis, GWAS, population genetics |
+| T02 Transcriptomics | RNA-seq, gene expression, pathway enrichment |
+| T03 Proteomics | Mass spec, protein structure, PTM analysis |
+| T04 Biostatistics | Experimental design, mixed models, power analysis |
+| T05 ML/DL | Model selection, deep learning, feature engineering |
+| T06 Systems Biology | Network analysis, flux balance, emergent properties |
+| T07 Structural Biology | Protein folding, docking, cryo-EM interpretation |
+| T08 Science Communication | Manuscript writing, grant narratives, figures |
+| T09 Grant Writing | Specific aims, budget justification, reviewer anticipation |
+| T10 Data Engineering | Pipeline design, format conversion, QC workflows |
+
+**QA Tier (reports directly to Director)**
+
+| Agent | Focus |
+|-------|-------|
+| QA Statistical Rigor | Flag underpowered comparisons, multiple testing issues |
+| QA Biological Plausibility | Flag mechanistically implausible claims |
+| QA Reproducibility | Flag protocol gaps and irreproducible methods |
 
 ### Evidence Scoring (RCMXT)
 
@@ -66,15 +93,30 @@ Every claim is scored on 5 axes, not a single confidence number:
 - **X**-Omics Consistency (0-1, nullable): Cross-omics concordance
 - **T**emporal Stability (0-1): Consistency over time
 
+### Workflow Templates (W1–W10)
+
+| # | Workflow | Steps | Key Capability |
+|---|----------|-------|----------------|
+| W1 | Literature Review | 8 | PRISMA flow · CitationValidator · RCMXT scoring |
+| W2 | Hypothesis Generation | 12 | Multi-domain synthesis · novelty assessment |
+| W3 | Data Analysis | 11 | Docker Python/R execution · statistical QA |
+| W4 | Manuscript Writing | 10 | Section-by-section drafting · figure planning |
+| W5 | Grant Proposal | 12 | Specific aims · budget · reviewer anticipation |
+| W6 | Ambiguity Resolution | 6 | 5-category contradiction taxonomy |
+| W7 | Data Integrity Audit | 8 | Statistical error detection · provenance tracing |
+| W8 | Paper Review | 13 | Open peer review corpus · RCMXT-graded critique |
+| W9 | Bioinformatics Pipeline | 10 | RNA-seq / scRNA-seq / network analysis · Docker |
+| W10 | Drug Discovery | 11 | Target ID · compound screening · ADMET prediction |
+
 ## Tech Stack
 
 **Backend**: Python 3.12 · FastAPI · SQLModel (SQLite) · ChromaDB · Anthropic SDK · Instructor
 
-**Frontend**: Next.js 16 · React 19 · Tailwind CSS 4 · shadcn/ui · Zustand · React Flow
+**Frontend**: Next.js 15 · React 19 · Tailwind CSS · shadcn/ui · Zustand · React Flow
 
-**Integrations**: PubMed (Biopython) · Semantic Scholar · bioRxiv · arXiv · GitHub · HuggingFace
+**Integrations**: PubMed (Biopython) · Semantic Scholar · bioRxiv · arXiv · GitHub · HuggingFace · eLife Open Peer Review
 
-**Infrastructure**: Docker Compose · SSE (sse-starlette) · SQLite WAL mode
+**Infrastructure**: Docker Compose · Docker sandbox (code execution) · SSE (sse-starlette) · SQLite WAL mode
 
 ## Quick Start
 
@@ -125,16 +167,19 @@ docker compose up
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v1/agents` | List all agents and status |
+| `GET` | `/api/v1/agents` | List all 23 agents and status |
+| `GET` | `/api/v1/agents/{id}` | Agent detail + execution history |
 | `POST` | `/api/v1/direct-query` | Submit a research question |
 | `GET` | `/api/v1/direct-query/stream` | SSE stream for query progress |
-| `POST` | `/api/v1/auth/stream-token` | Issue short-lived SSE auth token |
-| `POST` | `/api/v1/workflows` | Create a workflow (W1-W8) |
+| `POST` | `/api/v1/auth/stream-token` | Issue short-lived HMAC SSE auth token |
+| `POST` | `/api/v1/workflows` | Create a workflow (W1–W10) |
+| `GET` | `/api/v1/workflows/{id}` | Workflow status + step results |
 | `GET/POST` | `/api/v1/digest/topics` | Manage digest topic profiles |
 | `POST` | `/api/v1/digest/topics/{id}/run` | Trigger paper fetch + summarize |
 | `GET` | `/api/v1/digest/reports` | Get AI-generated digest reports |
 | `GET/POST` | `/api/v1/negative-results` | Lab knowledge base CRUD |
 | `GET` | `/api/v1/contradictions` | View detected contradictions |
+| `GET` | `/api/v1/integrity` | Data integrity audit results |
 | `POST` | `/api/v1/cold-start/run` | Initialize system with seed data |
 
 ## Research Digest Pipeline
@@ -185,21 +230,51 @@ All papers link to real PubMed/arXiv URLs with full abstracts, authors, and rele
 ## Testing
 
 ```bash
-# Core suite (1500+ tests, excludes benchmarks and live-API integration tests)
-uv run pytest backend/tests/ --ignore=backend/tests/benchmarks \
-    --ignore=backend/tests/test_integrations/test_semantic_scholar.py -q
+# Core suite (1648 tests, excludes benchmarks and live-API integration tests)
+.venv/bin/pytest backend/tests/ --ignore=backend/tests/benchmarks \
+    --ignore=backend/tests/test_integrations -q
 
 # Specific modules
-uv run pytest backend/tests/test_digest/ -q        # Digest pipeline
-uv run pytest backend/tests/test_api/ -q            # API endpoints
-uv run pytest backend/tests/test_security/ -q       # Auth + fuzzing
-uv run pytest backend/tests/test_workflows/ -q      # W1-W8 runners
+.venv/bin/pytest backend/tests/test_digest/ -q        # Digest pipeline
+.venv/bin/pytest backend/tests/test_api/ -q            # API endpoints
+.venv/bin/pytest backend/tests/test_security/ -q       # Auth + fuzzing
+.venv/bin/pytest backend/tests/test_workflows/ -q      # W1-W10 runners
+.venv/bin/pytest backend/tests/test_execution/ -q      # Docker sandbox
 
-# Optional benchmarks (requires: uv sync --group benchmarks)
-uv run pytest backend/tests/benchmarks/ -q
+# Optional: benchmarks (RCMXT calibration, live model calls)
+.venv/bin/pytest backend/tests/benchmarks/ -q
 
-# Frontend build
+# Frontend build check
 cd frontend && npm run build
+```
+
+**Current status:** 1648 passed · 0 failed · 8 skipped
+
+## BioReview-Bench
+
+W8 Paper Review is evaluated against **BioReview-Bench**, an open benchmark derived from eLife's public peer review corpus (29 articles with full decision letters).
+
+**Benchmark methodology**: Ground truth concerns are extracted from eLife decision letters via LLM (Haiku). W8-generated review text is matched against ground truth using keyword + cosine similarity (ConcernMatcher). The W8 pipeline runs via `article_data` injection (eLife XML body text), bypassing PDF parsing.
+
+| Split | Articles | Mean Recall | Mean Major Recall | Mean Precision |
+|-------|----------|-------------|-------------------|----------------|
+| Pilot (5 curated) | 5 | 70.3% | 64.3% | 32.3% |
+| **Corpus (eLife)** | **29** | **39.6%** | **41.7%** | **16.0%** |
+
+**Corpus distribution**: 22/29 articles achieved >0% recall; 12/29 achieved ≥50% recall; 3/29 achieved 100% recall. Major revision papers (where reviewers raised more serious concerns) tend to score higher recall (mean ~55%) vs. minor revision papers (~35%), reflecting W8's stronger performance on prominent methodological and statistical issues.
+
+**Corpus collection**: `backend/scripts/collect_elife_corpus.py` — bulk-collects eLife articles with decision letters + full body text (JATS XML via CDN). Currently 29 articles across biology, immunology, cell biology, and evolutionary biology.
+
+**Run benchmark**:
+```bash
+# Collect corpus (requires no API key — eLife is open access)
+uv run python backend/scripts/collect_elife_corpus.py --max 50
+
+# Run W8 on all corpus articles + evaluate
+uv run python backend/scripts/run_w8_benchmark.py --source corpus --run-w8 --use-llm --max 50
+
+# Report only (uses cached W8 results)
+uv run python backend/scripts/run_w8_benchmark.py --source corpus
 ```
 
 ## Cost Analysis
@@ -219,31 +294,37 @@ All external APIs (PubMed, bioRxiv, arXiv, GitHub, HuggingFace, Semantic Scholar
 bioteam-ai/
 ├── backend/
 │   ├── app/
-│   │   ├── agents/          # 22 AI agents + specs + prompts
-│   │   ├── api/v1/          # REST endpoints (11 route files)
-│   │   ├── cost/            # LLM cost tracking + budgets
-│   │   ├── db/              # SQLite + migrations
-│   │   ├── digest/          # Multi-source paper pipeline
-│   │   ├── engines/         # RCMXT, contradiction, integrity, PDF, W8 report
-│   │   ├── integrations/    # 8 external API clients + MCP connectors
-│   │   ├── llm/             # Anthropic layer + mock for testing
-│   │   ├── memory/          # ChromaDB semantic memory
-│   │   ├── middleware/      # Auth, rate limiting
-│   │   ├── models/          # Pydantic/SQLModel schemas
-│   │   ├── security/        # Stream token signing
-│   │   └── workflows/       # W1-W8 pipeline runners
-│   └── tests/               # 1500+ tests across 20 categories
+│   │   ├── agents/          # 23 AI agents (specs/ YAML + registry + prompts)
+│   │   ├── api/v1/          # REST endpoints (13 route files)
+│   │   ├── cold_start/      # Seed data + RCMXT 150-claim benchmark
+│   │   ├── cost/            # LLM cost tracking + budget enforcement
+│   │   ├── db/              # SQLite WAL + Alembic migrations
+│   │   ├── digest/          # Multi-source paper pipeline (6 sources)
+│   │   ├── engines/         # RCMXT · contradiction · integrity · citation validator
+│   │   ├── execution/       # DockerCodeRunner + container Dockerfiles
+│   │   ├── integrations/    # PubMed · S2 · bioRxiv · arXiv · GitHub · HF · eLife
+│   │   ├── llm/             # Anthropic layer + circuit breaker + mock for testing
+│   │   ├── memory/          # ChromaDB semantic memory (3 collections)
+│   │   ├── middleware/      # Auth (Bearer + HMAC stream tokens) · rate limiting
+│   │   ├── models/          # Pydantic/SQLModel schemas (evidence · workflow · agent)
+│   │   ├── security/        # Stream token signing + fuzzing tests
+│   │   └── workflows/       # W1-W10 pipeline runners + note processor
+│   └── tests/               # 1648 tests across 22 categories (0 failures)
 ├── frontend/
 │   └── src/
-│       ├── app/             # Next.js pages (/, /digest, /query, /lab-kb, /settings)
-│       ├── components/      # Dashboard UI (shadcn/ui)
+│       ├── app/             # 11 Next.js pages: / · /digest · /query · /teams
+│       │                    #   /quality · /evidence · /peer-review · /integrity
+│       │                    #   /lab-kb · /projects · /settings
+│       ├── components/      # Dashboard UI (shadcn/ui + React Flow)
 │       ├── hooks/           # React hooks (agents, workflows, digest, SSE)
 │       ├── lib/             # API client with auth + retry
 │       ├── stores/          # Zustand state
 │       └── types/           # TypeScript API types
-├── docs/planning/           # PRD, implementation plan, resources guide
+├── docs/
+│   ├── planning/            # PRD · implementation plan v4.2 · resources guide
+│   └── publication/         # RCMXT annotation guidelines (Paper 1)
 ├── docker-compose.yml       # Full stack deployment
-└── pyproject.toml           # Python project config
+└── pyproject.toml           # Python project config (Python 3.12+)
 ```
 
 ## Security
