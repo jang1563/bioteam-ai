@@ -1,8 +1,18 @@
 """BioTeam-AI configuration — settings, model tiers, budgets."""
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings
+
+# Resolve .env: try backend/.env first, fall back to project root .env
+_THIS_DIR = Path(__file__).resolve().parent  # backend/app/
+_BACKEND_DIR = _THIS_DIR.parent              # backend/
+_PROJECT_ROOT = _BACKEND_DIR.parent          # AI_Scientist_team/
+
+_ENV_FILE = _BACKEND_DIR / ".env"
+if not _ENV_FILE.exists():
+    _ENV_FILE = _PROJECT_ROOT / ".env"
 
 ModelTier = Literal["opus", "sonnet", "haiku"]
 
@@ -132,7 +142,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""  # Gmail App Password
     digest_recipients: str = ""  # Comma-separated email addresses
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8"}
 
 
 settings = Settings()
