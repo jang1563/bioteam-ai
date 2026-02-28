@@ -109,3 +109,28 @@ class TestRenderDigestEmail:
         report.summary = ""
         html = render_digest_email(report, _make_topic(), _make_entries())
         assert "No summary generated" in html
+
+    def test_trending_keywords_shown(self):
+        html = render_digest_email(_make_report(), _make_topic(), _make_entries())
+        assert "Trending Topics" in html
+
+    def test_dashboard_cta_present(self):
+        html = render_digest_email(_make_report(), _make_topic(), _make_entries())
+        assert "View Full Report in Dashboard" in html
+
+    def test_collapsible_abstract_present(self):
+        html = render_digest_email(_make_report(), _make_topic(), _make_entries())
+        assert "<details" in html
+        assert "<summary" in html
+
+    def test_numbered_entries(self):
+        html = render_digest_email(_make_report(), _make_topic(), _make_entries())
+        # Entries should be numbered (1. prefix)
+        assert ">1.<" in html
+
+    def test_xss_escaped_in_title(self):
+        entries = _make_entries()
+        entries[0].title = '<script>alert("xss")</script>'
+        html = render_digest_email(_make_report(), _make_topic(), entries)
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html

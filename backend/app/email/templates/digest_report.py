@@ -3,8 +3,31 @@
 from __future__ import annotations
 
 import html
+import os
+import re
 
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
+
+# Stop-words to filter from keyword extraction
+_STOPWORDS = frozenset(
+    "a an the of in on at to for with by from and or but is are was were "
+    "be been being have has had do does did will would could should may might "
+    "this that these those it its we our you your they their their study "
+    "analysis results findings new using via based data paper study research "
+    "review evidence effect effects role function expression human cell cells "
+    "patients model models approach method methods".split()
+)
+
+
+def _extract_keywords(entries: list[DigestEntry], top_n: int = 8) -> list[str]:
+    """Extract trending keywords from entry titles (simple word-count approach)."""
+    counts: dict[str, int] = {}
+    for e in entries:
+        words = re.findall(r"[a-zA-Z]{4,}", e.title.lower())
+        for w in words:
+            if w not in _STOPWORDS:
+                counts[w] = counts.get(w, 0) + 1
+    return [w for w, _ in sorted(counts.items(), key=lambda x: -x[1])[:top_n]]
 
 # Source badge colors (matching frontend)
 SOURCE_COLORS = {
@@ -74,36 +97,77 @@ def render_digest_email(
             + "".join(bars)
         )
 
-    # Top entries table
+    # Top entries — card layout with collapsible abstract (<details>/<summary>)
+    # Apple Mail: clickable toggle. Gmail: shows expanded.
     top_entries_html = ""
     if entries:
-        rows = []
-        for e in entries[:10]:
+        cards = []
+        for i, e in enumerate(entries[:10], 1):
             color = SOURCE_COLORS.get(e.source, "#888")
             score_pct = int(e.relevance_score * 100)
-            safe_title = html.escape(e.title[:80])
+            safe_title = html.escape(e.title[:100])
             safe_source = html.escape(e.source)
             safe_url = html.escape(e.url)
-            url_link = f'<a href="{safe_url}" style="color:#00d4aa;text-decoration:none;">Link</a>' if e.url else ""
-            rows.append(
-                f'<tr style="border-bottom:1px solid #1a2332;">'
-                f'<td style="padding:8px;"><span style="padding:2px 6px;border-radius:3px;'
-                f'background:{color}22;color:{color};font-size:11px;">{safe_source}</span></td>'
-                f'<td style="padding:8px;color:#e2e8f0;font-size:13px;">{safe_title}</td>'
-                f'<td style="padding:8px;color:#00d4aa;font-size:13px;text-align:center;">{score_pct}%</td>'
-                f'<td style="padding:8px;text-align:center;">{url_link}</td>'
-                f'</tr>'
+            url_link = (
+                f' <a href="{safe_url}" style="color:#00d4aa;text-decoration:none;font-size:12px;">'
+                f'Read &rarr;</a>'
+            ) if e.url else ""
+
+            # Truncate abstract to ~3 lines
+            abstract_text = (e.abstract or "").strip()
+            if len(abstract_text) > 300:
+                abstract_text = abstract_text[:297].rsplit(" ", 1)[0] + "..."
+            safe_abstract = html.escape(abstract_text)
+
+            abstract_block = ""
+            if safe_abstract:
+                abstract_block = (
+                    f'<details style="margin-top:6px;">'
+                    f'<summary style="color:#7a8ba7;font-size:12px;cursor:pointer;">'
+                    f'&#9662; Summary</summary>'
+                    f'<p style="color:#a0aec0;font-size:12px;line-height:1.6;'
+                    f'margin:6px 0 0;padding:8px;background:#060a14;border-radius:4px;">'
+                    f'{safe_abstract}</p>'
+                    f'</details>'
+                )
+
+            cards.append(
+                f'<div style="padding:12px 0;border-bottom:1px solid #1a2332;">'
+                f'<div>'
+                f'<span style="color:#4a5568;font-size:12px;margin-right:6px;">{i}.</span>'
+                f'<span style="padding:2px 6px;border-radius:3px;'
+                f'background:{color}22;color:{color};font-size:11px;margin-right:6px;">'
+                f'{safe_source}</span>'
+                f'<span style="color:#00d4aa;font-size:11px;">{score_pct}%</span>'
+                f'{url_link}'
+                f'</div>'
+                f'<div style="color:#e2e8f0;font-size:13px;line-height:1.4;margin-top:4px;">'
+                f'{safe_title}</div>'
+                f'{abstract_block}'
+                f'</div>'
             )
         top_entries_html = (
             '<h2 style="color:#00d4aa;font-size:16px;margin:24px 0 12px;">Top Papers</h2>'
-            '<table style="width:100%;border-collapse:collapse;">'
-            '<tr style="border-bottom:1px solid #1a2332;">'
-            '<th style="padding:8px;color:#7a8ba7;font-size:12px;text-align:left;">Source</th>'
-            '<th style="padding:8px;color:#7a8ba7;font-size:12px;text-align:left;">Title</th>'
-            '<th style="padding:8px;color:#7a8ba7;font-size:12px;text-align:center;">Score</th>'
-            '<th style="padding:8px;color:#7a8ba7;font-size:12px;text-align:center;">Link</th>'
-            '</tr>' + "".join(rows) + '</table>'
+            + "".join(cards)
         )
+
+    # Trending keywords badges
+    trending_html = ""
+    if entries:
+        keywords = _extract_keywords(entries)
+        if keywords:
+            badges = "".join(
+                f'<span style="display:inline-block;margin:3px 4px 3px 0;'
+                f'padding:3px 10px;border-radius:12px;'
+                f'background:#0a1628;border:1px solid #1e3050;'
+                f'color:#93c5fd;font-size:11px;">'
+                f'{html.escape(kw)}</span>'
+                for kw in keywords
+            )
+            trending_html = (
+                '<h2 style="color:#00d4aa;font-size:16px;margin:24px 0 12px;">Trending Topics</h2>'
+                f'<div style="line-height:2;">{badges}</div>'
+            )
 
     period_str = ""
     if report.period_start and report.period_end:
@@ -111,6 +175,18 @@ def render_digest_email(
 
     safe_topic_name = html.escape(topic.name)
     safe_summary = html.escape(report.summary) if report.summary else "No summary generated."
+
+    # Dashboard CTA link
+    dashboard_url = html.escape(os.environ.get("DASHBOARD_URL", "http://localhost:3000"))
+    cta_html = (
+        f'<div style="text-align:center;margin:24px 0;">'
+        f'<a href="{dashboard_url}/digest" '
+        f'style="display:inline-block;padding:10px 28px;'
+        f'background:#00d4aa;color:#060a14;border-radius:6px;'
+        f'text-decoration:none;font-weight:600;font-size:14px;">'
+        f'View Full Report in Dashboard</a>'
+        f'</div>'
+    )
 
     return f"""<!DOCTYPE html>
 <html>
@@ -133,13 +209,17 @@ def render_digest_email(
     </p>
 
     {highlights_html}
+    {trending_html}
     {breakdown_html}
     {top_entries_html}
+
+    {cta_html}
   </div>
 
   <!-- Footer -->
   <div style="text-align:center;padding:16px;color:#4a5568;font-size:11px;">
-    Generated by BioTeam-AI · All paper data sourced from public APIs (PubMed, bioRxiv, arXiv, GitHub, HuggingFace, Semantic Scholar)
+    Generated by BioTeam-AI · Data from PubMed, bioRxiv, arXiv, GitHub, HuggingFace, Semantic Scholar<br>
+    <span style="color:#334155;">To stop receiving these emails, update your digest settings in the dashboard.</span>
   </div>
 
 </div>
