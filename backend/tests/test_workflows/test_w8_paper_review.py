@@ -294,14 +294,18 @@ class TestW8ReportBuilder:
         assert "# Peer Review Report: Test Paper" in md
         assert "Accept" in md
         assert "Good study." in md
-        assert "AI Disclosure" in md
         assert "Methodology Assessment" in md
+        # AI Disclosure and Pipeline cost are intentionally omitted for journal submission
+        assert "AI Disclosure" not in md
+        assert "Pipeline cost" not in md
+        # Basis lines (internal provenance) are not rendered in public report
+        assert "Basis:" not in md
 
     def test_render_empty_report(self):
         report = W8PeerReviewReport(paper_title="Empty")
         md = render_markdown_report(report)
         assert "# Peer Review Report: Empty" in md
-        assert "AI Disclosure" in md
+        assert "AI Disclosure" not in md
 
     def test_build_report_handles_missing_steps(self, instance):
         """Report builder handles gracefully when steps are missing."""

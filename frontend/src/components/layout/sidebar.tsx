@@ -14,6 +14,7 @@ import {
   Newspaper,
   ShieldCheck,
   Users,
+  FileSearch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/lab-kb", label: "Lab KB", icon: FlaskConical },
   { href: "/integrity", label: "Integrity", icon: ShieldCheck },
+  { href: "/peer-review", label: "Peer Review", icon: FileSearch },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -41,14 +43,14 @@ export function Sidebar() {
       aria-label="Sidebar"
       className={cn(
         "flex h-screen flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-200",
-        collapsed ? "w-16" : "w-56",
+        collapsed ? "w-16" : "w-56 max-sm:w-16",
       )}
     >
       {/* Logo */}
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
         <Dna className="h-6 w-6 shrink-0 text-primary" />
         {!collapsed && (
-          <span className="text-sm font-bold tracking-tight">BioTeam-AI</span>
+          <span className="text-sm font-bold tracking-tight max-sm:hidden">BioTeam-AI</span>
         )}
       </div>
 
@@ -68,10 +70,11 @@ export function Sidebar() {
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
                 collapsed && "justify-center px-0",
+                !collapsed && "max-sm:justify-center max-sm:px-0",
               )}
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {!collapsed && label}
+              {!collapsed && <span className="max-sm:hidden">{label}</span>}
             </Link>
           );
 

@@ -70,7 +70,7 @@ export type WorkflowState =
   | "CANCELLED"
   | "OVER_BUDGET";
 
-export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W7";
+export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W7" | "W8";
 
 export interface WorkflowStatus {
   id: string;
@@ -132,6 +132,7 @@ export interface CreateWorkflowRequest {
   query: string;
   budget?: number;
   seed_papers?: string[];
+  pdf_path?: string;  // W8: path to paper PDF/DOCX
 }
 
 export interface CreateWorkflowResponse {

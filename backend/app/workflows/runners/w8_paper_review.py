@@ -532,47 +532,86 @@ class W8PaperReviewRunner:
         elif step_id == "SYNTHESIZE_REVIEW":
             # All prior results for final synthesis
             parts = [
-                f"Generate a structured peer review for: {self._paper_title}\n",
-                "Based on the following analyses:\n",
+                "INSTRUCTIONS: Write this peer review exactly as a senior academic reviewer would write "
+                "for a biomedical journal. Do NOT mention automated tools, software pipelines, or analysis "
+                "steps by name. Do NOT reference internal system components. Write evidence_basis fields "
+                "using natural scientific reasoning — cite the manuscript's own text, reported statistics, "
+                "or named prior studies, never the analysis process that found them. "
+                "Your review will be submitted directly to a journal editor.\n",
+                f"Paper under review: {self._paper_title}\n",
+                "The following analyses have been completed. Synthesize them into a structured peer review:\n",
             ]
 
             # Claims
             claims = prior_outputs.get("EXTRACT_CLAIMS", {}).get("claims", [])
-            parts.append(f"### Extracted Claims ({len(claims)} total)")
+            parts.append(f"### Key Claims from the Manuscript ({len(claims)} identified)")
             for c in claims[:20]:
                 parts.append(f"- [{c.get('claim_type', '?')}] {c.get('claim_text', '')}")
 
             # Citation report
             cite = prior_outputs.get("CITE_VALIDATION", {})
             if cite:
-                parts.append(f"\n### Citation Validation: {cite.get('verified', 0)}/{cite.get('total_citations', 0)} verified")
+                total = cite.get("total_citations", 0)
+                verified = cite.get("verified", 0)
+                cite_notes = cite.get("notes", [])
+                if total > 0:
+                    parts.append(f"\n### Citation Review: {verified}/{total} references verified")
+                elif cite_notes:
+                    parts.append(f"\n### Citation Review: {cite_notes[0][:200]}")
 
             # Literature
             lit = prior_outputs.get("BACKGROUND_LIT", {})
             if lit.get("summary"):
-                parts.append(f"\n### Background Literature\n{lit['summary'][:2000]}")
+                parts.append(f"\n### Related Prior Literature\n{lit['summary'][:2000]}")
+
+            # Novelty
+            novelty = prior_outputs.get("NOVELTY_CHECK", {})
+            if novelty and not novelty.get("skipped"):
+                established = novelty.get("already_established", [])
+                unique = novelty.get("unique_contributions", [])
+                missing = novelty.get("landmark_papers_missing", [])
+                parts.append(f"\n### Novelty Analysis")
+                if established:
+                    parts.append("Findings already established in prior literature:")
+                    for item in established:
+                        parts.append(f"  - {item}")
+                if unique:
+                    parts.append("Genuinely novel contributions:")
+                    for item in unique:
+                        parts.append(f"  - {item}")
+                if missing:
+                    parts.append("Key landmark papers the manuscript should compare against:")
+                    for item in missing:
+                        parts.append(f"  - {item}")
 
             # Integrity
             integrity = prior_outputs.get("INTEGRITY_AUDIT", {})
             if integrity.get("summary"):
-                parts.append(f"\n### Integrity Audit: {integrity.get('summary', '')}")
+                parts.append(f"\n### Data Integrity Findings\n{integrity.get('summary', '')}")
 
             # Contradictions
             contra = prior_outputs.get("CONTRADICTION_CHECK", {})
             if contra.get("summary"):
-                parts.append(f"\n### Contradictions: {contra.get('summary', '')}")
+                parts.append(f"\n### Internal Inconsistencies\n{contra.get('summary', '')}")
 
             # Methodology
             method = prior_outputs.get("METHODOLOGY_REVIEW", {})
             if method.get("study_design_critique"):
-                parts.append(f"\n### Methodology Assessment (score: {method.get('overall_methodology_score', 'N/A')})")
-                parts.append(f"Design: {method.get('study_design_critique', '')}")
-                parts.append(f"Stats: {method.get('statistical_methods', '')}")
+                parts.append(f"\n### Methodological Assessment")
+                parts.append(f"Study design: {method.get('study_design_critique', '')}")
+                parts.append(f"Statistical approach: {method.get('statistical_methods', '')}")
+                parts.append(f"Controls: {method.get('controls_adequacy', '')}")
+                parts.append(f"Sample size: {method.get('sample_size_assessment', '')}")
+                biases = method.get("potential_biases", [])
+                if biases:
+                    parts.append("Potential biases: " + "; ".join(biases[:5]))
 
             # RCMXT
             rcmxt = prior_outputs.get("EVIDENCE_GRADE", {})
             if rcmxt.get("scores"):
-                parts.append(f"\n### Evidence Grades: {rcmxt.get('total_scored', 0)} claims scored")
+                parts.append(f"\n### Evidence Quality ({rcmxt.get('total_scored', 0)} claims evaluated)")
+                for s in rcmxt.get("scores", [])[:5]:
+                    parts.append(f"  - {s.get('claim', '')[:80]}: composite {s.get('composite', 'N/A')}")
 
             return "\n".join(parts)
 
@@ -697,8 +736,8 @@ class W8PaperReviewRunner:
         """CITE_VALIDATION: Validate citations extracted from claims.
 
         For PDFs: parses reference list and validates DOIs via Crossref.
-        For DOCX without embedded DOIs: scans full text for any DOI/PMID patterns,
-        and reports the reference count with a transparency note.
+        For DOCX without embedded DOIs: extracts numbered reference titles and
+        attempts PubMed title-based lookup via KnowledgeManager to resolve DOI/PMID.
         """
         from app.engines.citation_validator import CitationValidator
 
@@ -726,7 +765,7 @@ class W8PaperReviewRunner:
         # Try parsed reference section first
         refs_text = self._parsed_paper.references_raw if self._parsed_paper else ""
 
-        # Fallback: scan full paper text for any embedded DOIs if reference section is empty
+        # Scan full text for any embedded DOIs
         doi_pattern = re.compile(r"\b(10\.\d{4,9}/[-._;()/:A-Z0-9]+)\b", re.IGNORECASE)
         full_text = self._parsed_paper.full_text if self._parsed_paper else ""
         embedded_dois = list(set(doi_pattern.findall(full_text))) if not refs_text else []
@@ -734,27 +773,22 @@ class W8PaperReviewRunner:
         report = validator.validate(refs_text)
 
         # Estimate reference count from full text if validator found nothing
-        ref_count_estimated = False
+        numbered_refs: list[str] = []
         if report.total_citations == 0 and full_text:
-            # Count reference list entries by common patterns (numbered [1], (Author, Year), etc.)
             numbered_refs = re.findall(r"^\s*\[?\d{1,3}\]?\s+\w", full_text, re.MULTILINE)
-            if len(numbered_refs) > 5:
-                ref_count_estimated = True
 
-        notes = []
-        if report.total_citations == 0 and not embedded_dois:
-            notes.append(
-                "Reference list not parseable for automatic DOI verification "
-                "(manuscript format does not embed DOIs/PMIDs in citation text). "
-                "Manual citation verification recommended."
-            )
-        if embedded_dois:
-            notes.append(f"Found {len(embedded_dois)} DOI(s) embedded in manuscript text.")
-        if ref_count_estimated:
-            notes.append(
-                f"Approximately {len(numbered_refs)} numbered references detected in text "
-                "(exact count unverified — manual check required)."
-            )
+        # --- Title-based reference resolution via PubMed (KnowledgeManager) ---
+        # Attempt to resolve references that lack DOI/PMID by extracting titles
+        # from the numbered reference list and querying PubMed via KnowledgeManager.
+        resolved_citations: list[dict] = []
+        if report.total_citations == 0 and not embedded_dois and full_text:
+            resolved_citations = self._resolve_refs_by_title(full_text)
+            if resolved_citations:
+                # Register resolved refs with validator for completeness
+                validator.register_sources([
+                    {k: v for k, v in r.items() if k in ("doi", "pmid")}
+                    for r in resolved_citations if r.get("doi") or r.get("pmid")
+                ])
 
         report_dict = {
             "step": "CITE_VALIDATION",
@@ -763,7 +797,8 @@ class W8PaperReviewRunner:
             "verification_rate": report.verification_rate,
             "is_clean": report.is_clean,
             "embedded_dois_found": len(embedded_dois),
-            "notes": notes,
+            "resolved_citations": resolved_citations,
+            "notes": [],
             "issues": [
                 {
                     "citation_ref": issue.citation_ref,
@@ -775,10 +810,14 @@ class W8PaperReviewRunner:
             ],
         }
 
-        if notes:
-            summary = f"Citation auto-check limited: {notes[0][:80]}"
-        else:
+        if report.total_citations > 0:
             summary = f"Citations: {report.verified}/{report.total_citations} verified ({report.verification_rate:.0%})"
+        elif resolved_citations:
+            summary = f"References resolved via title lookup: {len(resolved_citations)}"
+        elif embedded_dois:
+            summary = f"DOIs found in text: {len(embedded_dois)} (no structured reference list)"
+        else:
+            summary = "Citation verification limited: no machine-readable identifiers in reference list"
 
         return AgentOutput(
             agent_id="code_only",
@@ -786,6 +825,79 @@ class W8PaperReviewRunner:
             output_type="CitationReport",
             summary=summary,
         )
+
+    def _resolve_refs_by_title(self, full_text: str, max_refs: int = 15) -> list[dict]:
+        """Extract numbered reference titles from text and look up DOI/PMID via KnowledgeManager.
+
+        Uses regex to identify numbered reference list entries, extracts likely titles,
+        and queries PubMed synchronously via the integration client.
+        Only called when no DOIs/PMIDs are found in the reference list.
+        """
+        import asyncio
+
+        from app.integrations.pubmed import PubMedClient
+
+        # Extract candidate reference entries: "[N] Author. Title. Journal. Year."
+        # Heuristic: lines starting with optional bracket, number, and content
+        ref_block_match = re.search(
+            r"(?:references|bibliography|works cited)[:\n]+(.{200,}?)(?:\n\n\n|\Z)",
+            full_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        block = ref_block_match.group(1) if ref_block_match else full_text[-8000:]
+
+        # Match numbered entries like "[1] ...", "1. ...", "1) ..."
+        entries = re.findall(
+            r"(?:^\s*\[?\d{1,3}\]?[\.\)]\s*)(.+?)(?=^\s*\[?\d{1,3}\]?[\.\)]|\Z)",
+            block,
+            re.MULTILINE | re.DOTALL,
+        )
+        entries = [e.strip().replace("\n", " ") for e in entries[:max_refs] if len(e.strip()) > 20]
+
+        if not entries:
+            return []
+
+        client = PubMedClient()
+        resolved: list[dict] = []
+
+        async def _lookup_all() -> None:
+            for entry in entries:
+                # Extract likely title: everything before a period followed by journal
+                # Heuristic: grab first 120 chars, stop before journal abbreviation
+                raw_title = entry[:120].split(". ")[0].strip(" .")
+                if len(raw_title) < 15:
+                    continue
+                try:
+                    results = await client.search(raw_title, max_results=1)
+                    if results:
+                        hit = results[0]
+                        resolved.append({
+                            "query_title": raw_title,
+                            "matched_title": hit.get("title", ""),
+                            "pmid": hit.get("pmid", ""),
+                            "doi": hit.get("doi", ""),
+                            "year": hit.get("year", ""),
+                            "authors": hit.get("authors", []),
+                        })
+                except Exception as e:
+                    logger.debug("Title lookup failed for %r: %s", raw_title[:60], e)
+
+        try:
+            # Run async lookups in a new event loop if needed
+            try:
+                loop = asyncio.get_running_loop()
+                # Already in async context — schedule as task and gather
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, _lookup_all())
+                    future.result(timeout=30)
+            except RuntimeError:
+                asyncio.run(_lookup_all())
+        except Exception as e:
+            logger.warning("Reference title resolution failed: %s", e)
+
+        logger.info("CITE_VALIDATION resolved %d/%d references via title lookup", len(resolved), len(entries))
+        return resolved
 
     async def _step_integrity_audit(self) -> AgentOutput:
         """INTEGRITY_AUDIT: Run deterministic integrity checks on paper text."""

@@ -200,11 +200,15 @@ def build_peer_review_report(
 
 
 def render_markdown_report(report: W8PeerReviewReport) -> str:
-    """Render peer review report as Markdown."""
+    """Render peer review report as Markdown.
+
+    Designed for direct journal submission. No internal pipeline metadata,
+    system step names, or AI disclosure language is included.
+    """
     lines: list[str] = []
 
     lines.append(f"# Peer Review Report: {report.paper_title}")
-    lines.append(f"\n*Generated: {report.review_date.strftime('%Y-%m-%d %H:%M UTC')}*\n")
+    lines.append(f"\n*{report.review_date.strftime('%B %Y')}*\n")
 
     # Summary Assessment
     if report.synthesis:
@@ -218,7 +222,7 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
         lines.append(report.synthesis.decision_reasoning)
         lines.append("")
 
-        # Comments by category
+        # Comments by category — evidence_basis kept internal, not rendered
         major = [c for c in report.synthesis.comments if c.category == "major"]
         minor = [c for c in report.synthesis.comments if c.category == "minor"]
         suggestions = [c for c in report.synthesis.comments if c.category == "suggestion"]
@@ -228,8 +232,6 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
             lines.append("## Major Comments\n")
             for i, c in enumerate(major, 1):
                 lines.append(f"**{i}. [{c.section}]** {c.comment}")
-                if c.evidence_basis:
-                    lines.append(f"   *Basis: {c.evidence_basis}*")
                 lines.append("")
 
         if minor:
@@ -250,43 +252,44 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
                 lines.append(f"{i}. **[{c.section}]** {c.comment}")
             lines.append("")
 
-    # Novelty Assessment (inserted before Methodology — high priority concern)
+    # Novelty Assessment — qualitative framing, no numeric score in heading
     if report.novelty_assessment:
         na = report.novelty_assessment
-        score_label = (
-            "High" if na.novelty_score >= 0.7
-            else "Moderate" if na.novelty_score >= 0.4
-            else "Low"
-        )
-        lines.append(f"## Novelty Assessment (Score: {na.novelty_score:.2f} — {score_label})\n")
+        if na.novelty_score >= 0.7:
+            novelty_qualifier = "High Novelty"
+        elif na.novelty_score >= 0.4:
+            novelty_qualifier = "Moderate Novelty"
+        else:
+            novelty_qualifier = "Limited Novelty"
+        lines.append(f"## Novelty Assessment — {novelty_qualifier}\n")
 
         if na.already_established:
-            lines.append("### Findings Already Established in Prior Work\n")
+            lines.append("### Findings Already Established in Prior Literature\n")
             for item in na.already_established:
                 lines.append(f"- {item}")
             lines.append("")
 
         if na.unique_contributions:
-            lines.append("### Unique Contributions\n")
+            lines.append("### Genuinely Novel Contributions\n")
             for item in na.unique_contributions:
                 lines.append(f"- {item}")
             lines.append("")
 
         if na.landmark_papers_missing:
-            lines.append("### Landmark Papers Authors Should Compare Against\n")
+            lines.append("### Key Prior Studies for Mandatory Comparison\n")
             for item in na.landmark_papers_missing:
                 lines.append(f"- {item}")
             lines.append("")
 
         if na.novelty_recommendation:
-            lines.append("### Novelty Recommendation\n")
+            lines.append("### Recommendations for Novelty Framing\n")
             lines.append(na.novelty_recommendation)
             lines.append("")
 
     # Methodology Assessment
     if report.methodology_assessment:
         ma = report.methodology_assessment
-        lines.append(f"## Methodology Assessment (Score: {ma.overall_methodology_score:.2f})\n")
+        lines.append("## Methodology Assessment\n")
         lines.append(f"**Study Design:** {ma.study_design_critique}\n")
         lines.append(f"**Statistical Methods:** {ma.statistical_methods}\n")
         lines.append(f"**Controls:** {ma.controls_adequacy}\n")
@@ -299,86 +302,79 @@ def render_markdown_report(report: W8PeerReviewReport) -> str:
             lines.append("")
 
         if ma.potential_biases:
-            lines.append("**Potential Biases:**")
+            lines.append("**Potential Biases and Confounds:**")
             for b in ma.potential_biases:
                 lines.append(f"- {b}")
             lines.append("")
 
         if ma.domain_specific_issues:
-            lines.append("**Domain-Specific Issues:**")
+            lines.append("**Domain-Specific Concerns:**")
             for d in ma.domain_specific_issues:
                 lines.append(f"- {d}")
             lines.append("")
 
-    # Evidence Quality
+    # Evidence Quality (internal scoring — rendered as supporting notes)
     if report.rcmxt_scores:
-        lines.append(f"## Evidence Quality (RCMXT — {len(report.rcmxt_scores)} claims scored)\n")
+        lines.append(f"## Evidence Quality ({len(report.rcmxt_scores)} key claims evaluated)\n")
         for score in report.rcmxt_scores[:10]:
             claim = score.get("claim", "")[:80]
             composite = score.get("composite", "N/A")
-            lines.append(f"- **{claim}...** — Composite: {composite}")
+            lines.append(f"- **{claim}...** — Evidence strength: {composite}")
         lines.append("")
 
-    # Literature Cross-Check
-    if report.literature_comparison:
-        lines.append("## Literature Cross-Check\n")
-        summary = report.literature_comparison.get("summary", "")
-        if summary:
-            lines.append(summary[:2000])
-        else:
-            # Fall back to listing retrieved papers
-            papers = report.literature_comparison.get("papers", [])
-            total = report.literature_comparison.get("total_found", len(papers))
-            dbs = ", ".join(report.literature_comparison.get("databases_searched", []))
-            lines.append(f"Retrieved {total} related paper(s) from {dbs}:\n")
-            for p in papers[:10]:
-                title = p.get("title", "Unknown")
-                authors = p.get("authors", [])
-                year = p.get("year", "")
-                pmid = p.get("pmid", "")
-                doi = p.get("doi", "")
-                ref = f"PMID:{pmid}" if pmid else (f"DOI:{doi}" if doi else "")
-                author_str = f"{authors[0]} et al." if authors else ""
-                lines.append(f"- **{title}** — {author_str} {year} {ref}")
-        lines.append("")
-
-    # Citation Integrity
-    if report.citation_report:
-        total = report.citation_report.get("total_citations", 0)
-        verified = report.citation_report.get("verified", 0)
-        rate = report.citation_report.get("verification_rate", 0)
-        notes = report.citation_report.get("notes", [])
-        embedded = report.citation_report.get("embedded_dois_found", 0)
-        lines.append("## Citation Integrity\n")
-        if notes:
-            for note in notes:
-                lines.append(f"> ⚠️ {note}")
+    # Literature Context — only show if papers were actually retrieved
+    lit = report.literature_comparison
+    if lit:
+        papers = lit.get("papers", [])
+        summary = lit.get("summary", "")
+        if summary or papers:
+            lines.append("## Related Literature\n")
+            if summary:
+                lines.append(summary[:2000])
+            else:
+                dbs = ", ".join(lit.get("databases_searched", []))
+                lines.append(f"The following related publications were identified ({dbs}):\n")
+                for p in papers[:10]:
+                    title = p.get("title", "Unknown")
+                    authors = p.get("authors", [])
+                    year = p.get("year", "")
+                    pmid = p.get("pmid", "")
+                    doi = p.get("doi", "")
+                    ref = f"PMID:{pmid}" if pmid else (f"DOI:{doi}" if doi else "")
+                    author_str = f"{authors[0]} et al." if authors else ""
+                    lines.append(f"- **{title}** — {author_str} {year} {ref}")
             lines.append("")
-        if total > 0:
-            lines.append(f"- Total citations: {total}")
-            lines.append(f"- Verified: {verified} ({rate:.0%})")
-        if embedded > 0:
-            lines.append(f"- Embedded DOIs found in text: {embedded}")
-        issues = report.citation_report.get("issues", [])
-        if issues:
-            lines.append(f"- Issues: {len(issues)}")
-            for issue in issues[:5]:
-                lines.append(f"  - {issue.get('issue_type', '?')}: {issue.get('citation_ref', '?')}")
-        lines.append("")
 
-    # AI Disclosure
-    lines.append("## AI Disclosure\n")
-    lines.append(
-        "This review was generated with assistance from BioTeam-AI (W8 Paper Review pipeline). "
-        "The AI system performed claim extraction, citation validation, literature cross-referencing, "
-        "integrity auditing, contradiction detection, methodology assessment, and evidence grading. "
-        "The final review was synthesized by AI and should be reviewed and edited by the human reviewer "
-        "before submission to the journal."
-    )
+    # Citation Notes — professional prose, no system error messages
+    cite = report.citation_report
+    if cite:
+        total = cite.get("total_citations", 0)
+        verified = cite.get("verified", 0)
+        rate = cite.get("verification_rate", 0)
+        embedded = cite.get("embedded_dois_found", 0)
+        issues = cite.get("issues", [])
+        resolved = cite.get("resolved_citations", [])
 
-    cost = report.session_manifest.get("total_cost", 0)
-    if cost:
-        lines.append(f"\n*Pipeline cost: ${cost:.4f}*")
+        # Only show this section if there is something meaningful to report
+        has_content = total > 0 or embedded > 0 or issues or resolved
+        if has_content:
+            lines.append("## Citation Notes\n")
+            if total > 0:
+                lines.append(f"- {verified} of {total} references verified against external databases ({rate:.0%} verification rate)")
+            if embedded > 0:
+                lines.append(f"- {embedded} DOI(s) identified within the manuscript body")
+            if resolved:
+                lines.append(f"- {len(resolved)} reference(s) resolved via title-based lookup")
+            if issues:
+                lines.append(f"- {len(issues)} citation issue(s) identified:")
+                for issue in issues[:5]:
+                    lines.append(f"  - {issue.get('issue_type', '?')}: {issue.get('citation_ref', '?')}")
+            if total == 0 and not embedded and not resolved:
+                lines.append(
+                    "The reference list does not contain machine-readable identifiers (DOIs/PMIDs). "
+                    "Manual citation verification is recommended prior to submission."
+                )
+            lines.append("")
 
     return "\n".join(lines)
 
