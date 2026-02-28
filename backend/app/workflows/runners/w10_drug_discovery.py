@@ -307,18 +307,18 @@ class W10DrugDiscoveryRunner:
 
     async def _step_scope(self, query: str, instance: WorkflowInstance) -> DrugDiscoveryScope:
         agent = self._registry.get("research_director")
-        ctx = ContextPackage(query=query, metadata={"workflow_id": instance.id})
-        out = await agent.run(
-            context=ctx,
+        ctx = ContextPackage(
             task_description=(
-                "Define the drug discovery research scope for this query. "
+                f"Define the drug discovery research scope for: {query}\n"
                 "Identify: research question, target compound or compound class, therapeutic area, "
                 "key objectives (3-5), and initial search strategy. "
                 "Be specific about what compound(s) to investigate."
             ),
+            metadata={"workflow_id": instance.id},
         )
+        out = await agent.run(context=ctx)
         self._track_tokens(out)
-        raw = out.content if hasattr(out, "content") and isinstance(out.content, dict) else {}
+        raw = out.output if isinstance(out.output, dict) else {}
         return DrugDiscoveryScope(
             research_question=raw.get("research_question", query),
             target_compound_or_class=raw.get("target_compound_or_class", query),
@@ -353,21 +353,22 @@ class W10DrugDiscoveryRunner:
         compound_summary = self._step_results.get("COMPOUND_SEARCH", {}).get("summary", "")
         bioactivity_summary = self._step_results.get("BIOACTIVITY_PROFILE", {}).get("summary", "")
         ctx = ContextPackage(
-            query=query,
+            task_description=(
+                f"Identify biological targets for: {query}\n"
+                "Based on the compound and bioactivity data, identify the primary biological targets. "
+                "List target names, gene symbols, and relevance to the therapeutic area.\n"
+                f"Compound data: {compound_summary[:800]}\n"
+                f"Bioactivity data: {bioactivity_summary[:800]}"
+            ),
             metadata={
                 "compound_data": compound_summary[:1000],
                 "bioactivity_data": bioactivity_summary[:1000],
             },
         )
-        out = await agent.run(
-            context=ctx,
-            task_description=(
-                "Based on the compound and bioactivity data, identify the primary biological targets. "
-                "List target names, gene symbols, and relevance to the therapeutic area."
-            ),
-        )
+        out = await agent.run(context=ctx)
         self._track_tokens(out)
-        return {"target_summary": getattr(out, "answer", "") or str(out)}
+        summary = out.summary or (str(out.output) if out.output else "")
+        return {"target_summary": summary}
 
     async def _step_clinical_trials(self, query: str) -> dict:
         ct = self._get_ct()
@@ -385,25 +386,26 @@ class W10DrugDiscoveryRunner:
         bioactivity_data = self._step_results.get("BIOACTIVITY_PROFILE", {}).get("summary", "")
         trial_data = self._step_results.get("CLINICAL_TRIALS_SEARCH", {}).get("summary", "")
         ctx = ContextPackage(
-            query=query,
+            task_description=(
+                f"Assess efficacy of {query} based on available data.\n"
+                "Synthesize the compound bioactivity and clinical trial data to assess efficacy. "
+                "Provide: summary, key findings, potency assessment (strong/moderate/weak/unknown), "
+                "selectivity notes, and known limitations.\n"
+                f"Compound data: {compound_data[:600]}\n"
+                f"Bioactivity: {bioactivity_data[:600]}\n"
+                f"Trial data: {trial_data[:600]}"
+            ),
             metadata={
                 "compound_data": compound_data[:800],
                 "bioactivity_data": bioactivity_data[:800],
                 "trial_data": trial_data[:800],
             },
         )
-        out = await agent.run(
-            context=ctx,
-            task_description=(
-                "Synthesize the compound bioactivity and clinical trial data to assess efficacy. "
-                "Provide: summary, key findings, potency assessment (strong/moderate/weak/unknown), "
-                "selectivity notes, and known limitations."
-            ),
-        )
+        out = await agent.run(context=ctx)
         self._track_tokens(out)
-        raw = out.content if hasattr(out, "content") and isinstance(out.content, dict) else {}
+        raw = out.output if isinstance(out.output, dict) else {}
         return EfficacyAnalysis(
-            summary=raw.get("summary", getattr(out, "answer", "") or ""),
+            summary=raw.get("summary", out.summary or ""),
             key_findings=raw.get("key_findings", []),
             potency_assessment=raw.get("potency_assessment", "unknown"),
             selectivity_notes=raw.get("selectivity_notes", ""),
@@ -425,24 +427,23 @@ class W10DrugDiscoveryRunner:
         compound_data = self._step_results.get("COMPOUND_SEARCH", {}).get("summary", "")
         bioactivity_data = self._step_results.get("BIOACTIVITY_PROFILE", {}).get("summary", "")
         ctx = ContextPackage(
-            query=query,
+            task_description=(
+                f"Review mechanism of action for {query}.\n"
+                "Based on compound structure and bioactivity data, identify: primary mechanism, "
+                "target pathway, on-target evidence, off-target risks, and mechanistic gaps.\n"
+                f"Compound data: {compound_data[:600]}\n"
+                f"Bioactivity: {bioactivity_data[:600]}"
+            ),
             metadata={
                 "compound_data": compound_data[:800],
                 "bioactivity_data": bioactivity_data[:800],
             },
         )
-        out = await agent.run(
-            context=ctx,
-            task_description=(
-                "Review the mechanism of action based on compound structure and bioactivity. "
-                "Identify: primary mechanism, target pathway, on-target evidence, "
-                "off-target risks, and mechanistic gaps needing further study."
-            ),
-        )
+        out = await agent.run(context=ctx)
         self._track_tokens(out)
-        raw = out.content if hasattr(out, "content") and isinstance(out.content, dict) else {}
+        raw = out.output if isinstance(out.output, dict) else {}
         return MechanismReview(
-            primary_mechanism=raw.get("primary_mechanism", getattr(out, "answer", "") or ""),
+            primary_mechanism=raw.get("primary_mechanism", out.summary or ""),
             target_pathway=raw.get("target_pathway", ""),
             on_target_evidence=raw.get("on_target_evidence", []),
             off_target_risks=raw.get("off_target_risks", []),
@@ -452,22 +453,20 @@ class W10DrugDiscoveryRunner:
     async def _step_literature(self, query: str) -> LiteratureComparison:
         agent = self._registry.get("knowledge_manager")
         ctx = ContextPackage(
-            query=f"Compare {query} to similar compounds and existing literature",
-            metadata={},
-        )
-        out = await agent.run(
-            context=ctx,
             task_description=(
+                f"Compare {query} to similar compounds and existing literature.\n"
                 "Search the knowledge base for similar compounds, related mechanisms, and prior art. "
                 "Assess novelty: what makes this compound distinct from known alternatives? "
                 "List similar compounds, key differences, and relevant papers."
             ),
+            metadata={},
         )
+        out = await agent.run(context=ctx)
         self._track_tokens(out)
-        raw = out.content if hasattr(out, "content") and isinstance(out.content, dict) else {}
+        raw = out.output if isinstance(out.output, dict) else {}
         return LiteratureComparison(
             similar_compounds=raw.get("similar_compounds", []),
-            novelty_assessment=raw.get("novelty_assessment", getattr(out, "answer", "") or ""),
+            novelty_assessment=raw.get("novelty_assessment", out.summary or ""),
             key_differences=raw.get("key_differences", []),
             relevant_papers=raw.get("relevant_papers", []),
         )
@@ -477,25 +476,23 @@ class W10DrugDiscoveryRunner:
         efficacy = self._step_results.get("EFFICACY_ANALYSIS")
         efficacy_summary = efficacy.summary if isinstance(efficacy, EfficacyAnalysis) else ""
         ctx = ContextPackage(
-            query=query,
+            task_description=(
+                f"Assess grant funding potential for this drug discovery project: {query}\n"
+                "Provide: relevance score (0.0-1.0), relevant funding agencies (NIH, NCI, etc.), "
+                "mechanism fit (R01/R21/SBIR/etc.), innovation statement, and rationale.\n"
+                f"Efficacy summary: {efficacy_summary[:600]}"
+            ),
             metadata={"efficacy_summary": efficacy_summary[:600]},
         )
-        out = await agent.run(
-            context=ctx,
-            task_description=(
-                "Assess the grant funding potential of this drug discovery project. "
-                "Provide: relevance score (0.0-1.0), relevant funding agencies (NIH, NCI, etc.), "
-                "mechanism fit (R01/R21/SBIR/etc.), innovation statement, and rationale."
-            ),
-        )
+        out = await agent.run(context=ctx)
         self._track_tokens(out)
-        raw = out.content if hasattr(out, "content") and isinstance(out.content, dict) else {}
+        raw = out.output if isinstance(out.output, dict) else {}
         return GrantRelevanceAssessment(
             relevance_score=float(raw.get("relevance_score", 0.5)),
             funding_agencies=raw.get("funding_agencies", []),
             mechanism_fit=raw.get("mechanism_fit", ""),
             innovation_statement=raw.get("innovation_statement", ""),
-            rationale=raw.get("rationale", getattr(out, "answer", "") or ""),
+            rationale=raw.get("rationale", out.summary or ""),
         )
 
     async def _step_report(self, query: str, instance: WorkflowInstance) -> dict:

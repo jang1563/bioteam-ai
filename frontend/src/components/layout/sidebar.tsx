@@ -36,6 +36,7 @@ const navItems = [
   { href: "/evidence", label: "Evidence", icon: Layers },
   { href: "/integrity", label: "Integrity", icon: ShieldCheck },
   { href: "/peer-review", label: "Peer Review", icon: FileSearch },
+  { href: "/drug-discovery", label: "Drug Discovery", icon: FlaskConical },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -97,9 +97,14 @@ class ConcernMatcher:
         if w8_comment_count and w8_comment_count > 0:
             # Use explicit W8 structured comment count as denominator
             precision = len(w8_concerns_raised) / w8_comment_count if w8_concerns_raised else 0.0
-        elif w8_sentences:
-            # Fallback: approximate using sentence count
-            precision = len(w8_concerns_raised) / max(len(w8_sentences), 1)
+        elif w8_review_text:
+            # Better fallback: count structured comments in the W8 review text
+            # (numbered items like **1.**, bullet points, or section headers)
+            estimated_comments = self._count_w8_comments(w8_review_text)
+            if estimated_comments > 0:
+                precision = len(w8_concerns_raised) / estimated_comments
+            else:
+                precision = None
         else:
             precision = None
 
@@ -158,6 +163,30 @@ class ConcernMatcher:
         }
         words = re.findall(r"\b[a-z][a-z\-]{3,}\b", text.lower())
         return [w for w in words if w not in stopwords]
+
+    @staticmethod
+    def _count_w8_comments(review_text: str) -> int:
+        """Count structured concern/comment items in a W8 review text.
+
+        Counts (in order of reliability):
+        1. Numbered bold markers like **1.** or **1)** (W8 report format)
+        2. Bullet-point lines starting with "- " or "* "
+        Falls back to zero if no structured items found.
+        """
+        # Priority 1: numbered comments e.g. **1.** or **1)**
+        numbered = re.findall(r"\*\*\d+[\.\)]", review_text)
+        if numbered:
+            return len(numbered)
+
+        # Priority 2: bullet points (each line starting with "- " or "* ")
+        bullet_lines = [
+            line for line in review_text.split("\n")
+            if re.match(r"^\s*[-*]\s+\S", line)
+        ]
+        if bullet_lines:
+            return len(bullet_lines)
+
+        return 0
 
     @staticmethod
     def _split_into_sentences(text: str) -> list[str]:
