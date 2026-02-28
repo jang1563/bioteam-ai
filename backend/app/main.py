@@ -21,6 +21,7 @@ from app.api.v1.conversations import router as conversations_router
 from app.api.v1.digest import router as digest_router
 from app.api.v1.direct_query import router as dq_router
 from app.api.v1.integrity import router as integrity_router
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.memory import router as memory_router
 from app.api.v1.negative_results import router as nr_router
 from app.api.v1.resume import router as resume_router
@@ -264,6 +265,7 @@ app.include_router(cold_start_router)
 app.include_router(conversations_router)
 app.include_router(contradictions_router)
 app.include_router(digest_router)
+app.include_router(analytics_router)
 app.include_router(integrity_router)
 app.include_router(memory_router)
 app.include_router(resume_router)

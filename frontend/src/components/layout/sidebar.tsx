@@ -18,6 +18,7 @@ import {
   Network,
   BarChart3,
   Layers,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -37,6 +38,7 @@ const navItems = [
   { href: "/integrity", label: "Integrity", icon: ShieldCheck },
   { href: "/peer-review", label: "Peer Review", icon: FileSearch },
   { href: "/drug-discovery", label: "Drug Discovery", icon: FlaskConical },
+  { href: "/analytics", label: "Analytics", icon: TrendingUp },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
