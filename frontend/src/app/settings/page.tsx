@@ -38,6 +38,8 @@ export default function SettingsPage() {
     return () => window.clearTimeout(id);
   }, [checkHealth]);
 
+  const [testResult, setTestResult] = useState<"ok" | "fail" | null>(null);
+
   const saveKey = () => {
     if (apiKey.trim()) {
       localStorage.setItem("bioteam_api_key", apiKey.trim());
@@ -45,7 +47,18 @@ export default function SettingsPage() {
       localStorage.removeItem("bioteam_api_key");
     }
     setSaved(true);
+    setTestResult(null);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const testConnection = async () => {
+    setTestResult(null);
+    try {
+      await api.get<HealthResponse>("/health");
+      setTestResult("ok");
+    } catch {
+      setTestResult("fail");
+    }
   };
 
   return (
@@ -64,6 +77,12 @@ export default function SettingsPage() {
             Set your BioTeam-AI API key for authenticated requests.
             Leave empty for dev mode (no auth).
           </p>
+          {!apiKey.trim() && (
+            <div className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Dev mode — Authentication is disabled. Set a key to enable security.
+            </div>
+          )}
           <div className="flex gap-2">
             <Input
               type="password"
@@ -74,6 +93,13 @@ export default function SettingsPage() {
             />
             <Button onClick={saveKey} size="sm">
               {saved ? "Saved!" : "Save"}
+            </Button>
+            <Button onClick={testConnection} size="sm" variant="outline">
+              {testResult === "ok" ? (
+                <><CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-500" /> Connected</>
+              ) : testResult === "fail" ? (
+                <><XCircle className="mr-1.5 h-3.5 w-3.5 text-destructive" /> Failed</>
+              ) : "Test"}
             </Button>
           </div>
         </CardContent>

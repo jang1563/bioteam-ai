@@ -40,6 +40,10 @@ class ReviewerConcern(BaseModel):
         description="Ground truth: True if author conceded and paper was revised",
     )
     raised_by_multiple: bool = False
+    is_figure_concern: bool = Field(
+        default=False,
+        description="True if the concern is solely about a figure/image and cannot be assessed by text analysis",
+    )
 
 
 class ReviewConcernBatch(BaseModel):

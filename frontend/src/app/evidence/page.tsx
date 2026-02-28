@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Layers,
 } from "lucide-react";
+import { useAppStore } from "@/stores/app-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -269,10 +270,10 @@ export default function EvidencePage() {
     });
   }, [rows, scoreFilter, templateFilter]);
 
+  const setSelectedWorkflow = useAppStore((s) => s.setSelectedWorkflowId);
   const handleWorkflowClick = useCallback((id: string) => {
-    // Open workflow detail — store sets selectedWorkflowId which triggers WorkflowDetailSheet
-    window.open(`/workflows/${id}`, "_blank");
-  }, []);
+    setSelectedWorkflow(id);
+  }, [setSelectedWorkflow]);
 
   return (
     <div className="space-y-6">

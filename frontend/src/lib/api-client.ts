@@ -45,6 +45,11 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
+    if ((res.status === 401 || res.status === 403) && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("bioteam:auth-error", { detail: { status: res.status, path } }),
+      );
+    }
     throw new ApiError(res.status, body.detail ?? res.statusText);
   }
 

@@ -100,7 +100,7 @@ def extract_w8_review_text(w8_result: dict) -> str:
     steps = w8_result.get("step_results", {})
 
     # SYNTHESIZE_REVIEW — primary source
-    synth = steps.get("SYNTHESIZE_REVIEW", {}).get("output", {})
+    synth = steps.get("SYNTHESIZE_REVIEW", {}).get("output") or {}
     if synth.get("summary_assessment"):
         parts.append(synth["summary_assessment"])
     for comment in synth.get("comments", []) or []:
@@ -109,7 +109,7 @@ def extract_w8_review_text(w8_result: dict) -> str:
             parts.append(f"[{comment.get('category', '').upper()}] {text}")
 
     # METHODOLOGY_REVIEW — secondary
-    method = steps.get("METHODOLOGY_REVIEW", {}).get("output", {})
+    method = steps.get("METHODOLOGY_REVIEW", {}).get("output") or {}
     for field in ["study_design_critique", "statistical_methods", "controls_adequacy"]:
         val = method.get(field, "")
         if val and len(val) > 30:
@@ -134,6 +134,15 @@ def extract_w8_decision(w8_result: dict) -> str | None:
 # Metric computation
 # ---------------------------------------------------------------------------
 
+def extract_w8_comment_count(w8_result: dict) -> int | None:
+    """Count W8 major + minor comments from SYNTHESIZE_REVIEW output."""
+    synth = w8_result.get("step_results", {}).get("SYNTHESIZE_REVIEW", {}).get("output", {})
+    major = synth.get("major_comments") or synth.get("comments") or []
+    minor = synth.get("minor_comments") or []
+    total = len(major) + len(minor)
+    return total if total > 0 else None
+
+
 def compute_metrics(
     article_id: str,
     source: str,
@@ -141,6 +150,7 @@ def compute_metrics(
     w8_text: str,
     w8_decision: str | None,
     gt_decision: str | None,
+    w8_comment_count: int | None = None,
 ) -> dict:
     """Compute recall, precision, and decision accuracy for one article."""
     from app.engines.review_corpus.concern_matcher import ConcernMatcher
@@ -158,6 +168,8 @@ def compute_metrics(
         source=source,
         human_concerns=all_concerns,
         w8_review_text=w8_text,
+        w8_comment_count=w8_comment_count,
+        exclude_figure_concerns=True,
     )
 
     # Decision accuracy
@@ -228,9 +240,13 @@ async def run_benchmark(
             logger.warning("  Empty decision letter for %s, skipping", article_id)
             continue
 
-        # Optionally run W8
+        # Optionally run W8 (skip if result already exists)
         if run_w8:
-            await _run_w8_on_article(article_id, source, ground_truth_dir, budget)
+            existing = load_w8_result(article_id, source)
+            if existing is not None:
+                logger.info("  %s: W8 result already exists — skipping W8 run", article_id)
+            else:
+                await _run_w8_on_article(article_id, source, ground_truth_dir, budget)
 
         # Load W8 result
         w8_result = load_w8_result(article_id, source)
@@ -246,9 +262,10 @@ async def run_benchmark(
             logger.warning("  No concerns extracted for %s (no LLM?)", article_id)
             concerns = _heuristic_concerns(decision_letter)
 
-        # Extract W8 review text
+        # Extract W8 review text and comment count
         w8_text = extract_w8_review_text(w8_result)
         w8_decision = extract_w8_decision(w8_result)
+        w8_comment_count = extract_w8_comment_count(w8_result)
 
         # Compute metrics
         metrics = compute_metrics(
@@ -258,6 +275,7 @@ async def run_benchmark(
             w8_text=w8_text,
             w8_decision=w8_decision,
             gt_decision=gt_decision,
+            w8_comment_count=w8_comment_count,
         )
         all_metrics.append(metrics)
 

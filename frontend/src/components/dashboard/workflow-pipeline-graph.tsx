@@ -4,6 +4,7 @@ import { useMemo, useCallback } from "react";
 import {
   ReactFlow,
   Background,
+  MiniMap,
   type Node,
   type Edge,
   type NodeTypes,
@@ -94,10 +95,11 @@ const W6_STEPS: StepDef[] = [
 
 const W8_STEPS: StepDef[] = [
   { id: "INGEST", label: "PDF Ingest", short: "Ingest" },
-  { id: "PARSE", label: "Section Parse", short: "Parse" },
+  { id: "PARSE_SECTIONS", label: "Section Parse", short: "Parse" },
   { id: "EXTRACT_CLAIMS", label: "Claim Extraction", short: "Claims" },
   { id: "CITE_VALIDATION", label: "Citation Check", short: "Citations" },
   { id: "BACKGROUND_LIT", label: "Background Lit", short: "Background" },
+  { id: "NOVELTY_CHECK", label: "Novelty Check", short: "Novelty" },
   { id: "INTEGRITY_AUDIT", label: "Integrity Audit", short: "Integrity" },
   { id: "CONTRADICTION_CHECK", label: "Contradiction Check", short: "Contradictions" },
   { id: "METHODOLOGY_REVIEW", label: "Methodology Review", short: "Methods" },
@@ -324,8 +326,15 @@ function layoutNodes(steps: StepDef[], workflow: WorkflowStatus) {
   return { nodes: ns, edges: es, rowCount };
 }
 
-export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }) {
+export function WorkflowPipelineGraph({
+  workflow,
+  onStepClick,
+}: {
+  workflow: WorkflowStatus;
+  onStepClick?: (stepId: string) => void;
+}) {
   const steps = WORKFLOW_STEP_DEFS[workflow.template] ?? W1_STEPS;
+  const isLargePipeline = steps.length > 14;
 
   const { nodes, edges, rowCount } = useMemo(
     () => layoutNodes(steps, workflow),
@@ -336,29 +345,73 @@ export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }
     instance.fitView();
   }, []);
 
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      onStepClick?.(node.id);
+    },
+    [onStepClick],
+  );
+
   const height = rowCount === 3 ? 280 : rowCount === 2 ? 200 : 120;
 
   return (
-    <div className={`w-full rounded-lg border border-border overflow-hidden bg-background/50`} style={{ height }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onInit={onInit}
-        fitView
-        proOptions={{ hideAttribution: true }}
-        panOnDrag={false}
-        zoomOnScroll={false}
-        zoomOnPinch={false}
-        zoomOnDoubleClick={false}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        minZoom={0.5}
-        maxZoom={1}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={16} size={0.5} className="!bg-transparent" />
-      </ReactFlow>
+    <div className="space-y-2">
+      <div className={`w-full rounded-lg border border-border overflow-hidden bg-background/50`} style={{ height }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onInit={onInit}
+          onNodeClick={onStepClick ? handleNodeClick : undefined}
+          fitView
+          proOptions={{ hideAttribution: true }}
+          panOnDrag={false}
+          zoomOnScroll={false}
+          zoomOnPinch={false}
+          zoomOnDoubleClick={false}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={!!onStepClick}
+          minZoom={0.5}
+          maxZoom={1}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} size={0.5} className="!bg-transparent" />
+          {isLargePipeline && (
+            <MiniMap
+              nodeColor={(n) => {
+                const status = (n.data as StepNodeData)?.status;
+                return STATUS_STYLES[status as StepStatus]?.border ?? "rgba(148,163,184,0.4)";
+              }}
+              style={{
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "6px",
+              }}
+              maskColor="rgba(0,0,0,0.1)"
+              pannable
+            />
+          )}
+        </ReactFlow>
+      </div>
+      {/* W9 legend */}
+      {isLargePipeline && (
+        <div className="flex flex-wrap items-center gap-3 px-1 text-[10px] text-muted-foreground">
+          {([
+            ["rgb(16,185,129)", "Completed"],
+            ["rgb(59,130,246)", "Running"],
+            ["rgb(245,158,11)", "Waiting / HC"],
+            ["rgba(148,163,184,0.6)", "Pending"],
+          ] as const).map(([color, label]) => (
+            <span key={label} className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
+              {label}
+            </span>
+          ))}
+          {onStepClick && (
+            <span className="text-muted-foreground/60">Click a node to jump to step</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

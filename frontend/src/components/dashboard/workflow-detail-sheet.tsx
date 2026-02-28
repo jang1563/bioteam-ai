@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -109,7 +109,7 @@ const STEP_LABELS: Record<string, string> = {
   EXTRACT_CLAIMS: "Claim Extraction",
   CITE_VALIDATION: "Citation Validation",
   BACKGROUND_LIT: "Background Literature",
-  NOVELTY_CHECK_W8: "Novelty Assessment",
+  // NOVELTY_CHECK already defined for W1 above — shared label
   METHODOLOGY_REVIEW: "Methodology Review",
   EVIDENCE_GRADE: "Evidence Grading (RCMXT)",
   HUMAN_CHECKPOINT: "Human Checkpoint",
@@ -162,8 +162,8 @@ const WORKFLOW_STEPS: Record<string, string[]> = {
   ],
   W8: [
     "INGEST", "PARSE_SECTIONS", "EXTRACT_CLAIMS", "CITE_VALIDATION", "BACKGROUND_LIT",
-    "INTEGRITY_AUDIT", "CONTRADICTION_CHECK", "METHODOLOGY_REVIEW", "EVIDENCE_GRADE",
-    "HUMAN_CHECKPOINT", "SYNTHESIZE_REVIEW", "REPORT",
+    "NOVELTY_CHECK", "INTEGRITY_AUDIT", "CONTRADICTION_CHECK", "METHODOLOGY_REVIEW",
+    "EVIDENCE_GRADE", "HUMAN_CHECKPOINT", "SYNTHESIZE_REVIEW", "REPORT",
   ],
   W9: [
     "PRE_HEALTH_CHECK", "SCOPE", "INGEST_DATA", "QC",
@@ -224,6 +224,14 @@ export function WorkflowDetailSheet() {
   const [budgetTopup, setBudgetTopup] = useState("1.00");
   const [directionInput, setDirectionInput] = useState("");
   const [stepActioning, setStepActioning] = useState<string | null>(null);
+
+  // Node click → step highlight
+  const [activeStep, setActiveStep] = useState<string | null>(null);
+  const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const handleStepClick = useCallback((stepId: string) => {
+    setActiveStep(stepId);
+    stepRefs.current[stepId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
 
   const fetchWorkflow = useCallback(async () => {
     if (!selectedId) return;
@@ -389,7 +397,7 @@ export function WorkflowDetailSheet() {
 
               {/* Pipeline Graph */}
               {WORKFLOW_STEPS[workflow.template] && (
-                <WorkflowPipelineGraph workflow={workflow} />
+                <WorkflowPipelineGraph workflow={workflow} onStepClick={handleStepClick} />
               )}
 
               {/* Pipeline Steps */}
@@ -406,7 +414,11 @@ export function WorkflowDetailSheet() {
                     const isExpanded = expandedSteps.has(stepId);
 
                     return (
-                      <div key={stepId}>
+                      <div
+                        key={stepId}
+                        ref={(el) => { stepRefs.current[stepId] = el; }}
+                        className={activeStep === stepId ? "rounded bg-accent/50 transition-colors" : undefined}
+                      >
                         <div className="flex items-center gap-1">
                           <button
                             className="flex flex-1 items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent text-left"

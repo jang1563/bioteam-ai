@@ -27,6 +27,9 @@ For each distinct concern raised by reviewers:
 5. Determine resolution: conceded (author agreed and changed) | rebutted (author disagreed convincingly) | partially_addressed | unclear
 6. Assess was_valid: true if the author conceded AND changed the paper; false if convincingly rebutted; null if unclear
 7. Note if raised_by_multiple: true if >1 reviewer raised the same concern
+8. Mark is_figure_concern: true ONLY if the concern is exclusively about a figure or image
+   (e.g., "Figure 3 is unclear", "The scale bar in panel B is missing") and cannot be
+   evaluated without visual inspection of the figure itself
 
 Return a JSON array of concern objects. Limit to the 20 most important concerns."""
 
@@ -40,7 +43,8 @@ _EXTRACTION_PROMPT_TEMPLATE = """Article ID: {article_id}
 
 Extract reviewer concerns as a JSON array of objects with these fields:
 concern_id, concern_text (brief), category, severity, author_response_text (brief),
-resolution, was_valid (true/false/null), raised_by_multiple (true/false).
+resolution, was_valid (true/false/null), raised_by_multiple (true/false),
+is_figure_concern (true if concern is solely about a figure/image, false otherwise).
 
 Return ONLY valid JSON array, no markdown, no explanation."""
 
@@ -135,6 +139,7 @@ class ConcernParser:
                     resolution=item.get("resolution", "unclear"),
                     was_valid=item.get("was_valid"),
                     raised_by_multiple=bool(item.get("raised_by_multiple", False)),
+                    is_figure_concern=bool(item.get("is_figure_concern", False)),
                 )
                 concerns.append(concern)
             except Exception as e:

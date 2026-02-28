@@ -42,6 +42,8 @@ class ConcernMatcher:
         human_concerns: list[ReviewerConcern],
         w8_review_text: str,
         w8_workflow_id: str | None = None,
+        w8_comment_count: int | None = None,
+        exclude_figure_concerns: bool = True,
     ) -> W8BenchmarkResult:
         """Compute recall/precision metrics for one article.
 
@@ -63,8 +65,13 @@ class ConcernMatcher:
             )
 
         w8_sentences = self._split_into_sentences(w8_review_text)
-        major_concerns = [c for c in human_concerns if c.severity == "major"]
-        all_concerns = human_concerns
+
+        # Optionally exclude figure-only concerns (W8 cannot read figures)
+        if exclude_figure_concerns:
+            all_concerns = [c for c in human_concerns if not getattr(c, "is_figure_concern", False)]
+        else:
+            all_concerns = human_concerns
+        major_concerns = [c for c in all_concerns if c.severity == "major"]
 
         matched_all: list[str] = []
         missed_all: list[str] = []
@@ -86,9 +93,15 @@ class ConcernMatcher:
         overall_recall = len(matched_all) / len(all_concerns) if all_concerns else None
 
         # Precision: what fraction of W8 "concerns" map back to human concerns
-        # (approximate: count distinct W8 sentences that matched any human concern)
         w8_concerns_raised = list({c for c in matched_all})
-        precision = len(w8_concerns_raised) / max(len(w8_sentences), 1) if w8_sentences else None
+        if w8_comment_count and w8_comment_count > 0:
+            # Use explicit W8 structured comment count as denominator
+            precision = len(w8_concerns_raised) / w8_comment_count if w8_concerns_raised else 0.0
+        elif w8_sentences:
+            # Fallback: approximate using sentence count
+            precision = len(w8_concerns_raised) / max(len(w8_sentences), 1)
+        else:
+            precision = None
 
         return W8BenchmarkResult(
             article_id=article_id,
