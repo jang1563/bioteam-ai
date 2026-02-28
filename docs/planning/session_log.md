@@ -270,13 +270,112 @@ All 11 issues resolved. Key additions:
 
 ---
 
-## Next Steps
+### Phase 13: Full System Implementation (Sessions 4-N, up to 2026-02-27)
 
-1. **Week 1 (immediate)**: BaseAgent concrete implementations, config finalization, API routing structure
-2. **Week 1-2**: Remaining Week 1-2 plan items (Alembic migrations, Langfuse deployment, API endpoints)
-3. **Simultaneously**: File IRB determination, write annotation guidelines, recruit experts
-4. First real deliverable: Direct Query mode working end-to-end
-5. Then W1 Literature Review (reduced) + Dashboard (3 panels) + Cold Start
+**What was built beyond the original plan:**
+
+All 9 workflows (W1-W9) and all 18+ agents were implemented ahead of schedule. Additionally, the following features were built beyond the original v4.2 plan scope:
+
+| Feature | Notes |
+|---------|-------|
+| **W9 Bioinformatics workflow** | 10-step pipeline: SCOPE→DECOMPOSE→FETCH_DATA→QC→PREPROCESS→ANALYZE→INTEGRATE→INTERPRET→QA→REPORT |
+| **Bioinformatics API integrations** | UniProt REST v2, Ensembl REST+VEP, STRING DB v12, GWAS Catalog, GTEx Portal v2, g:Profiler, NCBI Gene/ClinVar |
+| **Open Peer Review Corpus (Phase 6)** | eLife XML parser, OpenPeerReviewEntry SQLModel table, ConcernParser (Haiku-based), W8 benchmark runner |
+| **MCP Connector infrastructure** | PubMed, bioRxiv, ClinicalTrials.gov, ChEMBL, ICD-10 MCP servers (master toggle `mcp_enabled`) |
+| **PTC (Programmatic Tool Calling)** | Multi-tool orchestration framework, `ptc_enabled` config flag |
+| **Deferred tool loading** | Context-saving tool search/load system |
+| **Iterative refinement loop** | Self-Refine with quality threshold, max iterations, budget cap |
+| **Long-term checkpointing** | SQLite-backed step checkpoints, step rerun/skip/inject API endpoints |
+| **GitHub Actions CI** | `ci.yml` with ruff + pytest, integration test marker auto-skip |
+| **Digest email delivery** | SMTP/Gmail digest report delivery, digest recipients config |
+| **Data integrity audit scheduler** | Crossref API verification, audit interval scheduling |
+| **Rate limiting** | Token bucket per-tier (Haiku: 200 rpm, Sonnet: 80, Opus: 40) |
+
+**Implementation Status vs. Original Plan:**
+
+| Phase | Original Plan | Status |
+|-------|--------------|--------|
+| Phase 1: Foundation | Week 1-5 | ✅ Complete |
+| Phase 2: Ambiguity Engine + QA | Week 6-9 (incl. Celery/Redis) | ⊙ Partial — asyncio only, Celery deferred |
+| Phase 3a: Full Biology | Week 10-12 | ✅ Complete (all 12 specialists) |
+| Phase 3b: Negative Results R&D | Week 13-14 | ⊙ Partial — Lab KB done, shadow mining/preprint delta incomplete |
+| Phase 4: Translation + Production | Week 15-18 | ⊙ Partial — W4/W5 implemented, production hardening TODO |
+| Publication Workstream | Parallel, Week 1-36 | ❌ Not started |
+
+**Key gaps remaining from original plan:**
+1. Code execution sandbox (Docker containers for Python/R/Nextflow) — agents generate code but cannot execute it
+2. Celery/Redis task queue — all orchestration runs via asyncio.gather only
+3. Advanced shadow mining (NLP tier beyond 30-phrase vocabulary) — engineering gate not reached
+4. Preprint delta full automation — basic comparison only
+5. RCMXT calibration with 5 domain experts — no expert annotations collected
+6. IRB determination + user study protocol — not filed
+7. Production auth (NextAuth.js + JWT) — dev mode only (API key)
+8. Frontend missing: Teams panel, Quality panel, Evidence Explorer, Knowledge Browser, Analytics
+9. Docker Compose production deployment + security audit
+10. Open Peer Review Corpus integration disabled by default (`peer_review_corpus_enabled = False`)
+
+---
+
+### Phase 14: Code Quality + CI Stabilization (Session: 2026-02-27)
+
+**Goals:** Stabilize the existing codebase before next feature phase.
+
+**Work completed (commit `b9b5bd6`):**
+
+| Task | Detail |
+|------|--------|
+| **Ruff clean** | 93 issues fixed (88 auto + 7 manual). F841/E741/F821 manually fixed in resume.py, ncbi_extended.py, w8_paper_review.py, w9_bioinformatics.py, test_mcp_connector.py, digest_report.py |
+| **digest.py import fix** | Ruff `--fix` incorrectly removed `SCHEDULE_LOOKBACK_DAYS` import (used at line 295); restored manually |
+| **Dynamic agent count** | `registry._expected_count = len(agent_defs)` — decoupled test from hardcoded `23` |
+| **Integration test markers** | `pytest.mark.integration` + conftest `--run-integration` flag for auto-skip |
+| **CI improvement** | `--ignore` per-file approach → `-m "not integration"` unified filter |
+| **Model version update** | `claude-sonnet-4-5-20250929` → `claude-sonnet-4-6` in config.py, .env.example, tracker.py |
+
+---
+
+## Next Steps (Updated 2026-02-27)
+
+### Immediate Priority: W9 + Open Peer Review Corpus Stabilization
+
+The most recently added features (W9, Open Peer Review Corpus) have the least test coverage. Stabilize before moving to new features:
+
+1. **W9 Bioinformatics tests** — `test_w9_runner.py` exists but needs validation with MockLLMLayer; ensure all 10 steps pass offline
+2. **Open Peer Review Corpus tests** — eLife XML parser, concern parser, benchmark runner need integration test coverage
+3. **Enable `peer_review_corpus_enabled = True`** in config once stable, add to health check
+
+### Near-Term: Code Execution Sandbox (Phase 2 Blocker)
+
+The code sandbox is the biggest missing feature from the original plan. Agents can generate Python/R code but cannot execute it:
+
+1. `backend/app/execution/docker_runner.py` — implement `DockerCodeRunner` for Python/R/Nextflow
+2. `Dockerfile.rnaseq`, `Dockerfile.singlecell`, `Dockerfile.genomics` — base images
+3. W3 (Data Analysis) and W9 (Bioinformatics) depend on this for real scientific value
+
+### Publication Workstream Start (0% progress, critical for papers)
+
+The publication workstream has not started. To unblock Paper 1 (RCMXT):
+
+1. Write RCMXT annotation guidelines (per-axis rubric with 3 anchor examples per axis)
+2. Identify 5 domain expert candidates (lab colleagues at Weill Cornell Medicine)
+3. Begin curating 150 biological claims (50 spaceflight × 50 cancer genomics × 50 neuroscience)
+4. File IRB determination at Weill Cornell Medicine (for user study, Paper 4)
+5. Preregister calibration protocol on OSF (Week 8 target)
+
+### Next Feature: Frontend Phase 2 Panels
+
+The frontend currently has 3 panels (Mission Control, Projects, Lab KB). Phase 2 panels add research value:
+
+1. **Teams panel** — per-team status, active agent list, recent outputs
+2. **Quality panel** — QA agent review results, RCMXT scores, contradiction flags
+3. **Evidence Explorer** — browse extracted claims with provenance and RCMXT scores
+
+### Deferred (Phase 4):
+
+- Celery/Redis task queue (asyncio.gather sufficient for current scale)
+- HPC runner (SSH + Slurm)
+- PostgreSQL migration
+- OAuth 2.0 / NextAuth.js (dev mode auth sufficient for personal use)
+- Vercel cloud deployment
 
 ---
 

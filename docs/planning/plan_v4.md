@@ -2260,3 +2260,69 @@ Week 36: Submit Paper 5 (Benchmark) to Scientific Data (if standalone)
 | v3 critical review | 34 unique (3B + 5C + 15M + 6m) | 3B + 5C + 8M (in v4); 7M + 6m as known debt |
 | v4 researcher feedback | 22 unique (6C + 9H + 7M) | 6C + 7H implemented (in v4.2); 2H + 7M deferred |
 | **Total** | **88 unique issues** | **61 resolved, 20 deferred, 7 accepted** |
+
+---
+
+## Implementation Status Snapshot (as of 2026-02-27)
+
+### Completion by Phase
+
+| Phase | Planned | Status | Notes |
+|-------|---------|--------|-------|
+| **Phase 1**: Foundation (Wk 1-5) | W1-reduced, 3 agents, 3 dashboard panels | ✅ Complete | All items shipped |
+| **Phase 2**: Ambiguity Engine + QA (Wk 6-9) | Celery, code sandbox, ambiguity engine, 3 QA agents | ⊙ 70% | Celery/Redis and code sandbox deferred |
+| **Phase 3a**: Full Biology (Wk 10-12) | 12 specialist agents, W2/W6 | ✅ Complete | All 12 specialists + W2/W6 implemented |
+| **Phase 3b**: NR R&D (Wk 13-14) | Shadow mining, preprint delta, RCMXT ablation | ⊙ 30% | Lab KB done; advanced NLP tiers not built |
+| **Phase 4**: Translation + Production (Wk 15-18) | W4/W5, auth, production hardening | ⊙ 50% | W4/W5 implemented; auth dev-only; no Docker prod |
+| **Publication Workstream** | IRB, guidelines, expert scoring, 5 papers | ❌ 0% | Not started |
+
+### Features Built Beyond Original Plan
+
+| Feature | Status | Business Value |
+|---------|--------|----------------|
+| **W9 Bioinformatics workflow** | ✅ Implemented | Handles genomics/RNA-seq/proteomics analysis chains |
+| **7 Bioinformatics API integrations** | ✅ Implemented | UniProt, Ensembl, STRING, GWAS, GTEx, g:Profiler, NCBI |
+| **Open Peer Review Corpus** | ⊙ Disabled | W8 benchmark against eLife/PLOS open reviews |
+| **MCP Connector infrastructure** | ✅ Implemented | PubMed, bioRxiv, ClinicalTrials, ChEMBL, ICD-10 MCP |
+| **PTC (Programmatic Tool Calling)** | ⊙ Disabled | Multi-tool orchestration; toggled off by default |
+| **Iterative Self-Refine loop** | ✅ Implemented | Quality scoring → refinement with budget cap |
+| **Long-term step checkpointing** | ✅ Implemented | Rerun/skip/inject API for interrupted runs |
+| **GitHub Actions CI** | ✅ Implemented | ruff + pytest, integration test auto-skip |
+| **Digest email delivery** | ✅ Implemented | SMTP/Gmail scheduled digest report delivery |
+| **Data integrity audit scheduler** | ✅ Implemented | Crossref-based citation verification on schedule |
+
+### Technical Debt Added (not in original plan)
+
+| Item | Risk | Mitigation |
+|------|------|-----------|
+| Code execution sandbox missing | W3/W9 cannot run real analysis | Add `docker_runner.py` next priority |
+| Celery/Redis not implemented | Long workflows block event loop | asyncio.gather is fine at current scale |
+| Open Peer Review Corpus disabled | W8 benchmark pipeline untested | Enable after adding coverage tests |
+| MCP/PTC disabled by default | Integration coverage gaps | Enable + test in Phase 3b iteration |
+| Frontend missing 5 planned panels | Researchers can't see team/QA/evidence data | Add in next frontend sprint |
+| No production auth | Single-user only (acceptable for now) | Add JWT when sharing with lab colleagues |
+
+### Updated Known Technical Debt
+
+| Item | Phase | Notes |
+|------|-------|-------|
+| ChromaDB → Qdrant migration | Phase 4+ | When scaling requires it |
+| Embedding model selection | Phase 2 | Currently using ChromaDB defaults |
+| MODEL_MAP model IDs | Ongoing | ~~claude-sonnet-4-5-20250929~~ → claude-sonnet-4-6 ✅ (2026-02-27) |
+| Multiple browser tab conflicts | Phase 4+ | Accept single-tab for now |
+| Loop count vs. budget limit conflict | Phase 2 | Budget takes precedence |
+| Multi-user / tenant_id | Phase 5+ | Explicitly single-user for now |
+| Vercel production deployment | Phase 4 | Polling fallback if needed |
+| Code execution sandbox | Phase 2 (overdue) | Highest priority unimplemented feature |
+| Celery/Redis task queue | Phase 2 (deferred) | Asyncio.gather sufficient for now |
+| Open Peer Review Corpus enable | Phase 6 | Needs test coverage before enabling |
+
+### Next Session Work Order (Priority Stack)
+
+1. **[Critical] Code execution sandbox** — `docker_runner.py` + Dockerfiles for rnaseq/singlecell/genomics. W3 and W9 cannot deliver real scientific value without this.
+2. **[Critical] Publication workstream start** — Write RCMXT annotation guidelines + identify 5 domain expert candidates. Unblocks Paper 1.
+3. **[High] W9 test coverage** — `test_w9_runner.py` needs full offline validation via MockLLMLayer
+4. **[High] Open Peer Review Corpus enable** — Add tests for eLife XML parser + concern parser → set `peer_review_corpus_enabled = True` → run benchmark
+5. **[Medium] Frontend Phase 2 panels** — Teams panel, Quality panel, Evidence Explorer
+6. **[Medium] RCMXT calibration data** — Begin curating 150 biological claims across 3 domains
+7. **[Low] Celery/Redis** — Only needed if asyncio.gather becomes a bottleneck at scale
