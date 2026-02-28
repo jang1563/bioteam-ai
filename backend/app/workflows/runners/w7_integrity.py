@@ -116,10 +116,14 @@ class W7IntegrityRunner:
         registry: AgentRegistry,
         engine: WorkflowEngine | None = None,
         sse_hub: SSEHub | None = None,
+        persist_fn=None,
+        checkpoint_manager=None,  # CheckpointManager — optional, for step persistence
     ) -> None:
         self._registry = registry
         self._engine = engine
         self._sse = sse_hub
+        self._persist_fn = persist_fn
+        self._checkpoint_manager = checkpoint_manager
 
         # Deterministic checkers
         self._gene_checker = GeneNameChecker()

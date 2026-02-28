@@ -129,6 +129,13 @@ class ProteomicsAgent(BaseAgent):
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Answer a proteomics or metabolomics analysis query."""
+        from app.config import settings as _settings
+
+        if _settings.ptc_enabled and self._get_ptc_tool_names():
+            return await self.run_with_ptc(
+                context, ProteomicsAnalysisResult, output_type="ProteomicsAnalysisResult",
+            )
+
         task = context.task_description
         genes = _extract_gene_candidates(task)
         accessions = _extract_uniprot_accessions(task)

@@ -145,6 +145,13 @@ class TranscriptomicsAgent(BaseAgent):
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Answer a gene expression analysis query."""
+        from app.config import settings as _settings
+
+        if _settings.ptc_enabled and self._get_ptc_tool_names():
+            return await self.run_with_ptc(
+                context, GeneExpressionResult, output_type="GeneExpressionResult",
+            )
+
         task = context.task_description
         genes = _extract_gene_candidates(task)
         live_context = ""

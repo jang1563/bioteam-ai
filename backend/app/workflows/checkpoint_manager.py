@@ -135,11 +135,14 @@ class CheckpointManager:
     # Read
     # ------------------------------------------------------------------
 
-    def load_completed_steps(self, workflow_id: str) -> dict[str, AgentOutput]:
+    def load_completed_steps(
+        self, workflow_id: str,
+    ) -> dict[str, AgentOutput | list[AgentOutput]]:
         """Load all completed step results for a workflow.
 
         Returns:
-            Dict mapping step_id → AgentOutput (or first of a list)
+            Dict mapping step_id → AgentOutput (single) or list[AgentOutput]
+            (parallel steps).
         """
         if not settings.checkpoint_enabled:
             return {}
@@ -153,15 +156,14 @@ class CheckpointManager:
             .order_by(SessionCheckpoint.step_index)
         ).all()
 
-        result: dict[str, AgentOutput] = {}
+        result: dict[str, AgentOutput | list[AgentOutput]] = {}
         for row in rows:
             try:
                 payload = row.agent_output
-                # Handle both single and list outputs
                 if "outputs" in payload:
-                    # Restore as the first successful output (for now)
                     outputs = [AgentOutput(**o) for o in payload["outputs"]]
-                    result[row.step_id] = outputs[0] if outputs else AgentOutput(agent_id=row.agent_id)
+                    # Return full list for parallel steps (not just first)
+                    result[row.step_id] = outputs if outputs else [AgentOutput(agent_id=row.agent_id)]
                 else:
                     result[row.step_id] = AgentOutput(**payload)
             except Exception as e:

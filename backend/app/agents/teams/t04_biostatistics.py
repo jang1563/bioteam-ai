@@ -43,6 +43,19 @@ class BiostatisticsAgent(BaseAgent):
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Answer a biostatistics or experimental design query."""
+        from app.config import settings as _settings
+
+        # MCP takes priority over PTC (mutual exclusion)
+        if _settings.mcp_enabled and self._get_mcp_servers():
+            return await self.run_with_mcp(
+                context, StatisticalAnalysisResult, output_type="StatisticalAnalysisResult",
+            )
+
+        if _settings.ptc_enabled and self._get_ptc_tool_names():
+            return await self.run_with_ptc(
+                context, StatisticalAnalysisResult, output_type="StatisticalAnalysisResult",
+            )
+
         messages = [
             {
                 "role": "user",

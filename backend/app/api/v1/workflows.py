@@ -210,61 +210,86 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
 
 
 # Templates that auto-start on creation
-_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6", "W8", "W9", "W10"}
+_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10"}
+
+
+def _make_checkpoint_manager():
+    """Create a CheckpointManager with a fresh DB session, or None if disabled."""
+    from app.config import settings as _settings
+    if not _settings.checkpoint_enabled:
+        return None
+    try:
+        from app.workflows.checkpoint_manager import CheckpointManager
+        return CheckpointManager(db_session=Session(db_engine))
+    except Exception as e:
+        logger.warning("CheckpointManager init failed (non-fatal): %s", e)
+        return None
 
 
 def _get_runner(template: str, registry, engine, sse_hub, lab_kb, persist_fn):
     """Factory: return the correct runner for a workflow template."""
+    cp = _make_checkpoint_manager() if persist_fn else None
+
     if template == "W1":
         from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
         return W1LiteratureReviewRunner(
-            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb,
+            persist_fn=persist_fn, checkpoint_manager=cp,
         )
     elif template == "W2":
         from app.workflows.runners.w2_hypothesis import W2HypothesisRunner
         return W2HypothesisRunner(
-            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb,
+            persist_fn=persist_fn, checkpoint_manager=cp,
         )
     elif template == "W3":
         from app.workflows.runners.w3_data_analysis import W3DataAnalysisRunner
         return W3DataAnalysisRunner(
-            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb,
+            persist_fn=persist_fn, checkpoint_manager=cp,
         )
     elif template == "W4":
         from app.workflows.runners.w4_manuscript import W4ManuscriptRunner
         return W4ManuscriptRunner(
-            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb,
+            persist_fn=persist_fn, checkpoint_manager=cp,
         )
     elif template == "W5":
         from app.workflows.runners.w5_grant import W5GrantProposalRunner
         return W5GrantProposalRunner(
-            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb, persist_fn=persist_fn,
+            registry=registry, engine=engine, sse_hub=sse_hub, lab_kb=lab_kb,
+            persist_fn=persist_fn, checkpoint_manager=cp,
         )
     elif template == "W6":
         from app.workflows.runners.w6_ambiguity import W6AmbiguityRunner
         return W6AmbiguityRunner(
-            registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
+            registry=registry, engine=engine, sse_hub=sse_hub,
+            persist_fn=persist_fn, checkpoint_manager=cp,
+        )
+    elif template == "W7":
+        from app.workflows.runners.w7_integrity import W7IntegrityRunner
+        return W7IntegrityRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub,
+            persist_fn=persist_fn, checkpoint_manager=cp,
         )
     elif template == "W8":
         from app.workflows.runners.w8_paper_review import W8PaperReviewRunner
         llm_layer = getattr(registry.get("research_director"), "llm", None) if registry else None
         return W8PaperReviewRunner(
             registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
-            llm_layer=llm_layer,
+            llm_layer=llm_layer, checkpoint_manager=cp,
         )
     elif template == "W9":
-        from app.workflows.checkpoint_manager import CheckpointManager
         from app.workflows.runners.w9_bioinformatics import W9BioinformaticsRunner
-        checkpoint_manager = CheckpointManager() if persist_fn else None
         return W9BioinformaticsRunner(
             registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
-            checkpoint_manager=checkpoint_manager, lab_kb=lab_kb,
+            checkpoint_manager=cp, lab_kb=lab_kb,
         )
     elif template == "W10":
         from app.workflows.runners.w10_drug_discovery import W10DrugDiscoveryRunner
         return W10DrugDiscoveryRunner(
             registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
-            lab_kb=lab_kb,
+            lab_kb=lab_kb, checkpoint_manager=cp,
         )
     return None
 

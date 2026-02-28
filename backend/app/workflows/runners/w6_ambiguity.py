@@ -98,12 +98,14 @@ class W6AmbiguityRunner:
         sse_hub: SSEHub | None = None,
         lab_kb=None,
         persist_fn=None,
+        checkpoint_manager=None,  # CheckpointManager — optional, for step persistence
     ) -> None:
         self.registry = registry
         self.engine = engine or WorkflowEngine()
         self.sse_hub = sse_hub
         self.lab_kb = lab_kb
         self._persist_fn = persist_fn
+        self._checkpoint_manager = checkpoint_manager
         self._step_results: dict[str, AgentOutput] = {}
 
     async def _persist(self, instance: WorkflowInstance) -> None:

@@ -25,6 +25,7 @@ from app.config import ModelTier, settings
 from app.llm.layer import LLMLayer, LLMResponse
 from app.models.agent import AgentOutput, AgentSpec, AgentStatus
 from app.models.messages import ContextPackage
+from pydantic import BaseModel
 
 # Langfuse import with graceful fallback
 try:
@@ -274,6 +275,242 @@ class BaseAgent(ABC):
             return full_definitions
 
         return self.llm.build_deferred_tools(always, deferred)
+
+    # ── PTC (Programmatic Tool Calling) support ────────────────────────
+
+    def _get_ptc_tool_names(self) -> list[str]:
+        """Get this agent's classified PTC tool names from tool_registry.
+
+        Returns combined always_loaded + deferred tool names.
+        Returns empty list if agent has no classification.
+        """
+        from app.llm.tool_registry import get_classification
+
+        classification = get_classification(self.agent_id)
+        return classification.get("always_loaded", []) + classification.get("deferred", [])
+
+    def _get_ptc_tools(self) -> tuple[list[dict], dict]:
+        """Get PTC tool definitions and implementations for this agent.
+
+        Returns:
+            Tuple of (tool_definitions, tool_implementations) filtered
+            to only this agent's classified tools.
+        """
+        from app.llm.ptc_handler import build_tool_implementations
+        from app.llm.ptc_tools import (
+            BLAST_TOOL,
+            CODE_EXECUTION_TOOL,
+            GENE_NAME_CHECKER_TOOL,
+            GO_ENRICHMENT_TOOL,
+            STATISTICAL_CHECKER_TOOL,
+            VEP_TOOL,
+        )
+
+        tool_name_map = {
+            "run_vep": VEP_TOOL,
+            "check_gene_names": GENE_NAME_CHECKER_TOOL,
+            "check_statistics": STATISTICAL_CHECKER_TOOL,
+            "run_blast": BLAST_TOOL,
+            "run_go_enrichment": GO_ENRICHMENT_TOOL,
+        }
+
+        my_tool_names = self._get_ptc_tool_names()
+        if not my_tool_names:
+            return [], {}
+
+        tools = [CODE_EXECUTION_TOOL]
+        for name in my_tool_names:
+            if name in tool_name_map:
+                tools.append(tool_name_map[name])
+
+        implementations = build_tool_implementations(my_tool_names)
+        return tools, implementations
+
+    async def run_with_ptc(
+        self,
+        context: ContextPackage,
+        response_model: type[BaseModel],
+        output_type: str = "",
+    ) -> AgentOutput:
+        """Execute agent with PTC tools, then parse output into Pydantic model.
+
+        Two-phase pattern (PTC + Instructor mutual exclusion):
+        1. PTC call: Claude writes code that invokes bioinformatics tools
+        2. Haiku structured parse: convert PTC free-text into Pydantic model
+
+        Args:
+            context: Task context.
+            response_model: Pydantic model for structured output.
+            output_type: Name for output type tracking.
+
+        Returns:
+            AgentOutput with tool-grounded results.
+        """
+        tools, implementations = self._get_ptc_tools()
+        if not tools or len(tools) <= 1:  # only code_execution, no real tools
+            # Fallback to standard structured call
+            return await self.run(context)
+
+        task = context.task_description
+
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Use the available bioinformatics tools to analyze: {task}\n\n"
+                    f"Call the relevant tools to gather real data, then provide a "
+                    f"comprehensive analysis based on the tool results. "
+                    f"Summarize findings clearly."
+                ),
+            }
+        ]
+
+        # Phase 1: PTC call with tools
+        ptc_text, ptc_meta, _container_id = await self.llm.complete_with_ptc(
+            messages=messages,
+            model_tier=self.model_tier,
+            system=self._system_prompt,
+            custom_tools=tools,
+            tool_implementations=implementations,
+        )
+
+        # Phase 2: Parse PTC text into Pydantic model using Haiku
+        parse_messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Parse this analysis into the required structured format.\n\n"
+                    f"Original query: {task}\n\n"
+                    f"Analysis:\n{ptc_text}"
+                ),
+            }
+        ]
+
+        result, parse_meta = await self.llm.complete_structured(
+            messages=parse_messages,
+            model_tier="haiku",
+            response_model=response_model,
+        )
+
+        # Aggregate costs from both phases
+        total_cost = ptc_meta.cost + parse_meta.cost
+        total_input = ptc_meta.input_tokens + parse_meta.input_tokens
+        total_output = ptc_meta.output_tokens + parse_meta.output_tokens
+
+        return AgentOutput(
+            agent_id=self.agent_id,
+            output=result.model_dump(),
+            output_type=output_type or response_model.__name__,
+            summary=getattr(result, "summary", "")[:200] or f"PTC analysis: {task[:100]}",
+            model_tier=self.model_tier,
+            model_version=ptc_meta.model_version,
+            input_tokens=total_input,
+            output_tokens=total_output,
+            cost=total_cost,
+        )
+
+    # ── MCP (Model Context Protocol) support ────────────────────────────
+
+    def _get_mcp_servers(self) -> list[str]:
+        """Get MCP server names this agent can access."""
+        from app.integrations.mcp_connector import AGENT_MCP_SERVERS
+
+        return AGENT_MCP_SERVERS.get(self.agent_id, [])
+
+    async def run_with_mcp(
+        self,
+        context: ContextPackage,
+        response_model: type[BaseModel],
+        sources: list[str] | None = None,
+        output_type: str = "",
+    ) -> AgentOutput:
+        """Execute agent with MCP database access, then parse into Pydantic model.
+
+        Two-phase pattern (MCP + Instructor mutual exclusion):
+        1. MCP call: Claude uses MCP tools to query external databases
+        2. Haiku structured parse: convert MCP free-text into Pydantic model
+
+        Args:
+            context: Task context.
+            response_model: Pydantic model for structured output.
+            sources: MCP server names. Defaults to agent's classified servers.
+            output_type: Name for output type tracking.
+
+        Returns:
+            AgentOutput with database-grounded results.
+        """
+        mcp_sources = sources or self._get_mcp_servers()
+        if not mcp_sources:
+            return await self.run(context)
+
+        from app.integrations.mcp_connector import MCPConnector
+
+        connector = MCPConnector()
+        task = context.task_description
+
+        mcp_result = await connector.execute(
+            task=task,
+            sources=mcp_sources,
+            model_tier=self.model_tier,
+            system_prompt=self._system_prompt,
+        )
+
+        if not mcp_result.text_output:
+            # MCP returned nothing — fall back to standard run
+            return await self.run(context)
+
+        # Phase 2: Parse MCP text into Pydantic model using Haiku
+        parse_messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Parse this analysis into the required structured format.\n\n"
+                    f"Original query: {task}\n\n"
+                    f"Analysis:\n{mcp_result.text_output}"
+                ),
+            }
+        ]
+
+        result, parse_meta = await self.llm.complete_structured(
+            messages=parse_messages,
+            model_tier="haiku",
+            response_model=response_model,
+        )
+
+        # Estimate MCP phase cost
+        mcp_cost = self.llm.estimate_cost(
+            model_tier=self.model_tier,
+            input_tokens=mcp_result.input_tokens,
+            output_tokens=mcp_result.output_tokens,
+            cached_input_tokens=mcp_result.cached_input_tokens,
+        )
+        total_cost = mcp_cost + parse_meta.cost
+
+        return AgentOutput(
+            agent_id=self.agent_id,
+            output=result.model_dump(),
+            output_type=output_type or response_model.__name__,
+            summary=getattr(result, "summary", "")[:200] or f"MCP analysis: {task[:100]}",
+            model_tier=self.model_tier,
+            model_version=mcp_result.model or "",
+            input_tokens=mcp_result.input_tokens + parse_meta.input_tokens,
+            output_tokens=mcp_result.output_tokens + parse_meta.output_tokens,
+            cost=total_cost,
+        )
+
+    # ── Execution mode selection ──────────────────────────────────────
+
+    def _select_execution_mode(self) -> str:
+        """Select the best execution mode for this agent.
+
+        Returns "mcp", "ptc", or "structured" based on config + capabilities.
+        MCP takes priority over PTC (mutual exclusion constraint).
+        """
+        if settings.mcp_enabled and self._get_mcp_servers():
+            return "mcp"
+        if settings.ptc_enabled and self._get_ptc_tool_names():
+            return "ptc"
+        return "structured"
 
     @classmethod
     def load_spec(cls, spec_id: str) -> AgentSpec:

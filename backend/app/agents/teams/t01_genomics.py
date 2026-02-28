@@ -154,6 +154,13 @@ class GenomicsAgent(BaseAgent):
 
     async def run(self, context: ContextPackage) -> AgentOutput:
         """Answer a genomics or epigenomics analysis query."""
+        from app.config import settings as _settings
+
+        if _settings.ptc_enabled and self._get_ptc_tool_names():
+            return await self.run_with_ptc(
+                context, GenomicsAnalysisResult, output_type="GenomicsAnalysisResult",
+            )
+
         task = context.task_description
 
         # Attempt real-data enrichment

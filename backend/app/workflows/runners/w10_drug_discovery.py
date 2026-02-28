@@ -145,12 +145,14 @@ class W10DrugDiscoveryRunner:
         sse_hub: SSEHub | None = None,
         persist_fn=None,
         lab_kb=None,
+        checkpoint_manager=None,  # CheckpointManager — optional, for step persistence
     ) -> None:
         self._registry = registry
         self._engine = engine
         self._sse = sse_hub
         self._persist = persist_fn
         self._lab_kb = lab_kb
+        self._checkpoint_manager = checkpoint_manager
 
         # Accumulated results across steps
         self._step_results: dict[str, Any] = {}

@@ -178,6 +178,7 @@ class W1LiteratureReviewRunner:
         persist_fn=None,  # async callable(WorkflowInstance) → None
         rcmxt_mode: str = "heuristic",  # "heuristic" | "llm" | "hybrid"
         llm_layer=None,  # LLMLayer — required for llm/hybrid RCMXT scoring
+        checkpoint_manager=None,  # CheckpointManager — optional, for step persistence
     ) -> None:
         self.registry = registry
         self.engine = engine or WorkflowEngine()
@@ -186,6 +187,7 @@ class W1LiteratureReviewRunner:
         self._persist_fn = persist_fn
         self._rcmxt_mode = rcmxt_mode
         self._llm_layer = llm_layer
+        self._checkpoint_manager = checkpoint_manager
         self.async_runner = AsyncWorkflowRunner(
             engine=self.engine,
             registry=self.registry,

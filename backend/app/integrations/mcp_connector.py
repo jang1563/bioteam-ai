@@ -53,6 +53,26 @@ MCP_SERVERS: dict[str, dict[str, str]] = {
 
 BETA_FLAG = "mcp-client-2025-11-20"
 
+# Agent → MCP server mapping: which agents can access which MCP servers
+AGENT_MCP_SERVERS: dict[str, list[str]] = {
+    "knowledge_manager": ["pubmed", "biorxiv"],
+    "t07_structural_bio": ["chembl"],
+    "t04_biostatistics": ["clinical_trials"],
+}
+
+
+@dataclass
+class MCPExecutionResult:
+    """Result from a general-purpose MCP execution (not search-specific)."""
+
+    source: str  # e.g. "chembl", "clinical_trials"
+    text_output: str = ""
+    raw_tool_outputs: list[dict] = field(default_factory=list)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_input_tokens: int = 0
+    model: str = ""
+
 
 @dataclass
 class MCPSearchResult:
@@ -115,6 +135,68 @@ class MCPConnector:
             for source in sources
             if source in MCP_SERVERS
         ]
+
+    async def execute(
+        self,
+        task: str,
+        sources: list[str],
+        model_tier: str = "sonnet",
+        system_prompt: str = "",
+    ) -> MCPExecutionResult:
+        """Execute a general-purpose MCP task (not search-specific).
+
+        Claude autonomously uses MCP tools to complete the task.
+        Unlike search(), this does not try to parse structured papers.
+
+        Args:
+            task: Task description for Claude.
+            sources: List of MCP server names (e.g. ["chembl"]).
+            model_tier: Model tier for the call.
+            system_prompt: Optional custom system prompt.
+
+        Returns:
+            MCPExecutionResult with text output and token usage.
+        """
+        mcp_servers = self._build_mcp_servers(sources)
+        tools = self._build_tools(sources)
+
+        if not mcp_servers:
+            logger.warning("No MCP servers configured for sources: %s", sources)
+            return MCPExecutionResult(source=",".join(sources))
+
+        default_system = (
+            "You are a biomedical research assistant with access to specialized databases. "
+            "Use the available MCP tools to complete the task. "
+            "Provide a thorough, data-grounded response."
+        )
+
+        messages = [{"role": "user", "content": task}]
+
+        response = await self.client.beta.messages.create(
+            model=MODEL_MAP.get(model_tier, MODEL_MAP["sonnet"]),
+            max_tokens=8192,
+            betas=[BETA_FLAG],
+            mcp_servers=mcp_servers,
+            tools=tools,
+            system=system_prompt or default_system,
+            messages=messages,
+        )
+
+        # Extract text and usage
+        text_parts: list[str] = []
+        for block in getattr(response, "content", []):
+            if getattr(block, "type", "") == "text":
+                text_parts.append(getattr(block, "text", ""))
+
+        usage = getattr(response, "usage", None)
+        return MCPExecutionResult(
+            source=",".join(sources),
+            text_output="\n".join(text_parts),
+            model=getattr(response, "model", ""),
+            input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+            output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
+            cached_input_tokens=(getattr(usage, "cache_read_input_tokens", 0) or 0) if usage else 0,
+        )
 
     async def search(
         self,

@@ -175,6 +175,7 @@ class W8PaperReviewRunner:
         persist_fn=None,
         llm_layer=None,
         memory=None,
+        checkpoint_manager=None,  # CheckpointManager — optional, for step persistence
     ) -> None:
         self.registry = registry
         self.engine = engine or WorkflowEngine()
@@ -182,6 +183,7 @@ class W8PaperReviewRunner:
         self._persist_fn = persist_fn
         self._llm_layer = llm_layer
         self._memory = memory
+        self._checkpoint_manager = checkpoint_manager
         self._step_results: dict[str, AgentOutput] = {}
         self._pdf_bytes: bytes = b""
         self._file_path: Path | None = None
