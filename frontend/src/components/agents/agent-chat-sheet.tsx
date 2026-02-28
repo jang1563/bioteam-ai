@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
-import { X, Send, Radio } from "lucide-react";
+import { useRef, useState, useCallback, useEffect } from "react";
+import { X, Send, Radio, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -45,13 +45,57 @@ const MAX_CHARS = 2000;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const MAX_STORED = 20;
+
+function storageKey(id: string) {
+  return `agent-chat:${id}`;
+}
+
+function loadMessages(id: string): ChatMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(storageKey(id));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Array<Omit<ChatMessage, "timestamp"> & { timestamp: string }>;
+    return parsed.slice(-MAX_STORED).map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+  } catch {
+    return [];
+  }
+}
+
 export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const wasRestored = useRef(false);
 
   const { agent } = useAgentDetail(agentId);
   const { status, streamedText, error, execute } = useAgentStream(agentId);
+
+  // Load stored messages when the agent changes
+  useEffect(() => {
+    if (!agentId) {
+      setMessages([]);
+      wasRestored.current = false;
+      return;
+    }
+    const stored = loadMessages(agentId);
+    setMessages(stored);
+    wasRestored.current = stored.length > 0;
+  }, [agentId]);
+
+  const saveToStorage = useCallback((msgs: ChatMessage[]) => {
+    if (typeof window === "undefined" || !agentId) return;
+    try {
+      localStorage.setItem(storageKey(agentId), JSON.stringify(msgs.slice(-MAX_STORED)));
+    } catch { /* private browsing or storage full */ }
+  }, [agentId]);
+
+  const clearHistory = useCallback(() => {
+    setMessages([]);
+    wasRestored.current = false;
+    if (agentId) localStorage.removeItem(storageKey(agentId));
+  }, [agentId]);
 
   const character = agentId ? getAgentCharacter(agentId) : null;
   const colors = character ? AGENT_COLOR_CLASSES[character.color] : null;
@@ -73,10 +117,11 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
     ) return;
 
     // Add user message immediately
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: "user", content: query, timestamp: new Date() },
-    ]);
+    setMessages((prev) => {
+      const next = [...prev, { id: crypto.randomUUID(), role: "user" as const, content: query, timestamp: new Date() }];
+      saveToStorage(next);
+      return next;
+    });
     setInput("");
     scrollToBottom();
 
@@ -84,22 +129,26 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
       // execute() resolves with final text + sources when streaming completes
       const result = await execute(query);
       if (result.text) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "agent",
-            content: result.text,
-            timestamp: new Date(),
-            sources: result.sources.length > 0 ? result.sources : undefined,
-          },
-        ]);
+        setMessages((prev) => {
+          const next = [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "agent" as const,
+              content: result.text,
+              timestamp: new Date(),
+              sources: result.sources.length > 0 ? result.sources : undefined,
+            },
+          ];
+          saveToStorage(next);
+          return next;
+        });
         scrollToBottom();
       }
     } catch {
       // Error state is handled by the hook's `error` value
     }
-  }, [input, status, execute, scrollToBottom]);
+  }, [input, status, execute, scrollToBottom, saveToStorage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -152,15 +201,29 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
               </p>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={onClose}
-            aria-label="Close chat"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            {messages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={clearHistory}
+                aria-label="Clear chat history"
+                title="Clear history"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={onClose}
+              aria-label="Close chat"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </SheetHeader>
 
         {/* ── Messages ── */}
@@ -184,6 +247,15 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
                 <p className="mt-1 text-xs text-muted-foreground/60">
                   Ask a research question to get started.
                 </p>
+              </div>
+            )}
+
+            {/* Restored history indicator */}
+            {wasRestored.current && messages.length > 0 && (
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+                <div className="h-px flex-1 bg-border/50" />
+                <span>previous session</span>
+                <div className="h-px flex-1 bg-border/50" />
               </div>
             )}
 

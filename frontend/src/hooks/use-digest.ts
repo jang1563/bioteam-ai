@@ -8,6 +8,7 @@ import type {
   DigestReport,
   DigestSource,
   DigestStats,
+  SchedulerStatus,
   TopicProfile,
   UpdateTopicRequest,
 } from "@/types/api";
@@ -167,6 +168,34 @@ export function useRunDigest() {
   }, []);
 
   return { run, running, error };
+}
+
+// === Scheduler Status Hook ===
+
+export function useSchedulerStatus() {
+  const [status, setStatus] = useState<SchedulerStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<SchedulerStatus>("/api/v1/digest/scheduler/status");
+      setStatus(data);
+    } catch {
+      // Non-critical — scheduler status is informational only
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    // Poll every 60 seconds to keep next-run countdown fresh
+    const id = setInterval(refresh, 60_000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  return { status, loading, refresh };
 }
 
 // === Stats Hook ===

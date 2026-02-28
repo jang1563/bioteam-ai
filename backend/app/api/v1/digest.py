@@ -35,8 +35,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/digest", tags=["digest"])
 
-# Module-level pipeline reference (set during app startup)
+# Module-level references (set during app startup via lifespan)
 _pipeline = None
+_scheduler = None
 _running_topics: set[str] = set()
 
 
@@ -44,6 +45,12 @@ def set_pipeline(pipeline) -> None:
     """Wire up the digest pipeline (called from main.py lifespan)."""
     global _pipeline
     _pipeline = pipeline
+
+
+def set_scheduler(scheduler) -> None:
+    """Wire up the digest scheduler (called from main.py lifespan)."""
+    global _scheduler
+    _scheduler = scheduler
 
 
 # === Request / Response Models ===
@@ -314,6 +321,44 @@ async def run_digest(topic_id: str) -> ReportResponse:
         return _report_response(report)
     finally:
         _running_topics.discard(topic_id)
+
+
+# === Scheduler Status ===
+
+
+@router.get("/scheduler/status")
+async def get_scheduler_status() -> dict:
+    """Return global scheduler state and per-topic schedule visibility.
+
+    Response schema:
+        {
+            "enabled": bool,
+            "running": bool,
+            "check_interval_minutes": float,
+            "topics": [
+                {
+                    "topic_id": str, "name": str, "schedule": str,
+                    "is_active": bool,
+                    "last_run_at": str | null,   # ISO-8601 UTC
+                    "next_run_at": str | null,   # ISO-8601 UTC
+                    "minutes_until_next": int | null,
+                    "overdue": bool,
+                },
+                ...
+            ]
+        }
+    """
+    if _scheduler is None:
+        return {
+            "enabled": False,
+            "running": False,
+            "check_interval_minutes": 0,
+            "topics": [],
+        }
+
+    base = _scheduler.get_status()
+    topics = _scheduler.get_topic_schedules()
+    return {**base, "topics": topics}
 
 
 # === Stats ===

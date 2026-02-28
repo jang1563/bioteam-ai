@@ -38,6 +38,9 @@ import {
   Star,
   AlertCircle,
   X,
+  Clock,
+  Activity,
+  SkipForward,
 } from "lucide-react";
 import { TableSkeleton } from "@/components/dashboard/loading-skeletons";
 import {
@@ -46,13 +49,16 @@ import {
   useDigestReports,
   useRunDigest,
   useDigestStats,
+  useSchedulerStatus,
 } from "@/hooks/use-digest";
 import type {
   CreateTopicRequest,
   DigestEntry,
   DigestReport,
   DigestSource,
+  SchedulerStatus,
   TopicProfile,
+  TopicScheduleInfo,
 } from "@/types/api";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -93,6 +99,16 @@ export default function DigestPage() {
   const { reports, loading: reportsLoading, error: reportsError, refresh: refreshReports } = useDigestReports(topicId);
   const { run, running, error: runHookError } = useRunDigest();
   const { stats } = useDigestStats();
+  const { status: schedulerStatus } = useSchedulerStatus();
+
+  const handleRunAll = async () => {
+    const activeTopics = topics.filter((t) => t.is_active);
+    for (const t of activeTopics) {
+      try { await run(t.id); } catch { /* continue */ }
+    }
+    refreshEntries();
+    refreshReports();
+  };
 
   const filteredEntries = search
     ? entries.filter(
@@ -140,6 +156,15 @@ export default function DigestPage() {
           <CreateTopicDialog onCreate={create} />
         </div>
       </div>
+
+      {/* Scheduler Status Card */}
+      {schedulerStatus && (
+        <SchedulerStatusCard
+          status={schedulerStatus}
+          onRunAll={handleRunAll}
+          running={running}
+        />
+      )}
 
       {/* Error Banner */}
       {activeError && (
@@ -617,6 +642,140 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
     <div className="space-y-1">
       <label htmlFor={htmlFor} className="text-xs font-medium text-muted-foreground">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// ── Scheduler Status Card ──────────────────────────────────────────────────────
+
+function formatMinutes(minutes: number | null): string {
+  if (minutes === null) return "—";
+  if (minutes === 0) return "Overdue";
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function formatLastRun(iso: string | null): string {
+  if (!iso) return "Never";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function SchedulerStatusCard({
+  status,
+  onRunAll,
+  running,
+}: {
+  status: SchedulerStatus;
+  onRunAll: () => void;
+  running: boolean;
+}) {
+  const activeTopics = status.topics.filter((t) => t.is_active);
+  const overdueCount = status.topics.filter((t) => t.overdue).length;
+
+  return (
+    <Card className="border-muted/60">
+      <CardContent className="p-4">
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span className="text-sm font-medium">Scheduler</span>
+            <Badge
+              variant={status.running ? "default" : "secondary"}
+              className="text-[10px] h-4 px-1.5"
+            >
+              {status.running ? "Running" : "Stopped"}
+            </Badge>
+            {overdueCount > 0 && (
+              <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
+                {overdueCount} overdue
+              </Badge>
+            )}
+            <span className="text-[10px] text-muted-foreground">
+              checks every {status.check_interval_minutes}m
+            </span>
+          </div>
+          {activeTopics.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs px-2"
+              onClick={onRunAll}
+              disabled={running}
+            >
+              {running ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <SkipForward className="mr-1 h-3 w-3" />
+              )}
+              Run All
+            </Button>
+          )}
+        </div>
+
+        {/* Per-topic rows */}
+        {status.topics.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No topics configured.</p>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {status.topics.map((t) => (
+              <TopicScheduleRow key={t.topic_id} topic={t} />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TopicScheduleRow({ topic }: { topic: TopicScheduleInfo }) {
+  const isManual = topic.schedule === "manual";
+
+  return (
+    <div className="flex items-center gap-3 py-1.5 text-xs">
+      {/* Active indicator */}
+      <span
+        className={`h-1.5 w-1.5 rounded-full shrink-0 ${topic.is_active ? "bg-green-500" : "bg-muted"}`}
+        aria-label={topic.is_active ? "active" : "inactive"}
+      />
+
+      {/* Name */}
+      <span className="flex-1 font-medium truncate">{topic.name}</span>
+
+      {/* Schedule badge */}
+      <Badge
+        variant="outline"
+        className={`text-[10px] h-4 px-1.5 shrink-0 ${isManual ? "text-muted-foreground" : ""}`}
+      >
+        {topic.schedule}
+      </Badge>
+
+      {/* Last run */}
+      <span className="text-muted-foreground shrink-0 w-16 text-right">
+        {formatLastRun(topic.last_run_at)}
+      </span>
+
+      {/* Next run */}
+      <span
+        className={`flex items-center gap-1 shrink-0 w-20 text-right ${
+          topic.overdue
+            ? "text-destructive font-medium"
+            : isManual
+            ? "text-muted-foreground"
+            : "text-foreground"
+        }`}
+      >
+        {!isManual && <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />}
+        {isManual ? "manual" : formatMinutes(topic.minutes_until_next)}
+      </span>
     </div>
   );
 }

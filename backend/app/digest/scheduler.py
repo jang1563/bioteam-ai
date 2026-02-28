@@ -191,3 +191,57 @@ class DigestScheduler:
             "running": self.is_running,
             "check_interval_minutes": self.check_interval_seconds / 60,
         }
+
+    def get_topic_schedules(self) -> list[dict]:
+        """Return per-topic schedule status with computed next_run_at.
+
+        Used by GET /api/v1/digest/scheduler/status to expose schedule visibility.
+        """
+        now = datetime.now(timezone.utc)
+        results: list[dict] = []
+
+        with Session(db_engine) as session:
+            topics = session.exec(select(TopicProfile)).all()
+
+            for topic in topics:
+                schedule_hours = SCHEDULE_HOURS.get(topic.schedule, 0.0)
+
+                # Find the most recent report for this topic
+                latest_report = session.exec(
+                    select(DigestReport)
+                    .where(DigestReport.topic_id == topic.id)
+                    .order_by(DigestReport.created_at.desc())
+                    .limit(1)
+                ).first()
+
+                last_run_at = None
+                next_run_at = None
+                minutes_until_next = None
+                overdue = False
+
+                if latest_report is not None:
+                    last_run_at = latest_report.created_at
+                    if last_run_at.tzinfo is None:
+                        last_run_at = last_run_at.replace(tzinfo=timezone.utc)
+
+                    if schedule_hours > 0:
+                        next_run_at = last_run_at + timedelta(hours=schedule_hours)
+                        delta_seconds = (next_run_at - now).total_seconds()
+                        minutes_until_next = max(0, int(delta_seconds / 60))
+                        overdue = delta_seconds < 0 and topic.is_active
+                elif schedule_hours > 0 and topic.is_active:
+                    # Never run before and auto-scheduled → overdue immediately
+                    overdue = True
+
+                results.append({
+                    "topic_id": topic.id,
+                    "name": topic.name,
+                    "schedule": topic.schedule,
+                    "is_active": topic.is_active,
+                    "last_run_at": last_run_at.isoformat() if last_run_at else None,
+                    "next_run_at": next_run_at.isoformat() if next_run_at else None,
+                    "minutes_until_next": minutes_until_next,
+                    "overdue": overdue,
+                })
+
+        return results

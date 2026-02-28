@@ -24,6 +24,7 @@ from typing import Any
 from app.agents.base import observe
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
+from app.config import settings
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
 from app.models.agent import AgentOutput
 from app.models.messages import ContextPackage
@@ -220,6 +221,15 @@ _CODE_STEPS = frozenset({
 })
 
 # Method routing for agent steps
+# Steps whose agents may return a code_block for Docker sandbox execution
+_DOCKER_STEPS: frozenset[str] = frozenset({
+    "GENOMIC_ANALYSIS",      # → python (genomics image preferred)
+    "EXPRESSION_ANALYSIS",   # → R (rnaseq image preferred)
+    "PROTEIN_ANALYSIS",      # → python (python_analysis image)
+    "PATHWAY_ENRICHMENT",    # → python (g:Profiler / GSEA)
+    "NETWORK_ANALYSIS",      # → R (igraph / ggraph) or python (networkx)
+})
+
 _METHOD_MAP: dict[str, tuple[str, str]] = {
     "SCOPE": ("research_director", "run"),
     "GENOMIC_ANALYSIS": ("t01_genomics", "run"),
@@ -554,14 +564,89 @@ class W9BioinformaticsRunner:
             )
 
         # Wrap raw output in AgentOutput if needed
-        if isinstance(result, AgentOutput):
-            return result
+        if not isinstance(result, AgentOutput):
+            result = AgentOutput(
+                agent_id=agent_id,
+                output=result if isinstance(result, dict) else {"result": str(result)},
+                summary=f"{step.id} completed",
+                is_success=True,
+                cost=step.estimated_cost,
+            )
+
+        # Execute code block if agent generated one (analysis steps only)
+        if step.id in _DOCKER_STEPS and result.is_success and settings.docker_enabled:
+            result = await self._maybe_execute_code(step.id, result)
+
+        return result
+
+    async def _maybe_execute_code(self, step_id: str, agent_result: AgentOutput) -> AgentOutput:
+        """Run a code_block from agent output in the Docker sandbox (W9 variant).
+
+        Agents signal executable code via:
+            output["code_block"] = {"language": "python"|"R", "code": "...", "dependencies": [...]}
+
+        Image selection:
+            EXPRESSION_ANALYSIS / NETWORK_ANALYSIS → R (config.docker_image_r)
+            all others                              → Python (config.docker_image_python)
+        """
+        output = agent_result.output if isinstance(agent_result.output, dict) else {}
+        raw_block = output.get("code_block")
+        if not raw_block or not isinstance(raw_block, dict):
+            return agent_result
+
+        from app.execution.docker_runner import DockerCodeRunner
+        from app.models.code_execution import CodeBlock
+
+        try:
+            block = CodeBlock(
+                language=raw_block.get("language", "python"),
+                code=raw_block.get("code", ""),
+                dependencies=raw_block.get("dependencies", []),
+            )
+        except Exception as e:
+            logger.warning("W9 %s: malformed code_block: %s", step_id, e)
+            return agent_result
+
+        # Use R image for expression / network analysis steps
+        image_r = settings.docker_image_r if step_id in ("EXPRESSION_ANALYSIS", "NETWORK_ANALYSIS") else None
+        runner = DockerCodeRunner(
+            timeout=settings.docker_timeout_seconds,
+            memory=settings.docker_memory_limit,
+            cpus=settings.docker_cpu_limit,
+            image_python=settings.docker_image_python,
+            image_r=image_r,
+        )
+
+        exec_result = await runner.run(block)
+        logger.info(
+            "W9 %s sandbox: exit=%d, runtime=%.2fs, stdout=%d chars",
+            step_id,
+            exec_result.exit_code,
+            exec_result.runtime_seconds,
+            len(exec_result.stdout),
+        )
+
+        merged = dict(output)
+        merged["execution_result"] = {
+            "stdout": exec_result.stdout,
+            "stderr": exec_result.stderr,
+            "exit_code": exec_result.exit_code,
+            "runtime_seconds": exec_result.runtime_seconds,
+            "sandbox_used": True,
+        }
+        if exec_result.exit_code != 0:
+            merged["execution_warning"] = (
+                f"Code execution exited with code {exec_result.exit_code}. "
+                "Results may be incomplete."
+            )
+
         return AgentOutput(
-            agent_id=agent_id,
-            output=result if isinstance(result, dict) else {"result": str(result)},
-            summary=f"{step.id} completed",
-            is_success=True,
-            cost=step.estimated_cost,
+            agent_id=agent_result.agent_id,
+            output=merged,
+            summary=agent_result.summary,
+            is_success=agent_result.is_success,
+            cost=agent_result.cost,
+            model_version=agent_result.model_version,
         )
 
     # ─── Code Step Implementations ─────────────────────────────────────────

@@ -1,6 +1,6 @@
 # BioTeam-AI Makefile
 
-.PHONY: help dev-minimal dev-full dev-local stop test test-llm test-agents test-workflows test-digest test-celery test-e2e lint format db-init db-migrate db-reset cold-start backup celery-worker clean
+.PHONY: help dev-minimal dev-full dev-local stop test test-llm test-agents test-workflows test-digest test-celery test-e2e lint format db-init db-migrate db-reset cold-start backup celery-worker clean sandbox-build sandbox-build-fast sandbox-test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -69,6 +69,24 @@ db-reset: ## Reset database (WARNING: deletes all data)
 
 celery-worker: ## Start Celery worker (requires Redis)
 	cd backend && uv run celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q default,workflows
+
+# === Code Execution Sandbox ===
+
+SANDBOX_DIR := backend/app/execution/containers
+
+sandbox-build: ## Build all 4 Docker sandbox images (slow: ~15-30 min for bioconductor)
+	docker build -f $(SANDBOX_DIR)/Dockerfile.python_analysis -t bioteam-python-analysis $(SANDBOX_DIR)
+	docker build -f $(SANDBOX_DIR)/Dockerfile.genomics       -t bioteam-genomics       $(SANDBOX_DIR)
+	docker build -f $(SANDBOX_DIR)/Dockerfile.singlecell     -t bioteam-singlecell     $(SANDBOX_DIR)
+	docker build -f $(SANDBOX_DIR)/Dockerfile.rnaseq         -t bioteam-rnaseq         $(SANDBOX_DIR)
+	@echo "✓ All sandbox images built. Set DOCKER_IMAGE_PYTHON=bioteam-python-analysis in .env to use."
+
+sandbox-build-fast: ## Build only the Python analysis image (fast: ~2-3 min)
+	docker build -f $(SANDBOX_DIR)/Dockerfile.python_analysis -t bioteam-python-analysis $(SANDBOX_DIR)
+	@echo "✓ Python analysis image built. Set DOCKER_IMAGE_PYTHON=bioteam-python-analysis in .env to use."
+
+sandbox-test: ## Run live Docker sandbox integration tests (requires Docker daemon)
+	uv run pytest backend/tests/test_execution/test_docker_runner.py --run-integration -v
 
 # === Cold Start ===
 

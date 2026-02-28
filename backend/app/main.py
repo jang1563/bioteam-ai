@@ -148,6 +148,7 @@ async def lifespan(app: FastAPI):
 
         # Wire up digest pipeline + scheduler
         from app.api.v1.digest import set_pipeline as set_digest_pipeline
+        from app.api.v1.digest import set_scheduler as set_digest_scheduler
         from app.digest.pipeline import DigestPipeline
         from app.digest.scheduler import DigestScheduler
 
@@ -166,6 +167,7 @@ async def lifespan(app: FastAPI):
             check_interval_minutes=settings.digest_check_interval_minutes,
             enabled=settings.digest_enabled,
         )
+        set_digest_scheduler(digest_scheduler)
         await digest_scheduler.start()
 
         # Start integrity audit scheduler

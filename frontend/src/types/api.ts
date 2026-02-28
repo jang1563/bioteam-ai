@@ -388,6 +388,24 @@ export interface ColdStartStatus {
 // === Research Digest Types ===
 
 export type DigestSchedule = "daily" | "weekly" | "manual";
+
+export interface TopicScheduleInfo {
+  topic_id: string;
+  name: string;
+  schedule: DigestSchedule;
+  is_active: boolean;
+  last_run_at: string | null;   // ISO-8601 UTC
+  next_run_at: string | null;   // ISO-8601 UTC
+  minutes_until_next: number | null;
+  overdue: boolean;
+}
+
+export interface SchedulerStatus {
+  enabled: boolean;
+  running: boolean;
+  check_interval_minutes: number;
+  topics: TopicScheduleInfo[];
+}
 export type DigestSource = "pubmed" | "biorxiv" | "arxiv" | "github" | "huggingface" | "semantic_scholar";
 
 export interface TopicProfile {
