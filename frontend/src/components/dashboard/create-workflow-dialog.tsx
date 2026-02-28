@@ -89,6 +89,9 @@ export function CreateWorkflowDialog({ onCreated }: Props) {
                 <SelectItem value="W4">W4 — Protocol Design</SelectItem>
                 <SelectItem value="W5">W5 — Manuscript Draft</SelectItem>
                 <SelectItem value="W6">W6 — Grant Proposal</SelectItem>
+                <SelectItem value="W8">W8 — Peer Review</SelectItem>
+                <SelectItem value="W9">W9 — Bioinformatics Analysis</SelectItem>
+                <SelectItem value="W10">W10 — Drug Discovery</SelectItem>
               </SelectContent>
             </Select>
           </div>

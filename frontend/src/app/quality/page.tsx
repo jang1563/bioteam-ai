@@ -13,12 +13,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useAgents } from "@/hooks/use-agents";
+import { useIntegrityStats, useIntegrityFindings } from "@/hooks/use-integrity";
 import { api } from "@/lib/api-client";
-import type { AgentListItem, ContradictionEntry } from "@/types/api";
+import type { AgentListItem, ContradictionEntry, AuditFinding, IntegritySeverity } from "@/types/api";
 
 // ─── Contradiction type labels ────────────────────────────────────────────────
 
@@ -175,6 +177,139 @@ function ContradictionCard({ entry }: { entry: ContradictionEntry }) {
   );
 }
 
+// ─── Integrity tab ────────────────────────────────────────────────────────────
+
+const CATEGORY_LABELS: Record<string, string> = {
+  gene_name_error: "Gene Name",
+  statistical_inconsistency: "Statistics",
+  retracted_reference: "Retracted",
+  corrected_reference: "Corrected",
+  pubpeer_flagged: "PubPeer",
+  metadata_error: "Metadata",
+  sample_size_mismatch: "Sample Size",
+  genome_build_inconsistency: "Genome Build",
+  p_value_mismatch: "P-value",
+  benford_anomaly: "Benford",
+  grim_failure: "GRIM",
+  duplicate_image: "Dup. Image",
+  image_manipulation: "Image Manip.",
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: "destructive",
+  error: "destructive",
+  warning: "default",
+  info: "secondary",
+};
+
+function IntegrityTab() {
+  const { stats, loading: statsLoading } = useIntegrityStats();
+  const { findings, loading: findingsLoading } = useIntegrityFindings({ status: "open" });
+
+  const categories = Object.entries(stats?.findings_by_category ?? {})
+    .sort(([, a], [, b]) => (b as number) - (a as number))
+    .slice(0, 8);
+  const maxCount = Math.max(...categories.map(([, n]) => n as number), 1);
+
+  const recentFindings = findings.slice(0, 5);
+
+  if (statsLoading) {
+    return (
+      <div className="space-y-3 pt-4">
+        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}
+      </div>
+    );
+  }
+
+  if (!stats || stats.total_findings === 0) {
+    return (
+      <Card className="border-dashed mt-4">
+        <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+          <ShieldCheck className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">No integrity findings yet.</p>
+          <p className="text-xs text-muted-foreground/70">
+            Run a W7 Data Integrity Audit or trigger a quick check from the Integrity page.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pt-4">
+      {/* Severity summary */}
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(stats.findings_by_severity).map(([sev, count]) => (
+          <Badge
+            key={sev}
+            variant={SEVERITY_COLORS[sev] as "default" | "secondary" | "destructive" | "outline"}
+            className="text-xs gap-1"
+          >
+            {sev}: {count as number}
+          </Badge>
+        ))}
+        <span className="text-xs text-muted-foreground self-center">
+          {stats.total_findings} total · {stats.total_runs} runs · avg {stats.average_findings_per_run.toFixed(1)}/run
+        </span>
+      </div>
+
+      {/* Category breakdown */}
+      {categories.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Findings by Category</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {categories.map(([cat, count]) => (
+              <div key={cat} className="flex items-center gap-3">
+                <span className="w-28 text-xs text-muted-foreground shrink-0 truncate">
+                  {CATEGORY_LABELS[cat] ?? cat}
+                </span>
+                <div className="flex-1">
+                  <Progress
+                    value={((count as number) / maxCount) * 100}
+                    className="h-2"
+                  />
+                </div>
+                <span className="text-xs font-mono w-6 text-right text-muted-foreground">
+                  {count as number}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent open findings */}
+      {recentFindings.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Recent Open Findings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {findingsLoading
+              ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-10" />)
+              : recentFindings.map((f: AuditFinding) => (
+                  <div key={f.id} className="flex items-start gap-2 text-xs">
+                    <Badge
+                      variant={SEVERITY_COLORS[f.severity as IntegritySeverity] as "default" | "secondary" | "destructive" | "outline"}
+                      className="text-[10px] shrink-0"
+                    >
+                      {f.severity}
+                    </Badge>
+                    <span className="font-medium flex-1 truncate">{f.title}</span>
+                    <span className="text-muted-foreground shrink-0">
+                      {(f.confidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function QualityPage() {
@@ -289,6 +424,7 @@ export default function QualityPage() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="integrity">Integrity</TabsTrigger>
         </TabsList>
 
         {/* QA Agents tab */}
@@ -308,6 +444,11 @@ export default function QualityPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Integrity tab */}
+        <TabsContent value="integrity">
+          <IntegrityTab />
         </TabsContent>
 
         {/* Contradictions tab */}

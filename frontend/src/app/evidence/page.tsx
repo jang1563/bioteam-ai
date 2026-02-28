@@ -9,6 +9,7 @@ import {
   ChevronUp,
   ExternalLink,
   Layers,
+  Download,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api-client";
 import type { WorkflowStatus, RCMXTScore } from "@/types/api";
@@ -79,6 +81,7 @@ interface EvidenceRow {
   template: string;
   query: string;
   score: RCMXTScore;
+  createdAt?: string;
 }
 
 function EvidenceCard({ row, onWorkflowClick }: {
@@ -171,6 +174,7 @@ function useEvidenceRows() {
             template: wf.template,
             query: wf.query,
             score,
+            createdAt: wf.created_at,
           });
         }
       }
@@ -253,6 +257,8 @@ export default function EvidencePage() {
   const { rows, loading, error, refresh } = useEvidenceRows();
   const [scoreFilter, setScoreFilter] = useState<ScoreFilter>("All");
   const [templateFilter, setTemplateFilter] = useState<string>("All");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const templates = useMemo(() => {
     const set = new Set(rows.map((r) => r.template));
@@ -269,6 +275,40 @@ export default function EvidencePage() {
       return true;
     });
   }, [rows, scoreFilter, templateFilter]);
+
+  const dateFiltered = useMemo(() => {
+    if (!dateFrom && !dateTo) return filtered;
+    return filtered.filter((r) => {
+      const ts = r.createdAt ? new Date(r.createdAt).getTime() : 0;
+      if (dateFrom && ts < new Date(dateFrom).getTime()) return false;
+      if (dateTo && ts > new Date(dateTo + "T23:59:59").getTime()) return false;
+      return true;
+    });
+  }, [filtered, dateFrom, dateTo]);
+
+  const exportCsv = useCallback(() => {
+    const header = "workflow_id,template,query,composite,R,C,M,X,T,claim,created_at\n";
+    const body = dateFiltered.map((r) => [
+      r.workflowId,
+      r.template,
+      `"${r.query.replace(/"/g, '""')}"`,
+      r.score.composite?.toFixed(3) ?? "",
+      r.score.R.toFixed(3),
+      r.score.C.toFixed(3),
+      r.score.M.toFixed(3),
+      r.score.X?.toFixed(3) ?? "",
+      r.score.T.toFixed(3),
+      `"${r.score.claim.replace(/"/g, '""')}"`,
+      r.createdAt ?? "",
+    ].join(",")).join("\n");
+    const blob = new Blob([header + body], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "evidence.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [dateFiltered]);
 
   const setSelectedWorkflow = useAppStore((s) => s.setSelectedWorkflowId);
   const handleWorkflowClick = useCallback((id: string) => {
@@ -347,21 +387,44 @@ export default function EvidencePage() {
                 ))}
               </SelectContent>
             </Select>
+            <label htmlFor="date-from" className="sr-only">From date</label>
+            <Input
+              id="date-from"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-8 w-[150px] text-xs"
+              aria-label="From date"
+            />
+            <span className="text-xs text-muted-foreground">–</span>
+            <label htmlFor="date-to" className="sr-only">To date</label>
+            <Input
+              id="date-to"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 w-[150px] text-xs"
+              aria-label="To date"
+            />
             <span className="text-xs text-muted-foreground">
-              {filtered.length} / {rows.length} claims
+              {dateFiltered.length} / {rows.length} claims
             </span>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs ml-auto" onClick={exportCsv}>
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </Button>
           </div>
 
           {/* Evidence cards */}
           <div className="space-y-3">
-            {filtered.map((row, i) => (
+            {dateFiltered.map((row, i) => (
               <EvidenceCard
                 key={`${row.workflowId}-${i}`}
                 row={row}
                 onWorkflowClick={handleWorkflowClick}
               />
             ))}
-            {filtered.length === 0 && (
+            {dateFiltered.length === 0 && (
               <p className="text-sm text-center text-muted-foreground py-8">
                 No claims match the current filters.
               </p>

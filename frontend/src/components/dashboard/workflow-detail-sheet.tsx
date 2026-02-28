@@ -133,6 +133,15 @@ const STEP_LABELS: Record<string, string> = {
   DC_NOVELTY: "Direction Check — Novelty",
   EXPERIMENTAL_DESIGN: "Experimental Design",
   GRANT_RELEVANCE: "Grant Relevance",
+  // W10 steps
+  COMPOUND_SEARCH: "Compound Search (ChEMBL)",
+  BIOACTIVITY_PROFILE: "Bioactivity Profile",
+  TARGET_IDENTIFICATION: "Target Identification",
+  CLINICAL_TRIALS_SEARCH: "Clinical Trials Search",
+  EFFICACY_ANALYSIS: "Efficacy Analysis",
+  SAFETY_PROFILE: "Safety & ADMET Profile",
+  DC_PRELIMINARY: "Direction Check — Preliminary",
+  MECHANISM_REVIEW: "Mechanism of Action Review",
 };
 
 const WORKFLOW_STEPS: Record<string, string[]> = {
@@ -173,6 +182,11 @@ const WORKFLOW_STEPS: Record<string, string[]> = {
     "LITERATURE_COMPARISON", "NOVELTY_ASSESSMENT", "CONTRADICTION_SCAN",
     "INTEGRITY_AUDIT", "DC_NOVELTY",
     "EXPERIMENTAL_DESIGN", "GRANT_RELEVANCE", "REPORT",
+  ],
+  W10: [
+    "SCOPE", "COMPOUND_SEARCH", "BIOACTIVITY_PROFILE", "TARGET_IDENTIFICATION",
+    "CLINICAL_TRIALS_SEARCH", "EFFICACY_ANALYSIS", "SAFETY_PROFILE", "DC_PRELIMINARY",
+    "MECHANISM_REVIEW", "LITERATURE_COMPARISON", "GRANT_RELEVANCE", "REPORT",
   ],
 };
 

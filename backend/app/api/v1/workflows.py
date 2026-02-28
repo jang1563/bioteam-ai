@@ -81,7 +81,7 @@ def _save_instance(instance: WorkflowInstance) -> None:
 class CreateWorkflowRequest(BaseModel):
     """Request to create a new workflow."""
 
-    template: str = Field(pattern=r"^W[1-9]$")  # "W1" through "W9"
+    template: str = Field(pattern=r"^W([1-9]|10)$")  # "W1" through "W10"
     query: str = Field(min_length=1, max_length=2000)
     budget: float = Field(default=5.0, ge=0.1, le=100.0)
     seed_papers: list[str] = Field(default_factory=list, max_length=50)
@@ -114,6 +114,7 @@ class WorkflowStatusResponse(BaseModel):
     session_manifest: dict = Field(default_factory=dict)
     citation_report: dict = Field(default_factory=dict)
     rcmxt_scores: list[dict] = Field(default_factory=list)
+    created_at: str | None = None
 
 
 class StepCheckpointResponse(BaseModel):
@@ -170,6 +171,7 @@ async def list_workflows() -> list[WorkflowStatusResponse]:
             session_manifest=inst.session_manifest,
             citation_report=inst.citation_report,
             rcmxt_scores=inst.rcmxt_scores,
+            created_at=inst.created_at.isoformat() if inst.created_at else None,
         )
         for inst in instances
     ]
@@ -208,7 +210,7 @@ async def create_workflow(request: CreateWorkflowRequest) -> CreateWorkflowRespo
 
 
 # Templates that auto-start on creation
-_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6", "W8", "W9"}
+_SUPPORTED_TEMPLATES = {"W1", "W2", "W3", "W4", "W5", "W6", "W8", "W9", "W10"}
 
 
 def _get_runner(template: str, registry, engine, sse_hub, lab_kb, persist_fn):
@@ -257,6 +259,12 @@ def _get_runner(template: str, registry, engine, sse_hub, lab_kb, persist_fn):
         return W9BioinformaticsRunner(
             registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
             checkpoint_manager=checkpoint_manager, lab_kb=lab_kb,
+        )
+    elif template == "W10":
+        from app.workflows.runners.w10_drug_discovery import W10DrugDiscoveryRunner
+        return W10DrugDiscoveryRunner(
+            registry=registry, engine=engine, sse_hub=sse_hub, persist_fn=persist_fn,
+            lab_kb=lab_kb,
         )
     return None
 

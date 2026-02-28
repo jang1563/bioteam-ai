@@ -140,6 +140,21 @@ const W9_STEPS: StepDef[] = [
   { id: "REPORT", label: "Final Report", short: "Report" },
 ];
 
+const W10_STEPS: StepDef[] = [
+  { id: "SCOPE", label: "Research Scope", short: "Scope", human: true },
+  { id: "COMPOUND_SEARCH", label: "Compound Search (ChEMBL)", short: "Compounds" },
+  { id: "BIOACTIVITY_PROFILE", label: "Bioactivity Profile", short: "Bioactivity" },
+  { id: "TARGET_IDENTIFICATION", label: "Target Identification", short: "Targets" },
+  { id: "CLINICAL_TRIALS_SEARCH", label: "Clinical Trials Search", short: "Trials" },
+  { id: "EFFICACY_ANALYSIS", label: "Efficacy Analysis", short: "Efficacy" },
+  { id: "SAFETY_PROFILE", label: "Safety & ADMET", short: "Safety" },
+  { id: "DC_PRELIMINARY", label: "Direction Check", short: "DC" },
+  { id: "MECHANISM_REVIEW", label: "Mechanism Review", short: "Mechanism" },
+  { id: "LITERATURE_COMPARISON", label: "Literature Comparison", short: "Lit. Compare" },
+  { id: "GRANT_RELEVANCE", label: "Grant Relevance", short: "Grant" },
+  { id: "REPORT", label: "Final Report", short: "Report" },
+];
+
 const WORKFLOW_STEP_DEFS: Record<string, StepDef[]> = {
   W1: W1_STEPS,
   W2: W2_STEPS,
@@ -149,6 +164,7 @@ const WORKFLOW_STEP_DEFS: Record<string, StepDef[]> = {
   W6: W6_STEPS,
   W8: W8_STEPS,
   W9: W9_STEPS,
+  W10: W10_STEPS,
 };
 
 type StepStatus = "completed" | "running" | "waiting" | "failed" | "pending";

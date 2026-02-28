@@ -69,6 +69,74 @@ class MCPChEMBLClient:
 
         return result
 
+    async def get_bioactivity(
+        self, compound_name_or_id: str, max_results: int = 15
+    ) -> MCPSearchResult:
+        """Get bioactivity data (IC50/EC50/Ki) for a compound against its targets."""
+        url = settings.mcp_chembl_url
+        if not url:
+            return MCPSearchResult(source="chembl")
+
+        response = await self.client.beta.messages.create(
+            model=settings.model_sonnet,
+            max_tokens=4096,
+            betas=[BETA_FLAG],
+            mcp_servers=[{"type": "url", "name": "chembl", "url": url}],
+            tools=[{"type": "mcp_toolset", "mcp_server_name": "chembl"}],
+            system=(
+                "Retrieve bioactivity data for the compound. "
+                f"Return up to {max_results} activity measurements as JSON with keys: "
+                '"activities" (array of {target_id, target_name, gene_symbol, '
+                "activity_type, value_nm, relation, assay_description, confidence_score})."
+            ),
+            messages=[{"role": "user", "content": f"Bioactivity for: {compound_name_or_id}"}],
+        )
+
+        result = MCPSearchResult(source="chembl")
+        usage = getattr(response, "usage", None)
+        if usage:
+            result.input_tokens = getattr(usage, "input_tokens", 0)
+            result.output_tokens = getattr(usage, "output_tokens", 0)
+        for block in getattr(response, "content", []):
+            if getattr(block, "type", "") == "text":
+                result.llm_summary += getattr(block, "text", "")
+
+        return result
+
+    async def get_admet(
+        self, compound_name_or_id: str
+    ) -> MCPSearchResult:
+        """Get ADMET (pharmacokinetic + safety) properties for a compound."""
+        url = settings.mcp_chembl_url
+        if not url:
+            return MCPSearchResult(source="chembl")
+
+        response = await self.client.beta.messages.create(
+            model=settings.model_haiku,
+            max_tokens=2048,
+            betas=[BETA_FLAG],
+            mcp_servers=[{"type": "url", "name": "chembl", "url": url}],
+            tools=[{"type": "mcp_toolset", "mcp_server_name": "chembl"}],
+            system=(
+                "Retrieve ADMET properties for the compound. "
+                "Summarize: absorption (oral bioavailability, permeability), distribution "
+                "(Vd, protein binding), metabolism (CYP interactions), excretion (half-life, clearance), "
+                "and toxicity (hERG, Ames, hepatotoxicity). Return as plain text safety summary."
+            ),
+            messages=[{"role": "user", "content": f"ADMET for: {compound_name_or_id}"}],
+        )
+
+        result = MCPSearchResult(source="chembl")
+        usage = getattr(response, "usage", None)
+        if usage:
+            result.input_tokens = getattr(usage, "input_tokens", 0)
+            result.output_tokens = getattr(usage, "output_tokens", 0)
+        for block in getattr(response, "content", []):
+            if getattr(block, "type", "") == "text":
+                result.llm_summary += getattr(block, "text", "")
+
+        return result
+
     async def drug_search(
         self, indication: str, max_results: int = 10
     ) -> MCPSearchResult:

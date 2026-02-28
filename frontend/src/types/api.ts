@@ -71,7 +71,7 @@ export type WorkflowState =
   | "CANCELLED"
   | "OVER_BUDGET";
 
-export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W7" | "W8";
+export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W7" | "W8" | "W9" | "W10";
 
 export interface WorkflowStatus {
   id: string;
@@ -86,6 +86,7 @@ export interface WorkflowStatus {
   session_manifest: Record<string, unknown>;
   citation_report: CitationReport;
   rcmxt_scores: RCMXTScore[];
+  created_at?: string;
 }
 
 // === Tier 1: Reproducibility & Evidence Scoring ===
