@@ -13,15 +13,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
-from app.agents.registry import AgentRegistry, create_registry
+from app.agents.registry import create_registry
 from app.llm.mock_layer import MockLLMLayer
 from app.models.messages import ContextPackage
-from app.models.workflow import WorkflowInstance, WorkflowStepDef
+from app.models.workflow import WorkflowInstance
 from app.workflows.engine import IllegalTransitionError, WorkflowEngine
 from app.workflows.note_processor import NoteProcessor
 from app.workflows.runners.w1_literature import W1_STEPS
 from app.workflows.runners.w7_integrity import W7_STEPS
-
 
 # ══════════════════════════════════════════════════════════════════
 # Agent Registry
@@ -37,7 +36,8 @@ class TestAgentRegistrySystem:
 
     def test_all_agents_registered(self):
         specs = self.registry.list_agents()
-        assert len(specs) == 23, f"Expected 23 agents, got {len(specs)}"
+        expected = self.registry._expected_count
+        assert len(specs) == expected, f"Expected {expected} agents, got {len(specs)}"
 
     def test_critical_agents_healthy(self):
         unhealthy = self.registry.check_critical_health()

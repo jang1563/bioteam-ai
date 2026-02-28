@@ -159,7 +159,7 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
 
     registry = AgentRegistry()
 
-    # Load specs and create agents
+    # Load specs and create agents — add new agents here and the count auto-updates
     agent_defs: list[tuple[type[BaseAgent], str, dict]] = [
         (ResearchDirectorAgent, "research_director", {}),
         (KnowledgeManagerAgent, "knowledge_manager", {"memory": memory}),
@@ -195,4 +195,5 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
         except Exception as e:
             logger.error("Failed to register agent %s: %s", spec_id, e)
 
+    registry._expected_count = len(agent_defs)
     return registry

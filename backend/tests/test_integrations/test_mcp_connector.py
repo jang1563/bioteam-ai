@@ -6,17 +6,15 @@ No real MCP server calls are made.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from app.integrations.mcp_connector import (
     BETA_FLAG,
     MCP_SERVERS,
     MCPConnector,
     MCPSearchResult,
 )
-
 
 # ── Fixtures ──
 
@@ -116,7 +114,7 @@ class TestSearch:
             papers_json='{"papers": [{"pmid": "123", "title": "Test Paper"}], "summary": "Found 1 paper"}'
         )
 
-        result = await connector.search(
+        await connector.search(
             query="spaceflight anemia",
             sources=["pubmed"],
             model_tier="sonnet",

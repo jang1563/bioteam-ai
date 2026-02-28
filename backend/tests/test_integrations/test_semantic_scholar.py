@@ -8,9 +8,13 @@ Set S2_API_KEY in environment for higher rate limits (optional).
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from app.integrations.semantic_scholar import S2Paper, SemanticScholarClient
+
+pytestmark = pytest.mark.integration
 
 
 def test_search_basic():

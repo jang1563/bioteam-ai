@@ -18,16 +18,20 @@ GET    /api/v1/digest/stats               — aggregate stats
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from app.db.database import engine as db_engine
+from app.digest.scheduler import SCHEDULE_LOOKBACK_DAYS
 from app.email.sender import is_email_configured, send_digest_email
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/digest", tags=["digest"])
 
@@ -289,7 +293,8 @@ async def run_digest(topic_id: str) -> ReportResponse:
 
     _running_topics.add(topic_id)
     try:
-        report = await _pipeline.run(topic, days=7)
+        days = SCHEDULE_LOOKBACK_DAYS.get(topic.schedule, 7)
+        report = await _pipeline.run(topic, days=days)
 
         # Fire-and-forget email delivery
         if is_email_configured():

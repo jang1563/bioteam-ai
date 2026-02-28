@@ -26,15 +26,14 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from sqlmodel import Session, select
-
 from app.config import settings
 from app.db.database import engine as db_engine
 from app.models.session_checkpoint import SessionCheckpoint
 from app.models.workflow import WorkflowInstance
 from app.workflows.engine import WorkflowEngine
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +249,7 @@ async def rerun_step(workflow_id: str, step_id: str) -> StepControlResponse:
 async def skip_step(workflow_id: str, step_id: str) -> StepControlResponse:
     """Skip a step by saving an empty result (workflow continues past it)."""
     _require_step_control()
-    instance = _get_instance(workflow_id)
+    _get_instance(workflow_id)
 
     # Save a "skipped" checkpoint
     with Session(db_engine) as session:

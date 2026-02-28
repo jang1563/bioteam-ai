@@ -56,7 +56,7 @@ class CostTracker:
             step_id="SEARCH",
             agent_id="knowledge_manager",
             model_tier="sonnet",
-            model_version="claude-sonnet-4-5-20250929",
+            model_version="claude-sonnet-4-6",
             input_tokens=1500,
             output_tokens=800,
             cost_usd=0.057,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+
 from app.models.digest import DigestEntry, DigestReport, TopicProfile
 
 # Source badge colors (matching frontend)
@@ -23,16 +25,18 @@ def render_digest_email(
     """Render an HTML email for a digest report.
 
     Uses inline CSS for email client compatibility.
+    All user-supplied text is HTML-escaped to prevent injection.
     """
     highlights_html = ""
     if report.highlights:
         items = []
         for i, h in enumerate(report.highlights[:6], 1):
-            title = h.get("title", "")
-            source = h.get("source", "")
-            desc = h.get("description", "")
-            url = h.get("url", "")
-            color = SOURCE_COLORS.get(source, "#888")
+            title = html.escape(h.get("title", ""))
+            source = html.escape(h.get("source", ""))
+            # Support both "description" and "one_liner" field names from DigestAgent
+            desc = html.escape(h.get("description", "") or h.get("one_liner", ""))
+            url = html.escape(h.get("url", ""))
+            color = SOURCE_COLORS.get(h.get("source", ""), "#888")
             link = f' <a href="{url}" style="color:{color};text-decoration:none;">[Link]</a>' if url else ""
             items.append(
                 f'<tr><td style="padding:8px 12px;vertical-align:top;color:#888;font-size:13px;">{i}</td>'
@@ -48,17 +52,20 @@ def render_digest_email(
             '<table style="width:100%;border-collapse:collapse;">' + "".join(items) + "</table>"
         )
 
-    # Source breakdown
+    # Source breakdown — proportional bar widths relative to the largest source
     breakdown_html = ""
     if report.source_breakdown:
+        max_count = max(report.source_breakdown.values(), default=1)
         bars = []
         for src, count in sorted(report.source_breakdown.items(), key=lambda x: -x[1]):
             color = SOURCE_COLORS.get(src, "#888")
+            bar_width = int((count / max_count) * 180)  # scale relative to max, cap at 180px
             bars.append(
                 f'<div style="margin:4px 0;">'
-                f'<span style="display:inline-block;width:120px;color:#a0aec0;font-size:13px;">{src}</span>'
+                f'<span style="display:inline-block;width:120px;color:#a0aec0;font-size:13px;">'
+                f'{html.escape(src)}</span>'
                 f'<span style="display:inline-block;background:{color};height:14px;'
-                f'width:{min(count * 20, 200)}px;border-radius:3px;vertical-align:middle;"></span>'
+                f'width:{bar_width}px;border-radius:3px;vertical-align:middle;"></span>'
                 f'<span style="color:#e2e8f0;font-size:13px;margin-left:8px;">{count}</span>'
                 f'</div>'
             )
@@ -74,12 +81,15 @@ def render_digest_email(
         for e in entries[:10]:
             color = SOURCE_COLORS.get(e.source, "#888")
             score_pct = int(e.relevance_score * 100)
-            url_link = f'<a href="{e.url}" style="color:#00d4aa;text-decoration:none;">Link</a>' if e.url else ""
+            safe_title = html.escape(e.title[:80])
+            safe_source = html.escape(e.source)
+            safe_url = html.escape(e.url)
+            url_link = f'<a href="{safe_url}" style="color:#00d4aa;text-decoration:none;">Link</a>' if e.url else ""
             rows.append(
                 f'<tr style="border-bottom:1px solid #1a2332;">'
                 f'<td style="padding:8px;"><span style="padding:2px 6px;border-radius:3px;'
-                f'background:{color}22;color:{color};font-size:11px;">{e.source}</span></td>'
-                f'<td style="padding:8px;color:#e2e8f0;font-size:13px;">{e.title[:80]}</td>'
+                f'background:{color}22;color:{color};font-size:11px;">{safe_source}</span></td>'
+                f'<td style="padding:8px;color:#e2e8f0;font-size:13px;">{safe_title}</td>'
                 f'<td style="padding:8px;color:#00d4aa;font-size:13px;text-align:center;">{score_pct}%</td>'
                 f'<td style="padding:8px;text-align:center;">{url_link}</td>'
                 f'</tr>'
@@ -99,6 +109,9 @@ def render_digest_email(
     if report.period_start and report.period_end:
         period_str = f"{report.period_start.strftime('%Y-%m-%d')} — {report.period_end.strftime('%Y-%m-%d')}"
 
+    safe_topic_name = html.escape(topic.name)
+    safe_summary = html.escape(report.summary) if report.summary else "No summary generated."
+
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -108,7 +121,7 @@ def render_digest_email(
   <!-- Header -->
   <div style="background:#0a0f1e;border:1px solid #1a2332;border-radius:8px;padding:24px;margin-bottom:16px;">
     <h1 style="color:#00d4aa;font-size:20px;margin:0 0 4px;">BioTeam-AI Digest Report</h1>
-    <div style="color:#7a8ba7;font-size:13px;">{topic.name} · {period_str} · {report.entry_count} entries</div>
+    <div style="color:#7a8ba7;font-size:13px;">{safe_topic_name} · {period_str} · {report.entry_count} entries</div>
     <div style="color:#7a8ba7;font-size:12px;margin-top:4px;">LLM Cost: ${report.cost:.4f}</div>
   </div>
 
@@ -116,7 +129,7 @@ def render_digest_email(
   <div style="background:#0a0f1e;border:1px solid #1a2332;border-radius:8px;padding:24px;margin-bottom:16px;">
     <h2 style="color:#00d4aa;font-size:16px;margin:0 0 12px;">Executive Summary</h2>
     <p style="color:#e2e8f0;font-size:14px;line-height:1.7;margin:0;">
-      {report.summary or "No summary generated."}
+      {safe_summary}
     </p>
 
     {highlights_html}

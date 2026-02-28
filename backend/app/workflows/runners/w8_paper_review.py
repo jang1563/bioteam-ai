@@ -570,7 +570,7 @@ class W8PaperReviewRunner:
                 established = novelty.get("already_established", [])
                 unique = novelty.get("unique_contributions", [])
                 missing = novelty.get("landmark_papers_missing", [])
-                parts.append(f"\n### Novelty Analysis")
+                parts.append("\n### Novelty Analysis")
                 if established:
                     parts.append("Findings already established in prior literature:")
                     for item in established:
@@ -597,7 +597,7 @@ class W8PaperReviewRunner:
             # Methodology
             method = prior_outputs.get("METHODOLOGY_REVIEW", {})
             if method.get("study_design_critique"):
-                parts.append(f"\n### Methodological Assessment")
+                parts.append("\n### Methodological Assessment")
                 parts.append(f"Study design: {method.get('study_design_critique', '')}")
                 parts.append(f"Statistical approach: {method.get('statistical_methods', '')}")
                 parts.append(f"Controls: {method.get('controls_adequacy', '')}")
@@ -772,11 +772,6 @@ class W8PaperReviewRunner:
 
         report = validator.validate(refs_text)
 
-        # Estimate reference count from full text if validator found nothing
-        numbered_refs: list[str] = []
-        if report.total_citations == 0 and full_text:
-            numbered_refs = re.findall(r"^\s*\[?\d{1,3}\]?\s+\w", full_text, re.MULTILINE)
-
         # --- Title-based reference resolution via PubMed (KnowledgeManager) ---
         # Attempt to resolve references that lack DOI/PMID by extracting titles
         # from the numbered reference list and querying PubMed via KnowledgeManager.
@@ -885,7 +880,7 @@ class W8PaperReviewRunner:
         try:
             # Run async lookups in a new event loop if needed
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # Already in async context — schedule as task and gather
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:

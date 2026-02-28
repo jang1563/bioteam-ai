@@ -8,10 +8,14 @@ Set NCBI_API_KEY and NCBI_EMAIL in environment for higher rate limits.
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 os.environ.setdefault("NCBI_EMAIL", "test@example.com")
 
 from app.integrations.pubmed import PubMedClient, PubMedPaper
+
+pytestmark = pytest.mark.integration
 
 
 def test_search_basic():

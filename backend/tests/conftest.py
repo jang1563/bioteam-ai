@@ -12,6 +12,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Run tests marked @pytest.mark.integration (live network calls)",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if not config.getoption("--run-integration"):
+        skip_integration = pytest.mark.skip(reason="Live API test — pass --run-integration to enable")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)
+
 # Use a fresh sqlite file for each pytest run by default to avoid stale schema drift.
 if os.environ.get("DATABASE_URL") == "sqlite:///test.db":
     os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.gettempdir()}/bioteam_test_{uuid4().hex}.db"

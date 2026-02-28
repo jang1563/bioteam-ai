@@ -11,13 +11,10 @@ Docs: https://www.ncbi.nlm.nih.gov/books/NBK25499/
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 from datetime import datetime, timezone
 
 import httpx
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -243,7 +240,7 @@ class NCBIExtendedClient:
                 links = linksets[0].get("linksetdbs", [])
                 if not links:
                     return []
-                neighbor_ids = [str(l) for l in links[0].get("links", [])[:max_genes]]
+                neighbor_ids = [str(link_id) for link_id in links[0].get("links", [])[:max_genes]]
                 if not neighbor_ids:
                     return []
                 # Fetch summaries

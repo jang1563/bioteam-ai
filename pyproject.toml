@@ -65,6 +65,9 @@ packages = ["backend/app"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
+markers = [
+    "integration: marks tests as requiring network access (deselect with -m 'not integration')",
+]
 
 [tool.pytest-asyncio]
 mode = "auto"

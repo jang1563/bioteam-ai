@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     default_max_retries: int = 2
     default_temperature: float = 0.0  # v4.2: deterministic by default for reproducibility
     model_opus: str = "claude-opus-4-6"
-    model_sonnet: str = "claude-sonnet-4-5-20250929"
+    model_sonnet: str = "claude-sonnet-4-6"
     model_haiku: str = "claude-haiku-4-5-20251001"
 
     # Backup scheduling
@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     gtex_enabled: bool = True      # GTEx Portal v2
     go_enrichment_enabled: bool = True  # g:Profiler (gprofiler-official)
     ncbi_extended_enabled: bool = True  # NCBI Gene/ClinVar (reuses ncbi_api_key)
+    peer_review_corpus_enabled: bool = False  # eLife/PLOS open peer review corpus (Phase 6)
     # API rate limit delays (seconds between requests)
     ensembl_rate_limit_delay: float = 0.1   # Ensembl: 15 req/sec max
     uniprot_rate_limit_delay: float = 0.1   # UniProt: 10 req/sec max

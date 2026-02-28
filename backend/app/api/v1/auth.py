@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
-
 from app.config import settings
 from app.security.stream_token import issue_stream_token
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
