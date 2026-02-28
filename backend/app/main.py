@@ -11,7 +11,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from app import __version__
-
 from app.api.health import router as health_router
 from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
