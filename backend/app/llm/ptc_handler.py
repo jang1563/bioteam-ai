@@ -14,13 +14,40 @@ The dispatcher is called with (tool_name, tool_input) and routes internally.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Simple in-process TTL cache for expensive external API calls (VEP, BLAST, GO)
+# Keyed by (tool_name, sha256(json(input))). TTL = 1 hour.
+# ---------------------------------------------------------------------------
+_CACHE_TTL = 3600  # seconds
+_cache: dict[str, tuple[str, float]] = {}  # key → (result_json, expires_at)
+
+
+def _cache_key(tool_name: str, tool_input: dict) -> str:
+    payload = json.dumps({"t": tool_name, "i": tool_input}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _cache_get(key: str) -> str | None:
+    entry = _cache.get(key)
+    if entry and time.monotonic() < entry[1]:
+        return entry[0]
+    if key in _cache:
+        del _cache[key]
+    return None
+
+
+def _cache_set(key: str, value: str) -> None:
+    _cache[key] = (value, time.monotonic() + _CACHE_TTL)
 
 
 async def handle_ptc_tool_call(tool_name: str, tool_input: dict) -> str:
@@ -68,10 +95,15 @@ async def handle_ptc_tool_call(tool_name: str, tool_input: dict) -> str:
 # ---------------------------------------------------------------------------
 
 async def _handle_vep(tool_input: dict) -> str:
-    """Annotate a variant via Ensembl VEP.
+    """Annotate a variant via Ensembl VEP (cached 1h).
 
     Input schema: {"hgvs": "..."} or {"chrom": "17", "pos": 41234451, "ref": "A", "alt": "G"}
     """
+    key = _cache_key("vep", tool_input)
+    if cached := _cache_get(key):
+        logger.debug("VEP cache hit")
+        return cached
+
     from app.integrations.ensembl import EnsemblClient
 
     client = EnsemblClient()
@@ -90,12 +122,14 @@ async def _handle_vep(tool_input: dict) -> str:
     else:
         return json.dumps({"error": "VEP requires 'hgvs', ('chrom','pos','ref','alt'), or 'variants' input"})
 
-    return json.dumps({
+    result = json.dumps({
         "vep_results": results,
         "count": len(results),
         "_source": "Ensembl VEP v112",
         "_retrieved_at": datetime.now(timezone.utc).isoformat(),
     })
+    _cache_set(key, result)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +244,11 @@ async def _handle_blast(tool_input: dict) -> str:
     if not sequence:
         return json.dumps({"error": "sequence is required"})
 
+    key = _cache_key("blast", tool_input)
+    if cached := _cache_get(key):
+        logger.debug("BLAST cache hit")
+        return cached
+
     program = tool_input.get("program", "blastn")
     database = tool_input.get("database", "nt")
     hitlist_size = int(tool_input.get("hitlist_size", 10))
@@ -217,7 +256,7 @@ async def _handle_blast(tool_input: dict) -> str:
     try:
         import asyncio
         # NCBIWWW.qblast is sync — run in thread to avoid blocking event loop
-        result_handle = await asyncio.get_event_loop().run_in_executor(
+        result_handle = await asyncio.get_running_loop().run_in_executor(
             None,
             lambda: NCBIWWW.qblast(
                 program=program,
@@ -243,7 +282,7 @@ async def _handle_blast(tool_input: dict) -> str:
                         "gaps_pct": round(hsp.gaps / hsp.align_length * 100, 1),
                     })
 
-        return json.dumps({
+        result = json.dumps({
             "hits": hits,
             "total_hits": len(hits),
             "program": program,
@@ -251,6 +290,8 @@ async def _handle_blast(tool_input: dict) -> str:
             "_source": f"NCBI BLAST ({program} vs {database})",
             "_retrieved_at": datetime.now(timezone.utc).isoformat(),
         })
+        _cache_set(key, result)
+        return result
     except Exception as e:
         logger.debug("BLAST failed: %s", e)
         return json.dumps({
@@ -266,7 +307,7 @@ async def _handle_blast(tool_input: dict) -> str:
 # ---------------------------------------------------------------------------
 
 async def _handle_go_enrichment(tool_input: dict) -> str:
-    """Run g:Profiler GO/KEGG/Reactome enrichment analysis.
+    """Run g:Profiler GO/KEGG/Reactome enrichment analysis (cached 1h).
 
     Input schema: {
         "gene_list": ["BRCA1", "TP53", "ATM"],
@@ -275,11 +316,18 @@ async def _handle_go_enrichment(tool_input: dict) -> str:
         "top_n": 20                      # optional, default 20
     }
     """
-    from app.integrations.go_enrichment import GOEnrichmentClient
-
     gene_list = tool_input.get("gene_list", [])
     if not gene_list:
         return json.dumps({"error": "gene_list is required"})
+
+    # Normalize gene list order for stable cache key
+    normalized_input = {**tool_input, "gene_list": sorted(gene_list)}
+    key = _cache_key("go_enrichment", normalized_input)
+    if cached := _cache_get(key):
+        logger.debug("GO enrichment cache hit (%d genes)", len(gene_list))
+        return cached
+
+    from app.integrations.go_enrichment import GOEnrichmentClient
 
     organism = tool_input.get("organism", "hsapiens")
     sources = tool_input.get("sources")
@@ -289,7 +337,7 @@ async def _handle_go_enrichment(tool_input: dict) -> str:
     raw_results = await client.run_enrichment(gene_list, organism=organism, sources=sources)
     formatted = client.format_for_agent(raw_results, top_n=top_n)
 
-    return json.dumps({
+    result = json.dumps({
         "enrichment_results": formatted,
         "total_significant": len(formatted),
         "genes_submitted": len(gene_list),
@@ -297,6 +345,8 @@ async def _handle_go_enrichment(tool_input: dict) -> str:
         "_source": "g:Profiler v0.3 (g:SCS correction)",
         "_retrieved_at": datetime.now(timezone.utc).isoformat(),
     })
+    _cache_set(key, result)
+    return result
 
 
 # ---------------------------------------------------------------------------

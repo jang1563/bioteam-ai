@@ -465,7 +465,8 @@ class LLMLayer:
         model_version = ""
         new_container_id: str | None = None
 
-        for _ in range(10):  # Safety limit
+        _PTC_MAX_TURNS = 10
+        for _turn in range(_PTC_MAX_TURNS):  # Safety limit
             response = await _retry_with_backoff(
                 coro_factory=lambda: self.raw_client.messages.create(**{
                     **kwargs,
@@ -517,6 +518,12 @@ class LLMLayer:
 
             # Any other stop reason — break
             break
+        else:
+            logger.warning(
+                "complete_with_ptc hit safety turn limit (%d). "
+                "Model may not have finished — final text may be incomplete.",
+                _PTC_MAX_TURNS,
+            )
 
         # Extract final text from last response
         final_text = ""
