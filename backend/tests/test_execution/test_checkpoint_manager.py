@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
-
 from app.models.agent import AgentOutput
-from app.models.session_checkpoint import SessionCheckpoint
 from app.models.step_error import StepErrorReport
 from app.workflows.checkpoint_manager import CheckpointManager
+from sqlmodel import Session, SQLModel, create_engine
 
 
 @pytest.fixture

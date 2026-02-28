@@ -35,10 +35,8 @@ from app.agents.teams.t02_transcriptomics import (
     ScreeningResult,
 )
 from app.llm.mock_layer import MockLLMLayer
-from app.models.workflow import WorkflowInstance
-from app.workflows.runners.w1_literature import W1_STEPS, W1LiteratureReviewRunner
+from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
 from pydantic import BaseModel, Field
-
 
 # ══════════════════════════════════════════════════════════════════
 # Mock setup

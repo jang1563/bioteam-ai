@@ -39,6 +39,7 @@ if (PROJECT_ROOT / ".env").exists() and not Path(".env").exists():
 
 # Initialize DB tables BEFORE any model imports that trigger engine creation
 from app.db.database import create_db_and_tables
+
 create_db_and_tables()
 
 from app.agents.registry import create_registry
@@ -130,7 +131,7 @@ def init_services():
 async def run_pipeline(runner: W1LiteratureReviewRunner, query: str, budget: float) -> dict:
     """Run full W1 pipeline (Phase 1 + auto-resume at checkpoint)."""
 
-    print(f"\n  Phase 1: SCOPE → SYNTHESIZE (6 steps)")
+    print("\n  Phase 1: SCOPE → SYNTHESIZE (6 steps)")
     print(f"  Query: {query}")
     print(f"  Budget: ${budget:.2f}")
     print()
@@ -153,7 +154,7 @@ async def run_pipeline(runner: W1LiteratureReviewRunner, query: str, budget: flo
                     print(f"  Failed at: {h['step_id']} — {h.get('error', 'unknown')}")
         return {"phase1": phase1, "phase2": None, "error": f"Unexpected state: {inst.state}"}
 
-    print(f"\n  Phase 2: CONTRADICTION_CHECK → REPORT (6 steps)")
+    print("\n  Phase 2: CONTRADICTION_CHECK → REPORT (6 steps)")
     print()
 
     t2 = time.time()
@@ -237,7 +238,7 @@ def print_quality_report(result: dict) -> None:
     # PRISMA flow
     prisma = manifest.get("prisma", {})
     if prisma:
-        print(f"\n  PRISMA Flow:")
+        print("\n  PRISMA Flow:")
         print(f"    Identified:       {prisma.get('records_identified', '?')}")
         print(f"    Screened:         {prisma.get('records_screened', '?')}")
         print(f"    Excluded:         {prisma.get('records_excluded_screening', '?')}")
@@ -260,7 +261,7 @@ def print_quality_report(result: dict) -> None:
     # Citation report
     citation = inst.citation_report or {}
     if citation:
-        print(f"\n  Citation Check:")
+        print("\n  Citation Check:")
         print(f"    Total citations:    {citation.get('total_citations', '?')}")
         print(f"    Verified:           {citation.get('verified', '?')}")
         print(f"    Verification rate:  {citation.get('verification_rate', '?')}")
@@ -286,7 +287,7 @@ def print_quality_report(result: dict) -> None:
     if isinstance(novelty, dict):
         nov_out = novelty.get("output", novelty)
         if isinstance(nov_out, dict):
-            print(f"\n  Novelty Assessment:")
+            print("\n  Novelty Assessment:")
             print(f"    Finding: {nov_out.get('finding', '?')[:80]}")
             print(f"    Is novel: {nov_out.get('is_novel', '?')}")
             print(f"    Score:    {nov_out.get('novelty_score', '?')}")
@@ -383,7 +384,7 @@ async def main(query: str, budget: float) -> None:
     if phase2 and phase2["instance"].state == "COMPLETED":
         print("\n  STATUS: PIPELINE COMPLETED SUCCESSFULLY")
     else:
-        print(f"\n  STATUS: PIPELINE DID NOT COMPLETE")
+        print("\n  STATUS: PIPELINE DID NOT COMPLETE")
 
 
 if __name__ == "__main__":

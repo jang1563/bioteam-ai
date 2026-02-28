@@ -92,6 +92,52 @@ const W6_STEPS: StepDef[] = [
   { id: "PRESENT", label: "Present Results", short: "Present" },
 ];
 
+const W8_STEPS: StepDef[] = [
+  { id: "INGEST", label: "PDF Ingest", short: "Ingest" },
+  { id: "PARSE", label: "Section Parse", short: "Parse" },
+  { id: "EXTRACT_CLAIMS", label: "Claim Extraction", short: "Claims" },
+  { id: "CITE_VALIDATION", label: "Citation Check", short: "Citations" },
+  { id: "BACKGROUND_LIT", label: "Background Lit", short: "Background" },
+  { id: "INTEGRITY_AUDIT", label: "Integrity Audit", short: "Integrity" },
+  { id: "CONTRADICTION_CHECK", label: "Contradiction Check", short: "Contradictions" },
+  { id: "METHODOLOGY_REVIEW", label: "Methodology Review", short: "Methods" },
+  { id: "EVIDENCE_GRADE", label: "Evidence Grading", short: "RCMXT" },
+  { id: "HUMAN_CHECKPOINT", label: "Human Review", short: "HC", human: true },
+  { id: "SYNTHESIZE_REVIEW", label: "Synthesize Review", short: "Synthesize" },
+  { id: "REPORT", label: "Final Report", short: "Report" },
+];
+
+// W9: 21-step multi-omics pipeline — 5 phases, 3 HC + 3 DC
+// Displayed in 3 rows (Phase A top, Phase B middle, Phases C-E bottom)
+const W9_STEPS: StepDef[] = [
+  // Phase A
+  { id: "PRE_HEALTH_CHECK", label: "Health Check", short: "Health" },
+  { id: "SCOPE", label: "Research Scope", short: "Scope", human: true },
+  { id: "INGEST_DATA", label: "Data Ingest", short: "Ingest" },
+  { id: "QC", label: "Quality Control", short: "QC", human: true },
+  // Phase B
+  { id: "GENOMIC_ANALYSIS", label: "Genomic Analysis", short: "Genomics" },
+  { id: "EXPRESSION_ANALYSIS", label: "Expression Analysis", short: "Expression" },
+  { id: "PROTEIN_ANALYSIS", label: "Protein Analysis", short: "Proteomics" },
+  { id: "VARIANT_ANNOTATION", label: "Variant Annotation (VEP)", short: "VEP" },
+  { id: "PATHWAY_ENRICHMENT", label: "Pathway Enrichment", short: "GO/KEGG" },
+  { id: "NETWORK_ANALYSIS", label: "Network Analysis", short: "Network" },
+  { id: "DC_PHASE_B", label: "Direction Check B", short: "DC-B" },
+  // Phase C
+  { id: "CROSS_OMICS_INTEGRATION", label: "Cross-Omics Integration", short: "Integration" },
+  { id: "HC_INTEGRATION", label: "Human Checkpoint", short: "HC-C", human: true },
+  // Phase D
+  { id: "LITERATURE_COMPARISON", label: "Literature Comparison", short: "Lit. Compare" },
+  { id: "NOVELTY_ASSESSMENT", label: "Novelty Assessment", short: "Novelty" },
+  { id: "CONTRADICTION_SCAN", label: "Contradiction Scan", short: "Contradict" },
+  { id: "INTEGRITY_AUDIT", label: "Integrity Audit", short: "Integrity" },
+  { id: "DC_NOVELTY", label: "Direction Check D", short: "DC-D" },
+  // Phase E
+  { id: "EXPERIMENTAL_DESIGN", label: "Experimental Design", short: "Exp. Design" },
+  { id: "GRANT_RELEVANCE", label: "Grant Relevance", short: "Grant" },
+  { id: "REPORT", label: "Final Report", short: "Report" },
+];
+
 const WORKFLOW_STEP_DEFS: Record<string, StepDef[]> = {
   W1: W1_STEPS,
   W2: W2_STEPS,
@@ -99,6 +145,8 @@ const WORKFLOW_STEP_DEFS: Record<string, StepDef[]> = {
   W4: W4_STEPS,
   W5: W5_STEPS,
   W6: W6_STEPS,
+  W8: W8_STEPS,
+  W9: W9_STEPS,
 };
 
 type StepStatus = "completed" | "running" | "waiting" | "failed" | "pending";
@@ -209,16 +257,25 @@ function layoutNodes(steps: StepDef[], workflow: WorkflowStatus) {
   const startX = 20;
   const startY = 20;
 
-  const useTwoRows = steps.length > 6;
-  const topCount = useTwoRows ? Math.ceil(steps.length / 2) : steps.length;
+  // Use 3 rows for very long pipelines (>14 steps), 2 rows for medium (>6), 1 row for short
+  const useThreeRows = steps.length > 14;
+  const useTwoRows = !useThreeRows && steps.length > 6;
+  const rowCount = useThreeRows ? 3 : useTwoRows ? 2 : 1;
+  const perRow = Math.ceil(steps.length / rowCount);
 
   const ns: Node<StepNodeData>[] = steps.map((step, i) => {
     let x: number;
     let y: number;
 
-    if (useTwoRows) {
+    if (useThreeRows) {
+      const row = Math.floor(i / perRow);
+      const col = row % 2 === 0 ? i - row * perRow : perRow - 1 - (i - row * perRow); // snake
+      x = startX + col * (nodeWidth + gapX);
+      y = startY + row * (nodeHeight + gapY);
+    } else if (useTwoRows) {
+      const topCount = Math.ceil(steps.length / 2);
       const row = i < topCount ? 0 : 1;
-      const col = row === 0 ? i : steps.length - 1 - i; // reverse for bottom row
+      const col = row === 0 ? i : steps.length - 1 - i; // reverse for bottom row (snake)
       x = startX + col * (nodeWidth + gapX);
       y = startY + row * (nodeHeight + gapY);
     } else {
@@ -264,13 +321,13 @@ function layoutNodes(steps: StepDef[], workflow: WorkflowStatus) {
     });
   }
 
-  return { nodes: ns, edges: es, useTwoRows };
+  return { nodes: ns, edges: es, rowCount };
 }
 
 export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }) {
   const steps = WORKFLOW_STEP_DEFS[workflow.template] ?? W1_STEPS;
 
-  const { nodes, edges, useTwoRows } = useMemo(
+  const { nodes, edges, rowCount } = useMemo(
     () => layoutNodes(steps, workflow),
     [steps, workflow],
   );
@@ -279,7 +336,7 @@ export function WorkflowPipelineGraph({ workflow }: { workflow: WorkflowStatus }
     instance.fitView();
   }, []);
 
-  const height = useTwoRows ? 200 : 120;
+  const height = rowCount === 3 ? 280 : rowCount === 2 ? 200 : 120;
 
   return (
     <div className={`w-full rounded-lg border border-border overflow-hidden bg-background/50`} style={{ height }}>

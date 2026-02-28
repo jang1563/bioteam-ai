@@ -12,7 +12,6 @@ import argparse
 import asyncio
 import json
 import logging
-import sys
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -28,9 +27,9 @@ async def run_w6(topic: str, budget: float = 2.0) -> dict:
     Returns:
         Pipeline result dict with contradictions and hypotheses.
     """
+    from app.agents.registry import create_registry
     from app.llm.layer import LLMLayer
     from app.memory.semantic import SemanticMemory
-    from app.agents.registry import create_registry
     from app.workflows.runners.w6_ambiguity import W6AmbiguityRunner
 
     llm = LLMLayer()

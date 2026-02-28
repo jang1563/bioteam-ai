@@ -14,7 +14,6 @@ import logging
 from datetime import datetime, timezone
 
 import httpx
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)

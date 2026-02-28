@@ -8,10 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.llm.tool_registry import AGENT_TOOL_CLASSIFICATION, get_classification
-
 
 # ── Tests: Tool Registry ──
 
@@ -74,8 +71,9 @@ class TestBaseAgentGetToolList:
         agent = _TestAgent()
 
         # Bind the get_tool_list method
-        from app.agents.base import BaseAgent
         import types
+
+        from app.agents.base import BaseAgent
         agent.get_tool_list = types.MethodType(BaseAgent.get_tool_list, agent)
         return agent
 

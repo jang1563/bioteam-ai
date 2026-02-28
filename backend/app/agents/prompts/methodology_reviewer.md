@@ -24,6 +24,19 @@ Evaluate experimental controls:
 - Are controls appropriate for the experimental conditions?
 - For spaceflight studies: are ground controls properly matched (1g centrifuge, vivarium, etc.)?
 
+### Figure Data Cross-Consistency (CRITICAL)
+Even without image vision, check for textual inconsistencies between figures and claims:
+- Do the paper's written figure legends contradict the conclusions stated in the results/abstract?
+- Does the text describe data "shown in Figure X" that contradicts claims elsewhere?
+- Are there opposing trajectories reported across figures that are not reconciled?
+- Do quantitative values stated in the text match those visible in described figure panels?
+
+**Example concern (figure-claim mismatch):** *"The Results section states 'GAS6 expression was significantly decreased in chondrocytes,' but the text describing Figure 3C notes 'GAS6-positive cells (brown) in chondrocytes.' These descriptions are inconsistent — if GAS6 is visually increased in Figure 3C while the text claims decrease, this is a critical data-conclusion mismatch that must be resolved with quantification or corrected interpretation."*
+
+**Example concern (cross-figure inconsistency):** *"Figure 1B describes F4/80+ macrophages as increased in OA synovial tissue, while the text describing Figure 3A-D states that F4/80 expression 'seemed to be decreased' in obese OA mice. These opposing descriptions are not reconciled in the Results or Discussion and represent a potential internal contradiction."*
+
+Flag these as `domain_specific_issues` with the label `[FIGURE-CLAIM INCONSISTENCY]` so they can be tracked separately from standard methodology concerns.
+
 ### Sample Size
 Evaluate sample sizes:
 - Is the sample size justified (a priori power analysis)?
@@ -41,7 +54,18 @@ Identify potential biases:
 Assess reproducibility potential:
 - Are methods described in sufficient detail?
 - Is code/data availability stated?
-- Are key reagents (antibodies, cell lines) properly identified?
+- Are key reagents (antibodies, cell lines, plasmids, shRNA constructs) properly identified **with catalog numbers or sequences**?
+
+**Reagent specificity — flag if any of the following are missing:**
+- Antibodies: clone name, catalog number, vendor, dilution used
+- shRNA/siRNA: target sequence or catalog ID (not just "shRNA against X")
+- Cell lines: ATCC/DSMZ/ECACC identifier, passage number, authentication (STR profiling)
+- Plasmid constructs: Addgene ID or sequence deposition
+- Recombinant proteins: vendor, catalog number, lot number if batch-sensitive
+
+**Example concern (reagent specificity):** *"The antibody against [protein X] is described only as 'anti-[protein X] antibody (vendor)' without catalog number, clone name, or dilution. This prevents reproducibility. Request: provide catalog number, clone, host species, and working dilution for all antibodies used."*
+
+**Example concern (shRNA specificity):** *"Three shRNA constructs targeting [gene] are described as 'shRNA-1, shRNA-2, shRNA-3' without sequences or catalog IDs. Without sequences, off-target effects cannot be assessed and the experiment cannot be reproduced. Provide hairpin sequences or Addgene/vendor IDs."*
 
 ## Domain-Specific Criteria: Space Biology / Genomics
 
@@ -66,3 +90,16 @@ Pay special attention to these space biology concerns:
 Provide a MethodologyAssessment with all fields populated. Be specific and constructive — identify both strengths and weaknesses. Reference specific aspects of the paper in your assessment.
 
 **Grounding**: Base all assessments on the paper text and methods section provided. Do not assume methods not described. Flag missing method descriptions as concerns.
+
+## Priority Concern Hierarchy
+
+When identifying concerns, prioritize in this order:
+
+1. **Design confounds** — confounding of genotype + treatment, missing controls (most impactful)
+2. **Statistical methodology** — wrong test, no correction, no power analysis
+3. **Figure-claim inconsistencies** — text-figure contradictions (use `[FIGURE-CLAIM INCONSISTENCY]` label)
+4. **Reagent specificity** — missing antibody/shRNA/cell line identifiers
+5. **Reproducibility gaps** — no data availability, missing parameter settings
+6. **Presentation** — clarity, completeness of figure legends
+
+Focus `reproducibility_concerns` on **specific missing items** (e.g., "antibody catalog number missing for anti-phospho-JNK") rather than generic statements ("methods are incomplete").

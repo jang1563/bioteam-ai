@@ -33,6 +33,7 @@ if (PROJECT_ROOT / ".env").exists() and not Path(".env").exists():
 
 # Initialize DB tables before model imports
 from app.db.database import create_db_and_tables
+
 create_db_and_tables()
 
 from app.agents.base import BaseAgent
@@ -119,7 +120,7 @@ async def run_validation(topic_name: str, queries: list[str]) -> None:
         # Count from entries if available
         from app.db.database import engine as db_engine
         from app.models.digest import DigestEntry
-        from sqlmodel import Session, select, func
+        from sqlmodel import Session, func, select
 
         with Session(db_engine) as session:
             rows = session.exec(

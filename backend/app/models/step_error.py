@@ -15,7 +15,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 ErrorType = Literal["TRANSIENT", "RECOVERABLE", "USER_INPUT", "SKIP_SAFE", "FATAL"]
 SuggestedAction = Literal[
     "RETRY", "RETRY_WITH_PARAMS", "SKIP", "USER_PROVIDE_INPUT", "ABORT"

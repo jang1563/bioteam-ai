@@ -13,7 +13,6 @@ import argparse
 import asyncio
 import json
 import logging
-import sys
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,9 +28,9 @@ async def run_w1(query: str, budget: float = 5.0) -> dict:
     Returns:
         Complete pipeline result dict.
     """
+    from app.agents.registry import create_registry
     from app.llm.layer import LLMLayer
     from app.memory.semantic import SemanticMemory
-    from app.agents.registry import create_registry
     from app.workflows.runners.w1_literature import W1LiteratureReviewRunner
 
     llm = LLMLayer()

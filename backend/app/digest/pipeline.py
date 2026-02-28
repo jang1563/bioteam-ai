@@ -57,6 +57,10 @@ class DigestPipeline:
             SOURCE_HUGGINGFACE: HuggingFaceClient(),
         }
 
+    def shutdown(self) -> None:
+        """Shut down the ThreadPoolExecutor. Call during app teardown."""
+        self._executor.shutdown(wait=False)
+
     async def run(self, topic: TopicProfile, days: int = 7) -> DigestReport:
         """Full pipeline: FETCH → DEDUP → SCORE → STORE → SUMMARIZE → REPORT.
 
@@ -97,7 +101,7 @@ class DigestPipeline:
     async def _fetch_all_sources(self, topic: TopicProfile, days: int = 7) -> list[dict]:
         """Fetch from all enabled sources in parallel."""
         tasks = []
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         for source in topic.sources:
             if source not in self._clients:

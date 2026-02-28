@@ -21,8 +21,8 @@ from app.api.v1.digest import router as digest_router
 from app.api.v1.direct_query import router as dq_router
 from app.api.v1.integrity import router as integrity_router
 from app.api.v1.negative_results import router as nr_router
-from app.api.v1.sse import router as sse_router
 from app.api.v1.resume import router as resume_router
+from app.api.v1.sse import router as sse_router
 from app.api.v1.workflows import router as workflows_router
 from app.db.database import create_db_and_tables
 from app.middleware.auth import APIKeyAuthMiddleware
@@ -36,8 +36,8 @@ from app.models.integrity import AuditFinding, AuditRun  # noqa: F401
 from app.models.memory import EpisodicEvent  # noqa: F401
 from app.models.messages import AgentMessage, Conversation, ConversationTurn  # noqa: F401
 from app.models.negative_result import NegativeResult  # noqa: F401
-from app.models.task import Project, Task  # noqa: F401
 from app.models.session_checkpoint import SessionCheckpoint  # noqa: F401
+from app.models.task import Project, Task  # noqa: F401
 from app.models.workflow import StepCheckpoint, WorkflowInstance  # noqa: F401
 from app.workflows.engine import WorkflowEngine
 from fastapi import FastAPI, HTTPException, Request
@@ -97,6 +97,7 @@ async def lifespan(app: FastAPI):
     backup_scheduler = None
     digest_scheduler = None
     integrity_scheduler = None
+    digest_pipeline = None
     try:
         from app.agents.registry import create_registry
         from app.api.v1.agents import set_registry as set_agents_registry
@@ -190,6 +191,8 @@ async def lifespan(app: FastAPI):
         digest_scheduler.stop()
     if integrity_scheduler is not None:
         integrity_scheduler.stop()
+    if digest_pipeline is not None:
+        digest_pipeline.shutdown()
     if langfuse_enabled:
         _shutdown_langfuse()
 

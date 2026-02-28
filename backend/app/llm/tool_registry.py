@@ -56,8 +56,38 @@ AGENT_TOOL_CLASSIFICATION: dict[str, dict[str, list[str]]] = {
             "compare_methods",
         ],
     },
-    # Domain expert agents (t01-t10) typically use few tools
-    # so deferring is less impactful. Default: no deferral.
+    # Bioinformatics domain agents (Phase 4 — PTC tool assignments)
+    # always_loaded = tools injected by default for every call
+    # deferred = tools available via BM25 tool search (context savings)
+    "t01_genomics": {
+        "always_loaded": ["run_vep", "check_gene_names"],
+        "deferred": ["run_blast"],
+    },
+    "t02_transcriptomics": {
+        "always_loaded": ["check_gene_names", "run_go_enrichment"],
+        "deferred": [],
+    },
+    "t03_proteomics": {
+        "always_loaded": ["check_gene_names"],
+        "deferred": ["run_go_enrichment"],
+    },
+    "t04_biostatistics": {
+        "always_loaded": ["check_statistics"],
+        "deferred": [],
+    },
+    "t06_systems_bio": {
+        "always_loaded": ["run_go_enrichment", "check_gene_names"],
+        "deferred": [],
+    },
+    "t07_structural_bio": {
+        "always_loaded": ["run_vep"],
+        "deferred": ["run_blast"],
+    },
+    "data_integrity_auditor": {
+        "always_loaded": ["check_gene_names", "check_statistics"],
+        "deferred": [],
+    },
+    # Domain expert agents (t05, t08, t09, t10) use few tools. Default: no deferral.
 }
 
 

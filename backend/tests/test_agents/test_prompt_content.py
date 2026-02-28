@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 PROMPTS_DIR = Path(__file__).parents[2] / "app" / "agents" / "prompts"
 
 

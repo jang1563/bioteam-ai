@@ -28,6 +28,12 @@ SCHEDULE_HOURS = {
     "manual": 0.0,  # Never auto-run
 }
 
+# Lookback window in days for each schedule type
+SCHEDULE_LOOKBACK_DAYS = {
+    "daily": 7,   # Daily digest: show last 7 days to catch up
+    "weekly": 30, # Weekly digest: show last 30 days
+}
+
 
 class DigestScheduler:
     """Runs periodic digest fetching on a configurable interval.
@@ -76,13 +82,19 @@ class DigestScheduler:
             logger.info("Digest scheduler stopped")
 
     async def _loop(self) -> None:
-        """Main scheduling loop."""
+        """Main scheduling loop.
+
+        Runs an initial check after a short startup delay (60s), then on the
+        configured interval. This avoids a 60-minute blind spot after server restart.
+        """
+        # Short initial delay to let app fully start up
+        await asyncio.sleep(60)
         while self._running:
             try:
+                await self._check_and_run()
                 await asyncio.sleep(self.check_interval_seconds)
                 if not self._running:
                     break
-                await self._check_and_run()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -92,6 +104,9 @@ class DigestScheduler:
     async def _check_and_run(self) -> None:
         """Check for topics that are due and run pipeline for each."""
         now = datetime.now(timezone.utc)
+
+        # Prune stale entries older than 90 days to prevent unbounded DB growth
+        self._prune_old_entries(now)
 
         with Session(db_engine) as session:
             topics = session.exec(
@@ -107,7 +122,7 @@ class DigestScheduler:
             if self._is_due(topic, schedule_hours, now):
                 logger.info("Running digest for topic '%s'", topic.name)
                 try:
-                    days = 7 if topic.schedule == "daily" else 30
+                    days = SCHEDULE_LOOKBACK_DAYS.get(topic.schedule, 7)
                     report = await self.pipeline.run(topic, days=days)
 
                     # Send email notification (fire-and-forget)
@@ -128,6 +143,23 @@ class DigestScheduler:
                 except Exception as e:
                     logger.error("Digest pipeline failed for '%s': %s", topic.name, e)
 
+    def _prune_old_entries(self, now: datetime, retention_days: int = 90) -> None:
+        """Delete DigestEntry records older than retention_days to prevent DB bloat."""
+        cutoff = now - timedelta(days=retention_days)
+        cutoff_naive = cutoff.replace(tzinfo=None)  # SQLite stores naive datetimes
+        try:
+            with Session(db_engine) as session:
+                old_entries = session.exec(
+                    select(DigestEntry).where(DigestEntry.fetched_at < cutoff_naive)
+                ).all()
+                if old_entries:
+                    for entry in old_entries:
+                        session.delete(entry)
+                    session.commit()
+                    logger.info("Pruned %d digest entries older than %d days", len(old_entries), retention_days)
+        except Exception as e:
+            logger.warning("Failed to prune old digest entries: %s", e)
+
     def _is_due(self, topic: TopicProfile, schedule_hours: float, now: datetime) -> bool:
         """Check if a topic is due for a digest run."""
         with Session(db_engine) as session:
@@ -142,7 +174,11 @@ class DigestScheduler:
             return True  # Never run before
 
         cutoff = now - timedelta(hours=schedule_hours)
-        return latest_report.created_at < cutoff
+        # SQLite returns naive datetimes — make timezone-aware before comparing
+        created_at = latest_report.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        return created_at < cutoff
 
     @property
     def is_running(self) -> bool:

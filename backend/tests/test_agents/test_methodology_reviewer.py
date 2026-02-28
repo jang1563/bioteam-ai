@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from app.agents.methodology_reviewer import MethodologyReviewerAgent
 from app.llm.mock_layer import MockLLMLayer
 from app.models.agent import AgentSpec

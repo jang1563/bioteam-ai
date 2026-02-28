@@ -5,8 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from app.integrations.gtex import GTExClient, GTEX_CITATION
+from app.integrations.gtex import GTEX_CITATION, GTExClient
 
 
 @pytest.fixture

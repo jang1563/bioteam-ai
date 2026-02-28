@@ -12,7 +12,6 @@ import argparse
 import asyncio
 import json
 import logging
-import sys
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,9 +28,9 @@ async def run_w8(pdf_path: str, budget: float = 3.0, skip_human_checkpoint: bool
     Returns:
         Pipeline result dict with review report.
     """
+    from app.agents.registry import create_registry
     from app.llm.layer import LLMLayer
     from app.memory.semantic import SemanticMemory
-    from app.agents.registry import create_registry
     from app.workflows.runners.w8_paper_review import W8PaperReviewRunner
 
     llm = LLMLayer()

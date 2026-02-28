@@ -14,12 +14,11 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlmodel import Session, select
-
 from app.config import settings
 from app.models.agent import AgentOutput
 from app.models.session_checkpoint import SessionCheckpoint
 from app.models.step_error import StepErrorReport
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 

@@ -31,7 +31,7 @@ from app.engines.integrity.finding_models import RetractionStatus
 from app.engines.integrity.retraction_checker import RetractionChecker
 from app.llm.mock_layer import MockLLMLayer
 from app.models.workflow import WorkflowInstance
-from app.workflows.runners.w7_integrity import W7IntegrityRunner, W7_STEPS
+from app.workflows.runners.w7_integrity import W7IntegrityRunner
 
 # ══════════════════════════════════════════════════════════════════
 # Planted error text

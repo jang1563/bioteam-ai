@@ -7,7 +7,6 @@ MockLLMLayer.complete_with_ptc, and build_deferred_tools.
 from __future__ import annotations
 
 import pytest
-
 from app.llm.mock_layer import MockLLMLayer
 from app.llm.ptc_tools import (
     CHROMADB_SEARCH_TOOL,
@@ -18,7 +17,6 @@ from app.llm.ptc_tools import (
     ensure_allowed_callers,
     get_all_ptc_tools,
 )
-
 
 # ── Tests: PTC Tool Definitions ──
 

@@ -18,7 +18,7 @@ import logging
 
 import anthropic
 from app.config import settings
-from app.integrations.mcp_connector import BETA_FLAG, MCPSearchResult, MCP_SERVERS
+from app.integrations.mcp_connector import BETA_FLAG, MCPSearchResult
 
 logger = logging.getLogger(__name__)
 

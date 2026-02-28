@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import httpx
-import pytest
-
 from app.models.step_error import StepErrorReport
 
 

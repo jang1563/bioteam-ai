@@ -5,8 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from app.integrations.go_enrichment import GOEnrichmentClient, GPROFILER_CITATION, GO_SOURCES
+from app.integrations.go_enrichment import GO_SOURCES, GPROFILER_CITATION, GOEnrichmentClient
 
 
 @pytest.fixture

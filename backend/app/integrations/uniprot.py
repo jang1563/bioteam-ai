@@ -12,10 +12,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any
 
 import httpx
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from app.models.peer_review import (
     MethodologyAssessment,
     PaperClaim,
@@ -13,6 +11,7 @@ from app.models.peer_review import (
     ReviewComment,
     W8PeerReviewReport,
 )
+from pydantic import ValidationError
 
 
 class TestPaperClaim:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from app.engines.w8_report_builder import (
     build_peer_review_report,
     build_w8_session_manifest,
@@ -12,19 +11,17 @@ from app.engines.w8_report_builder import (
 from app.models.agent import AgentOutput
 from app.models.peer_review import (
     MethodologyAssessment,
-    PaperClaim,
     PeerReviewSynthesis,
     ReviewComment,
     W8PeerReviewReport,
 )
 from app.models.workflow import WorkflowInstance
 from app.workflows.runners.w8_paper_review import (
-    W8PaperReviewRunner,
-    W8_STEPS,
     _CODE_STEPS,
     _METHOD_MAP,
+    W8_STEPS,
+    W8PaperReviewRunner,
 )
-
 
 # === Step Definitions Tests ===
 
