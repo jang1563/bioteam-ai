@@ -320,6 +320,7 @@ export interface StreamDoneData {
   routed_agent: string | null;
   conversation_id?: string | null;
   answer?: string | null;
+  ungrounded_citations?: string[];
   total_cost: number;
   total_tokens: number;
   model_versions: string[];

@@ -41,6 +41,19 @@ class RetractionChecker:
         self._crossref = crossref_client
         self._pubpeer = pubpeer_client
 
+    def has_sources(self) -> bool:
+        """Return True when at least one external retraction source is configured."""
+        return self._crossref is not None or self._pubpeer is not None
+
+    def configured_sources(self) -> list[str]:
+        """List configured source names for observability/degradation reporting."""
+        sources: list[str] = []
+        if self._crossref is not None:
+            sources.append("crossref")
+        if self._pubpeer is not None:
+            sources.append("pubpeer")
+        return sources
+
     async def check_doi(self, doi: str) -> list[IntegrityFinding]:
         """Check a single DOI and return any integrity findings."""
         findings: list[IntegrityFinding] = []

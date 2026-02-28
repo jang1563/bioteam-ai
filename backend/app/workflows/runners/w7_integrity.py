@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from app.agents.registry import AgentRegistry
 from app.api.v1.sse import SSEHub
+from app.config import settings
 from app.cost.tracker import COST_PER_1K_INPUT, COST_PER_1K_OUTPUT
 from app.engines.integrity.finding_models import ImageInput
 from app.engines.integrity.gene_name_checker import GeneNameChecker
@@ -123,7 +124,22 @@ class W7IntegrityRunner:
         # Deterministic checkers
         self._gene_checker = GeneNameChecker()
         self._stat_checker = StatisticalChecker()
-        self._retraction_checker = RetractionChecker()
+        crossref_client = None
+        pubpeer_client = None
+        try:
+            from app.integrations.crossref import CrossrefClient
+            crossref_client = CrossrefClient(email=settings.crossref_email)
+        except Exception as e:
+            logger.warning("W7 crossref client init failed; retraction checks may be degraded: %s", e)
+        try:
+            from app.integrations.pubpeer import PubPeerClient
+            pubpeer_client = PubPeerClient()
+        except Exception as e:
+            logger.warning("W7 pubpeer client init failed; retraction checks may be degraded: %s", e)
+        self._retraction_checker = RetractionChecker(
+            crossref_client=crossref_client,
+            pubpeer_client=pubpeer_client,
+        )
         self._metadata_validator = MetadataValidator()
         self._image_checker = ImageChecker()
 
@@ -243,15 +259,35 @@ class W7IntegrityRunner:
         output = await agent.execute(context)
         instance.budget_remaining -= output.cost
 
-        # Extract text from output
+        # Extract text and DOI metadata from MemoryRetrievalResult output.
         result = output.output or {}
+        texts: list[str] = []
+        dois: set[str] = set()
         if isinstance(result, dict):
-            texts = result.get("texts", [])
-            self._collected_text = "\n\n".join(str(t) for t in texts) if texts else query
+            rows = result.get("results", [])
+            for row in rows if isinstance(rows, list) else []:
+                if not isinstance(row, dict):
+                    continue
+                text = row.get("text") or row.get("content", "")
+                if text:
+                    texts.append(str(text))
+                metadata = row.get("metadata", {})
+                if isinstance(metadata, dict):
+                    doi = metadata.get("doi", "")
+                    if doi:
+                        dois.add(str(doi))
+            self._collected_text = "\n\n".join(texts) if texts else query
         else:
             self._collected_text = query
 
-        return {"text_length": len(self._collected_text), "cost": output.cost}
+        self._collected_dois = sorted(dois)
+
+        return {
+            "text_length": len(self._collected_text),
+            "results_used": len(texts),
+            "dois_collected": len(self._collected_dois),
+            "cost": output.cost,
+        }
 
     def _step_gene_check(self) -> dict:
         """GENE_CHECK: Run GeneNameChecker on collected text."""
@@ -281,7 +317,17 @@ class W7IntegrityRunner:
         """RETRACTION_CHECK: Check DOIs via Crossref/PubPeer."""
         import re
         doi_pattern = re.compile(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+\b", re.IGNORECASE)
-        self._collected_dois = list(set(doi_pattern.findall(self._collected_text)))
+        text_dois = set(doi_pattern.findall(self._collected_text))
+        all_dois = set(self._collected_dois) | text_dois
+        self._collected_dois = sorted(all_dois)
+
+        if self._collected_dois and not self._retraction_checker.has_sources():
+            return {
+                "dois_checked": len(self._collected_dois),
+                "retraction_findings": 0,
+                "skipped": True,
+                "reason": "no_retraction_clients",
+            }
 
         findings = await self._retraction_checker.check_batch(self._collected_dois)
         for f in findings:

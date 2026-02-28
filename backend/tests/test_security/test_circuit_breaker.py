@@ -56,6 +56,8 @@ def test_circuit_breaker_half_open_after_timeout():
     time.sleep(0.15)
     assert cb.state == "half_open"
     assert cb.allow_request() is True
+    # Only one probe is allowed until success/failure closes/reopens the circuit.
+    assert cb.allow_request() is False
 
 
 def test_circuit_breaker_half_open_success_closes():

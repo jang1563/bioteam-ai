@@ -130,7 +130,7 @@ async def main() -> None:
                     failed += 1
 
     print(f"\n{'='*50}")
-    print(f"Refresh complete!")
+    print("Refresh complete!")
     print(f"  Updated:  {updated}")
     print(f"  Skipped (already OK): {skipped}")
     print(f"  Failed:   {failed}")

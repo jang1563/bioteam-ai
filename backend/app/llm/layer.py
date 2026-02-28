@@ -82,23 +82,36 @@ class CircuitBreaker:
         self._state = self.CLOSED
         self._failure_count = 0
         self._last_failure_time: float = 0.0
+        self._half_open_probe_in_flight = False
 
     @property
     def state(self) -> str:
         if self._state == self.OPEN:
             if time.monotonic() - self._last_failure_time >= self.reset_timeout:
                 self._state = self.HALF_OPEN
+                self._half_open_probe_in_flight = False
         return self._state
 
     def record_success(self) -> None:
         self._failure_count = 0
         self._state = self.CLOSED
+        self._half_open_probe_in_flight = False
 
     def record_failure(self) -> None:
+        if self.state == self.HALF_OPEN:
+            # Any failed probe in HALF_OPEN immediately reopens the circuit.
+            self._state = self.OPEN
+            self._failure_count = max(self._failure_count, self.failure_threshold)
+            self._last_failure_time = time.monotonic()
+            self._half_open_probe_in_flight = False
+            logger.warning("Circuit breaker OPEN after HALF_OPEN probe failure")
+            return
+
         self._failure_count += 1
         self._last_failure_time = time.monotonic()
         if self._failure_count >= self.failure_threshold:
             self._state = self.OPEN
+            self._half_open_probe_in_flight = False
             logger.warning("Circuit breaker OPEN after %d consecutive failures", self._failure_count)
 
     def allow_request(self) -> bool:
@@ -106,7 +119,10 @@ class CircuitBreaker:
         if state == self.CLOSED:
             return True
         if state == self.HALF_OPEN:
-            return True  # Allow one probe request
+            if self._half_open_probe_in_flight:
+                return False
+            self._half_open_probe_in_flight = True
+            return True  # Allow only one probe request until success/failure
         return False
 
 

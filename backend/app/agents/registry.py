@@ -156,8 +156,23 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
     from app.agents.teams.t08_scicomm import SciCommAgent
     from app.agents.teams.t09_grants import GrantWritingAgent
     from app.agents.teams.t10_data_eng import DataEngineeringAgent
+    from app.config import settings
 
     registry = AgentRegistry()
+
+    # Shared external clients for integrity checks.
+    crossref_client = None
+    pubpeer_client = None
+    try:
+        from app.integrations.crossref import CrossrefClient
+        crossref_client = CrossrefClient(email=settings.crossref_email)
+    except Exception as e:
+        logger.warning("Crossref client init failed in registry: %s", e)
+    try:
+        from app.integrations.pubpeer import PubPeerClient
+        pubpeer_client = PubPeerClient()
+    except Exception as e:
+        logger.warning("PubPeer client init failed in registry: %s", e)
 
     # Load specs and create agents — add new agents here and the count auto-updates
     agent_defs: list[tuple[type[BaseAgent], str, dict]] = [
@@ -165,7 +180,14 @@ def create_registry(llm: LLMLayer, memory: SemanticMemory | None = None) -> Agen
         (KnowledgeManagerAgent, "knowledge_manager", {"memory": memory}),
         (ProjectManagerAgent, "project_manager", {}),
         (AmbiguityEngineAgent, "ambiguity_engine", {"memory": memory}),
-        (DataIntegrityAuditorAgent, "data_integrity_auditor", {}),
+        (
+            DataIntegrityAuditorAgent,
+            "data_integrity_auditor",
+            {
+                "crossref_client": crossref_client,
+                "pubpeer_client": pubpeer_client,
+            },
+        ),
         (DigestAgent, "digest_agent", {}),
         (GenomicsAgent, "t01_genomics", {}),
         (TranscriptomicsAgent, "t02_transcriptomics", {}),

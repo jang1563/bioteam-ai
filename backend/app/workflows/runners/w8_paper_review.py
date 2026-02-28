@@ -17,6 +17,7 @@ HUMAN_CHECKPOINT pauses for reviewer input before final synthesis.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -711,7 +712,7 @@ class W8PaperReviewRunner:
         elif step.id == "PARSE_SECTIONS":
             return self._step_parse()
         elif step.id == "CITE_VALIDATION":
-            return self._step_cite_validation()
+            return await self._step_cite_validation()
         elif step.id == "NOVELTY_CHECK":
             return await self._step_novelty_check()
         elif step.id == "INTEGRITY_AUDIT":
@@ -812,7 +813,7 @@ class W8PaperReviewRunner:
                 error=f"Paper parsing failed: {e}",
             )
 
-    def _step_cite_validation(self) -> AgentOutput:
+    async def _step_cite_validation(self) -> AgentOutput:
         """CITE_VALIDATION: Validate citations extracted from claims.
 
         For PDFs: parses reference list and validates DOIs via Crossref.
@@ -857,7 +858,7 @@ class W8PaperReviewRunner:
         # from the numbered reference list and querying PubMed via KnowledgeManager.
         resolved_citations: list[dict] = []
         if report.total_citations == 0 and not embedded_dois and full_text:
-            resolved_citations = self._resolve_refs_by_title(full_text)
+            resolved_citations = await self._resolve_refs_by_title(full_text)
             if resolved_citations:
                 # Register resolved refs with validator for completeness
                 validator.register_sources([
@@ -901,15 +902,13 @@ class W8PaperReviewRunner:
             summary=summary,
         )
 
-    def _resolve_refs_by_title(self, full_text: str, max_refs: int = 15) -> list[dict]:
+    async def _resolve_refs_by_title(self, full_text: str, max_refs: int = 15) -> list[dict]:
         """Extract numbered reference titles from text and look up DOI/PMID via KnowledgeManager.
 
         Uses regex to identify numbered reference list entries, extracts likely titles,
-        and queries PubMed synchronously via the integration client.
+        and queries PubMed via a thread to avoid blocking the event loop.
         Only called when no DOIs/PMIDs are found in the reference list.
         """
-        import asyncio
-
         from app.integrations.pubmed import PubMedClient
 
         # Extract candidate reference entries: "[N] Author. Title. Journal. Year."
@@ -934,42 +933,36 @@ class W8PaperReviewRunner:
 
         client = PubMedClient()
         resolved: list[dict] = []
+        sem = asyncio.Semaphore(4)
 
-        async def _lookup_all() -> None:
-            for entry in entries:
-                # Extract likely title: everything before a period followed by journal
-                # Heuristic: grab first 120 chars, stop before journal abbreviation
-                raw_title = entry[:120].split(". ")[0].strip(" .")
-                if len(raw_title) < 15:
-                    continue
-                try:
-                    results = await client.search(raw_title, max_results=1)
-                    if results:
-                        hit = results[0]
-                        resolved.append({
-                            "query_title": raw_title,
-                            "matched_title": hit.get("title", ""),
-                            "pmid": hit.get("pmid", ""),
-                            "doi": hit.get("doi", ""),
-                            "year": hit.get("year", ""),
-                            "authors": hit.get("authors", []),
-                        })
-                except Exception as e:
-                    logger.debug("Title lookup failed for %r: %s", raw_title[:60], e)
-
-        try:
-            # Run async lookups in a new event loop if needed
+        async def _lookup_one(entry: str) -> dict | None:
+            # Extract likely title: everything before a period followed by journal
+            # Heuristic: grab first 120 chars, stop before journal abbreviation
+            raw_title = entry[:120].split(". ")[0].strip(" .")
+            if len(raw_title) < 15:
+                return None
             try:
-                asyncio.get_running_loop()
-                # Already in async context — schedule as task and gather
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    future = pool.submit(asyncio.run, _lookup_all())
-                    future.result(timeout=30)
-            except RuntimeError:
-                asyncio.run(_lookup_all())
-        except Exception as e:
-            logger.warning("Reference title resolution failed: %s", e)
+                async with sem:
+                    results = await asyncio.to_thread(client.search, raw_title, 1)
+                if not results:
+                    return None
+                hit = results[0]
+                return {
+                    "query_title": raw_title,
+                    "matched_title": getattr(hit, "title", ""),
+                    "pmid": getattr(hit, "pmid", ""),
+                    "doi": getattr(hit, "doi", ""),
+                    "year": getattr(hit, "year", ""),
+                    "authors": getattr(hit, "authors", []),
+                }
+            except Exception as e:
+                logger.debug("Title lookup failed for %r: %s", raw_title[:60], e)
+                return None
+
+        lookup_results = await asyncio.gather(*(_lookup_one(entry) for entry in entries), return_exceptions=True)
+        for r in lookup_results:
+            if isinstance(r, dict):
+                resolved.append(r)
 
         logger.info("CITE_VALIDATION resolved %d/%d references via title lookup", len(resolved), len(entries))
         return resolved

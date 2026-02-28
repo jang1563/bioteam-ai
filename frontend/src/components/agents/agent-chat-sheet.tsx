@@ -67,7 +67,7 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
-  const wasRestored = useRef(false);
+  const [wasRestored, setWasRestored] = useState(false);
 
   const { agent } = useAgentDetail(agentId);
   const { status, streamedText, error, execute } = useAgentStream(agentId);
@@ -76,12 +76,12 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
   useEffect(() => {
     if (!agentId) {
       setMessages([]);
-      wasRestored.current = false;
+      setWasRestored(false);
       return;
     }
     const stored = loadMessages(agentId);
     setMessages(stored);
-    wasRestored.current = stored.length > 0;
+    setWasRestored(stored.length > 0);
   }, [agentId]);
 
   const saveToStorage = useCallback((msgs: ChatMessage[]) => {
@@ -93,7 +93,7 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
 
   const clearHistory = useCallback(() => {
     setMessages([]);
-    wasRestored.current = false;
+    setWasRestored(false);
     if (agentId) localStorage.removeItem(storageKey(agentId));
   }, [agentId]);
 
@@ -251,7 +251,7 @@ export function AgentChatSheet({ agentId, onClose }: AgentChatSheetProps) {
             )}
 
             {/* Restored history indicator */}
-            {wasRestored.current && messages.length > 0 && (
+            {wasRestored && messages.length > 0 && (
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
                 <div className="h-px flex-1 bg-border/50" />
                 <span>previous session</span>

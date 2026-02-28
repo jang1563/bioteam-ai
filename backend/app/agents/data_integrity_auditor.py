@@ -14,6 +14,7 @@ import re
 from typing import TYPE_CHECKING, Literal
 
 from app.agents.base import BaseAgent
+from app.config import settings
 from app.engines.integrity.finding_models import ImageInput, IntegrityFinding, IntegrityReport
 from app.engines.integrity.gene_name_checker import GeneNameChecker
 from app.engines.integrity.image_checker import ImageChecker
@@ -66,6 +67,7 @@ class IntegrityAnalysis(BaseModel):
     overall_level: Literal["clean", "minor_issues", "significant_issues", "critical"] = "clean"
     summary: str = ""
     recommended_action: str = ""
+    degradation_notes: list[str] = Field(default_factory=list)
 
 
 # === Agent Implementation ===
@@ -87,6 +89,23 @@ class DataIntegrityAuditorAgent(BaseAgent):
         pubpeer_client: PubPeerClient | None = None,
     ) -> None:
         super().__init__(spec, llm)
+        # Default to real retraction data sources unless explicitly overridden.
+        # This prevents "silent no-op" retraction checks in production.
+        if crossref_client is None:
+            try:
+                from app.integrations.crossref import CrossrefClient
+                crossref_client = CrossrefClient(email=settings.crossref_email)
+            except Exception as e:
+                logger.warning("Crossref client init failed; retraction checks may be degraded: %s", e)
+                crossref_client = None
+        if pubpeer_client is None:
+            try:
+                from app.integrations.pubpeer import PubPeerClient
+                pubpeer_client = PubPeerClient()
+            except Exception as e:
+                logger.warning("PubPeer client init failed; retraction checks may be degraded: %s", e)
+                pubpeer_client = None
+
         self._gene_checker = GeneNameChecker(hgnc_client=hgnc_client)
         self._stat_checker = StatisticalChecker()
         self._retraction_checker = RetractionChecker(
@@ -111,6 +130,7 @@ class DataIntegrityAuditorAgent(BaseAgent):
         query = context.task_description
         text = self._extract_text(context)
         dois = self._extract_dois(text)
+        degradation_notes: list[str] = []
 
         # Phase 1: Deterministic checks
         findings: list[IntegrityFinding] = []
@@ -126,8 +146,17 @@ class DataIntegrityAuditorAgent(BaseAgent):
 
         # Retraction checks (async)
         if dois:
-            retraction_findings = await self._retraction_checker.check_batch(dois)
-            findings.extend(retraction_findings)
+            if not self._retraction_checker.has_sources():
+                degradation_notes.append(
+                    "Retraction checks skipped: no external retraction clients configured."
+                )
+            else:
+                try:
+                    retraction_findings = await self._retraction_checker.check_batch(dois)
+                    findings.extend(retraction_findings)
+                except Exception as e:
+                    degradation_notes.append(f"Retraction checks failed: {e}")
+                    logger.warning("Retraction checks failed (degraded): %s", e)
 
         # Metadata checks
         metadata_findings = self._metadata_validator.check_all(text)
@@ -174,6 +203,7 @@ class DataIntegrityAuditorAgent(BaseAgent):
                 overall_level=report.overall_level,
                 summary=report.summary,
                 recommended_action=report.recommended_action,
+                degradation_notes=degradation_notes,
             ).model_dump(),
             output_type="IntegrityAnalysis",
             summary=report.summary,
@@ -258,6 +288,7 @@ class DataIntegrityAuditorAgent(BaseAgent):
         Zero LLM cost. Returns findings from deterministic checkers only.
         """
         findings: list[IntegrityFinding] = []
+        degradation_notes: list[str] = []
 
         # Gene name checks
         findings.extend(self._gene_checker.check_text(text))
@@ -268,7 +299,16 @@ class DataIntegrityAuditorAgent(BaseAgent):
 
         # Retraction checks (async)
         if dois:
-            findings.extend(await self._retraction_checker.check_batch(dois))
+            if not self._retraction_checker.has_sources():
+                degradation_notes.append(
+                    "Retraction checks skipped: no external retraction clients configured."
+                )
+            else:
+                try:
+                    findings.extend(await self._retraction_checker.check_batch(dois))
+                except Exception as e:
+                    degradation_notes.append(f"Retraction checks failed: {e}")
+                    logger.warning("Retraction quick_check failed (degraded): %s", e)
 
         # Metadata checks
         findings.extend(self._metadata_validator.check_all(text))
@@ -289,6 +329,7 @@ class DataIntegrityAuditorAgent(BaseAgent):
                 overall_level=report.overall_level,
                 summary=report.summary,
                 recommended_action=report.recommended_action,
+                degradation_notes=degradation_notes,
             ).model_dump(),
             output_type="IntegrityAnalysis",
             summary=report.summary,

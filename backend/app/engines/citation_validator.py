@@ -133,19 +133,22 @@ class CitationValidator:
         return report
 
     def _verify_ref(self, ref: dict) -> bool:
-        """Check if a structured reference matches any known source."""
+        """Check if a structured reference matches any known source.
+
+        Matching precedence is strict:
+        1) DOI (if present) must match known DOI
+        2) PMID (if present) must match known PMID
+        3) Exact title (if present)
+
+        Author-only matching is intentionally not accepted because it creates
+        high false-positive risk for common surnames.
+        """
         if doi := ref.get("doi"):
-            if self._normalize_doi(doi) in self._known_dois:
-                return True
+            return self._normalize_doi(doi) in self._known_dois
         if pmid := ref.get("pmid"):
-            if str(pmid).strip() in self._known_pmids:
-                return True
+            return str(pmid).strip() in self._known_pmids
         if title := ref.get("title"):
-            if title.strip().lower() in self._known_titles:
-                return True
-        if first_author := ref.get("first_author"):
-            if first_author.strip().lower() in self._known_authors:
-                return True
+            return title.strip().lower() in self._known_titles
         return False
 
     @staticmethod

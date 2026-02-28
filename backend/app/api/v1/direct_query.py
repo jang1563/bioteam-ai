@@ -41,7 +41,7 @@ DIRECT_QUERY_COST_CAP = 0.50  # USD
 _registry: AgentRegistry | None = None
 
 
-def set_registry(registry: AgentRegistry) -> None:
+def set_registry(registry: AgentRegistry | None) -> None:
     """Wire up the agent registry (called from main.py lifespan)."""
     global _registry
     _registry = registry
@@ -58,7 +58,7 @@ class DirectQueryRequest(BaseModel):
     seed_papers: list[str] = Field(
         default_factory=list,
         max_length=50,
-        description="Optional DOIs to include",
+        description="Optional DOI/PMID identifiers to prioritize in context",
     )
 
 
@@ -148,6 +148,8 @@ def _extract_sources(memory_context: list[dict]) -> list[dict]:
         }
         if metadata.get("doi"):
             source_entry["doi"] = metadata["doi"]
+        if metadata.get("pmid"):
+            source_entry["pmid"] = str(metadata["pmid"])
         if metadata.get("year"):
             source_entry["year"] = metadata["year"]
         if metadata.get("title"):
@@ -159,6 +161,23 @@ def _extract_sources(memory_context: list[dict]) -> list[dict]:
 # Patterns for extracting citation identifiers from LLM answers
 _DOI_PATTERN = re.compile(r"\b10\.\d{4,9}/[^\s,;)\]>\"']+", re.IGNORECASE)
 _PMID_PATTERN = re.compile(r"\bPMID[:\s]+(\d{5,9})\b", re.IGNORECASE)
+
+
+def _normalize_doi(doi: str) -> str:
+    """Normalize DOI string for matching."""
+    value = doi.strip().lower()
+    for prefix in ("https://doi.org/", "http://doi.org/", "doi:"):
+        if value.startswith(prefix):
+            value = value[len(prefix):]
+    return value
+
+
+def _normalize_pmid(value: str | int) -> str:
+    """Normalize PMID to digit-only string."""
+    text = str(value).strip()
+    if text.lower().startswith("pmid:"):
+        text = text[5:].strip()
+    return text
 
 
 def _validate_answer_citations(answer: str, sources: list[dict]) -> tuple[str, list[str]]:
@@ -176,22 +195,34 @@ def _validate_answer_citations(answer: str, sources: list[dict]) -> tuple[str, l
 
     # Build a set of normalised DOIs from sources for O(1) lookup
     source_dois: set[str] = set()
+    source_pmids: set[str] = set()
     for src in sources:
         doi = src.get("doi", "")
         if doi:
-            source_dois.add(doi.lower().strip())
+            source_dois.add(_normalize_doi(doi))
+        pmid = src.get("pmid", "")
+        if pmid:
+            source_pmids.add(_normalize_pmid(pmid))
 
     ungrounded: list[str] = []
+    seen_ungrounded: set[str] = set()
 
     for doi in _DOI_PATTERN.findall(answer):
-        if doi.lower().strip() not in source_dois:
-            ungrounded.append(f"DOI:{doi}")
+        normalized = _normalize_doi(doi)
+        if normalized not in source_dois:
+            key = f"DOI:{doi}"
+            if key not in seen_ungrounded:
+                seen_ungrounded.add(key)
+                ungrounded.append(key)
 
-    # PMIDs — we don't have a lookup table but we can flag any cited when
-    # no sources were retrieved (memory_context is empty → no grounding)
-    if not sources:
-        for pmid in _PMID_PATTERN.findall(answer):
-            ungrounded.append(f"PMID:{pmid}")
+    # PMIDs are validated against retrieved sources regardless of source count.
+    for pmid in _PMID_PATTERN.findall(answer):
+        normalized = _normalize_pmid(pmid)
+        if normalized not in source_pmids:
+            key = f"PMID:{pmid}"
+            if key not in seen_ungrounded:
+                seen_ungrounded.add(key)
+                ungrounded.append(key)
 
     if ungrounded:
         logger.warning(
@@ -215,13 +246,28 @@ def _prioritize_context_by_seed_papers(
     if not seed_papers or not memory_context:
         return memory_context
 
-    seed_set = {s.lower().strip() for s in seed_papers}
+    seed_dois = set()
+    seed_pmids = set()
+    for seed in seed_papers:
+        raw = seed.strip()
+        if not raw:
+            continue
+        if raw.lower().startswith("10.") or "doi:" in raw.lower() or "doi.org/" in raw.lower():
+            seed_dois.add(_normalize_doi(raw))
+            continue
+        normalized_pmid = _normalize_pmid(raw)
+        if normalized_pmid.isdigit():
+            seed_pmids.add(normalized_pmid)
 
     prioritized = []
     rest = []
     for item in memory_context:
-        doi = item.get("metadata", {}).get("doi", "")
-        if doi and doi.lower().strip() in seed_set:
+        metadata = item.get("metadata", {})
+        doi = metadata.get("doi", "")
+        pmid = metadata.get("pmid", "")
+        doi_match = bool(doi) and _normalize_doi(str(doi)) in seed_dois
+        pmid_match = bool(pmid) and _normalize_pmid(pmid) in seed_pmids
+        if doi_match or pmid_match:
             prioritized.append(item)
         else:
             rest.append(item)
@@ -570,6 +616,7 @@ async def direct_query_stream(
     query: str = Query(min_length=1, max_length=2000, description="Research question"),
     conversation_id: str | None = Query(default=None, description="Continue existing conversation"),
     target_agent: str | None = Query(default=None, description="Skip RD classification and route directly to this agent"),
+    seed_papers: list[str] = Query(default_factory=list, description="Optional DOI/PMID identifiers to prioritize in context"),
 ) -> StreamingResponse:
     """SSE endpoint for streaming Direct Query responses.
 
@@ -666,6 +713,9 @@ async def direct_query_stream(
                 if memory_output.model_version:
                     model_versions.append(memory_output.model_version)
 
+            if seed_papers:
+                memory_context = _prioritize_context_by_seed_papers(memory_context, seed_papers)
+
             sources = _extract_sources(memory_context)
             yield _sse_event("memory", {
                 "results_count": len(memory_context),
@@ -735,6 +785,9 @@ async def direct_query_stream(
 
             # Save conversation turn
             full_answer = "".join(answer_chunks) or None
+            ungrounded_citations: list[str] = []
+            if full_answer:
+                full_answer, ungrounded_citations = _validate_answer_citations(full_answer, sources)
             result_conv_id = _save_conversation_turn(
                 conversation_id=conversation_id,
                 query=query,
@@ -758,6 +811,7 @@ async def direct_query_stream(
                 "model_versions": model_versions,
                 "duration_ms": duration_ms,
                 "sources": sources,
+                "ungrounded_citations": ungrounded_citations,
             })
 
         except asyncio.CancelledError:

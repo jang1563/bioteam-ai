@@ -27,7 +27,9 @@ from app.api.v1.direct_query import (
     DirectQueryResponse,
     _build_context_text,
     _extract_sources,
+    _prioritize_context_by_seed_papers,
     _resolve_specialist,
+    _validate_answer_citations,
     run_direct_query,
 )
 from app.llm.mock_layer import MockLLMLayer
@@ -226,7 +228,12 @@ def test_extract_sources():
         {
             "content": "Gene X is upregulated in condition Y.",
             "source": "literature",
-            "metadata": {"doi": "10.1234/test", "year": "2023", "title": "Test Paper"},
+            "metadata": {
+                "doi": "10.1234/test",
+                "pmid": "32699394",
+                "year": "2023",
+                "title": "Test Paper",
+            },
         },
         {
             "text": "Lab protocol note.",
@@ -240,9 +247,32 @@ def test_extract_sources():
     assert sources[0]["doi"] == "10.1234/test"
     assert sources[0]["year"] == "2023"
     assert sources[0]["title"] == "Test Paper"
+    assert sources[0]["pmid"] == "32699394"
     assert sources[0]["source_type"] == "literature"
     assert "doi" not in sources[1], "lab_kb item should not have DOI"
     print("  PASS: _extract_sources")
+
+
+def test_validate_answer_citations_flags_ungrounded_pmid_with_sources():
+    """PMIDs in answer should be validated even when sources are present."""
+    answer = "Evidence: PMID: 99999999 and DOI:10.1234/test"
+    sources = [{"doi": "10.1234/test", "pmid": "32699394"}]
+
+    _, ungrounded = _validate_answer_citations(answer, sources)
+    assert "PMID:99999999" in ungrounded
+    assert "DOI:10.1234/test" not in ungrounded
+    print("  PASS: PMID validation with non-empty sources")
+
+
+def test_prioritize_context_by_seed_papers_supports_pmid():
+    """seed_papers should prioritize both DOI and PMID identifiers."""
+    memory_context = [
+        {"metadata": {"doi": "10.1000/doi-first"}, "content": "doi paper"},
+        {"metadata": {"pmid": "12345678"}, "content": "pmid paper"},
+    ]
+    reordered = _prioritize_context_by_seed_papers(memory_context, ["PMID:12345678"])
+    assert reordered[0]["content"] == "pmid paper"
+    print("  PASS: seed_papers supports PMID prioritization")
 
 
 def test_cost_cap_constant():
@@ -457,6 +487,8 @@ def test_stream_endpoint_emits_events():
     done_event = next(e for e in events if e["event"] == "done")
     assert "total_cost" in done_event["data"]
     assert "duration_ms" in done_event["data"]
+    assert "ungrounded_citations" in done_event["data"]
+    assert isinstance(done_event["data"]["ungrounded_citations"], list)
 
     token_events = [e for e in events if e["event"] == "token"]
     assert len(token_events) > 0, f"Expected token events: {event_types}"
@@ -756,6 +788,8 @@ if __name__ == "__main__":
     test_build_context_text()
     test_build_context_text_empty()
     test_extract_sources()
+    test_validate_answer_citations_flags_ungrounded_pmid_with_sources()
+    test_prioritize_context_by_seed_papers_supports_pmid()
     test_cost_cap_constant()
     test_timeout_constant()
     test_fastapi_endpoint()

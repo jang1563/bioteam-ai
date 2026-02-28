@@ -218,6 +218,21 @@ def test_validate_inline_by_pmid():
     print("  PASS: validate_inline_by_pmid")
 
 
+def test_validate_inline_author_only_not_allowed():
+    """Author-only matching should not verify a citation."""
+    v = CitationValidator()
+    v.register_sources([
+        {"title": "Spaceflight Study", "authors": ["Jane Smith"]},
+    ])
+    report = v.validate("", inline_refs=[
+        {"first_author": "Smith"},
+    ])
+    assert report.total_citations == 1
+    assert report.verified == 0
+    assert not report.is_clean
+    print("  PASS: validate_inline_author_only_not_allowed")
+
+
 # === Validation with Text Extraction ===
 
 
@@ -315,6 +330,7 @@ if __name__ == "__main__":
     test_validate_inline_some_unverified()
     test_validate_inline_by_title()
     test_validate_inline_by_pmid()
+    test_validate_inline_author_only_not_allowed()
     # Text validation
     test_validate_text_dois()
     test_validate_text_pmids()
