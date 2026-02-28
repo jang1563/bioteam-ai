@@ -243,6 +243,33 @@ export interface UpdateNegativeResultRequest {
   verified_by?: string;
 }
 
+// === Semantic Memory Types ===
+
+export interface MemorySearchResult {
+  id: string;
+  text: string;
+  collection: string;
+  similarity: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface MemorySearchResponse {
+  query: string;
+  collection: string;
+  results: MemorySearchResult[];
+  total: number;
+}
+
+export interface CollectionStats {
+  name: string;
+  count: number;
+}
+
+export interface MemoryStatsResponse {
+  collections: CollectionStats[];
+  total_documents: number;
+}
+
 // === Direct Query Types ===
 
 export interface DirectQueryRequest {

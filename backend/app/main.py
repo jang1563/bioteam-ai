@@ -21,6 +21,7 @@ from app.api.v1.conversations import router as conversations_router
 from app.api.v1.digest import router as digest_router
 from app.api.v1.direct_query import router as dq_router
 from app.api.v1.integrity import router as integrity_router
+from app.api.v1.memory import router as memory_router
 from app.api.v1.negative_results import router as nr_router
 from app.api.v1.resume import router as resume_router
 from app.api.v1.sse import router as sse_router
@@ -137,6 +138,9 @@ async def lifespan(app: FastAPI):
         set_dq_registry(registry)
         set_workflow_deps(registry, engine, sse_hub=sse_hub)
         set_cold_start_deps(registry, memory)
+
+        from app.api.v1.memory import set_dependencies as set_memory_deps
+        set_memory_deps(memory)
 
         # Wire up resume API
         from app.api.v1.resume import set_dependencies as set_resume_deps
@@ -261,6 +265,7 @@ app.include_router(conversations_router)
 app.include_router(contradictions_router)
 app.include_router(digest_router)
 app.include_router(integrity_router)
+app.include_router(memory_router)
 app.include_router(resume_router)
 
 
