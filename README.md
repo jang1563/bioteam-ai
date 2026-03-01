@@ -6,7 +6,7 @@
 
 A multi-agent research automation system that orchestrates specialized AI agents for literature review, hypothesis generation, data analysis, and manuscript drafting — designed for solo biology researchers and small lab groups.
 
-Built with Claude (Anthropic) as the LLM backbone, integrating 6 academic data sources with a real-time dashboard. 23 AI agents · 10 workflow templates · Docker code execution sandbox.
+Built with Claude (Anthropic) as the LLM backbone, integrating 6 academic data sources with a real-time dashboard. 23 AI agents · 10 workflow templates · Docker code execution sandbox · RCMXT evidence calibration · Preprint version tracking.
 
 ---
 
@@ -18,6 +18,8 @@ Biology researchers spend ~30% of their time on literature review and synthesis.
 - **Direct Query**: Ask research questions and get structured, evidence-graded answers with citation chains.
 - **Contradiction Detection**: Identifies conflicting findings across papers using a 5-category taxonomy.
 - **Negative Results Integration**: 85% of negative results go unpublished. The Lab Knowledge Base captures and surfaces them.
+- **RCMXT Calibration**: Score biological claims on 5 axes (R/C/M/X/T). 15-claim seed corpus + LLM batch scoring + annotator IRR support for publication-ready benchmarks.
+- **Preprint Delta Detector**: Track how bioRxiv/medRxiv papers evolve across revisions — diff abstracts, detect sample size changes, conclusion shifts, and method updates via LLM classification.
 
 ## Architecture
 
@@ -26,6 +28,7 @@ Biology researchers spend ~30% of their time on literature review and synthesis.
 │                    Next.js Dashboard                        │
 │  Mission Control · Digest · Query · Teams · Quality         │
 │  Evidence · Peer Review · Integrity · Lab KB · Projects     │
+│  Analytics · Drug Discovery · RCMXT Calibration            │
 ├──────────────────────┬─────────────────────────────────────┤
 │    REST API (v1)     │         SSE (Real-time)             │
 ├──────────────────────┴─────────────────────────────────────┤
@@ -36,11 +39,13 @@ Biology researchers spend ~30% of their time on literature review and synthesis.
 │  │ KM · PM  │  │ Ambiguity│  │ arXiv   · GitHub      │    │
 │  │ T01-T10  │  │ Digest   │  │ HF      · S2          │    │
 │  │ 3 QA     │  │ Integrity│  │ eLife Peer Review     │    │
-│  └──────────┘  └──────────┘  └───────────────────────┘    │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────────┐    │
-│  │ Workflows│  │ Cost     │  │ Memory + Execution    │    │
-│  │ W1-W10   │  │ Tracker  │  │ ChromaDB · Docker     │    │
-│  └──────────┘  └──────────┘  └───────────────────────┘    │
+│  └──────────┘  │ Preprint │  └───────────────────────┘    │
+│                │ Delta    │                                  │
+│  ┌──────────┐  └──────────┘  ┌───────────────────────┐    │
+│  │ Workflows│  ┌──────────┐  │ Memory + Execution    │    │
+│  │ W1-W10   │  │ Cost     │  │ ChromaDB · Docker     │    │
+│  └──────────┘  │ Tracker  │  └───────────────────────┘    │
+│                └──────────┘                                  │
 ├────────────────────────────────────────────────────────────┤
 │                SQLite (WAL) + ChromaDB                      │
 └────────────────────────────────────────────────────────────┘
@@ -181,6 +186,12 @@ docker compose up
 | `GET` | `/api/v1/contradictions` | View detected contradictions |
 | `GET` | `/api/v1/integrity` | Data integrity audit results |
 | `POST` | `/api/v1/cold-start/run` | Initialize system with seed data |
+| `POST` | `/api/v1/rcmxt/score` | Score a biological claim on RCMXT axes (single) |
+| `POST` | `/api/v1/rcmxt/batch` | Batch-score multiple claims with axis summary |
+| `GET` | `/api/v1/rcmxt/corpus-stats` | RCMXT seed corpus stats (15 claims, 3 domains) |
+| `POST` | `/api/v1/preprint-delta/compare` | Compare v1 vs latest of a bioRxiv/medRxiv preprint |
+| `POST` | `/api/v1/preprint-delta/batch` | Batch compare up to 10 DOIs |
+| `GET` | `/api/v1/analytics/overview` | System activity + workflow + cost summary |
 
 ## Research Digest Pipeline
 
@@ -230,7 +241,7 @@ All papers link to real PubMed/arXiv URLs with full abstracts, authors, and rele
 ## Testing
 
 ```bash
-# Core suite (1648 tests, excludes benchmarks and live-API integration tests)
+# Core suite (1950 tests, excludes benchmarks and live-API integration tests)
 .venv/bin/pytest backend/tests/ --ignore=backend/tests/benchmarks \
     --ignore=backend/tests/test_integrations -q
 
@@ -239,7 +250,8 @@ All papers link to real PubMed/arXiv URLs with full abstracts, authors, and rele
 .venv/bin/pytest backend/tests/test_api/ -q            # API endpoints
 .venv/bin/pytest backend/tests/test_security/ -q       # Auth + fuzzing
 .venv/bin/pytest backend/tests/test_workflows/ -q      # W1-W10 runners
-.venv/bin/pytest backend/tests/test_execution/ -q      # Docker sandbox
+.venv/bin/pytest backend/tests/test_execution/ -q      # Docker sandbox + checkpoint
+.venv/bin/pytest backend/tests/test_engines/ -q        # RCMXT · preprint delta · integrity
 
 # Optional: benchmarks (RCMXT calibration, live model calls)
 .venv/bin/pytest backend/tests/benchmarks/ -q
@@ -248,7 +260,7 @@ All papers link to real PubMed/arXiv URLs with full abstracts, authors, and rele
 cd frontend && npm run build
 ```
 
-**Current status:** 1648 passed · 0 failed · 8 skipped
+**Current status:** 1950 passed · 0 failed · 21 skipped
 
 ## BioReview-Bench
 
@@ -300,7 +312,7 @@ bioteam-ai/
 │   │   ├── cost/            # LLM cost tracking + budget enforcement
 │   │   ├── db/              # SQLite WAL + Alembic migrations
 │   │   ├── digest/          # Multi-source paper pipeline (6 sources)
-│   │   ├── engines/         # RCMXT · contradiction · integrity · citation validator
+│   │   ├── engines/         # RCMXT · preprint-delta · contradiction · integrity · citation
 │   │   ├── execution/       # DockerCodeRunner + container Dockerfiles
 │   │   ├── integrations/    # PubMed · S2 · bioRxiv · arXiv · GitHub · HF · eLife
 │   │   ├── llm/             # Anthropic layer + circuit breaker + mock for testing
@@ -309,12 +321,13 @@ bioteam-ai/
 │   │   ├── models/          # Pydantic/SQLModel schemas (evidence · workflow · agent)
 │   │   ├── security/        # Stream token signing + fuzzing tests
 │   │   └── workflows/       # W1-W10 pipeline runners + note processor
-│   └── tests/               # 1648 tests across 22 categories (0 failures)
+│   └── tests/               # 1950 tests across 25 categories (0 failures)
 ├── frontend/
 │   └── src/
-│       ├── app/             # 11 Next.js pages: / · /digest · /query · /teams
+│       ├── app/             # 18 Next.js pages: / · /digest · /query · /teams
 │       │                    #   /quality · /evidence · /peer-review · /integrity
-│       │                    #   /lab-kb · /projects · /settings
+│       │                    #   /lab-kb · /projects · /settings · /rcmxt
+│       │                    #   /analytics · /drug-discovery · /agents
 │       ├── components/      # Dashboard UI (shadcn/ui + React Flow)
 │       ├── hooks/           # React hooks (agents, workflows, digest, SSE)
 │       ├── lib/             # API client with auth + retry
@@ -322,7 +335,8 @@ bioteam-ai/
 │       └── types/           # TypeScript API types
 ├── docs/
 │   ├── planning/            # PRD · implementation plan v4.2 · resources guide
-│   └── publication/         # RCMXT annotation guidelines (Paper 1)
+│   ├── annotation/          # RCMXT annotation guidelines + 15-claim seed corpus CSV
+│   └── publication/         # Paper 1 draft: RCMXT calibration + IRR methodology
 ├── docker-compose.yml       # Full stack deployment
 └── pyproject.toml           # Python project config (Python 3.12+)
 ```
