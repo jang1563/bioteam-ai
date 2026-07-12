@@ -37,7 +37,7 @@ class SemanticMemory:
                 settings=ChromaSettings(anonymized_telemetry=False),
             )
         except Exception as e:
-            # ChromaDB 1.x may fail with uvloop ("Can't patch loop")
+            # Keep a no-disk fallback for constrained or incompatible runtimes.
             logger.warning("ChromaDB PersistentClient failed (%s), falling back to EphemeralClient", e)
             self.client = chromadb.EphemeralClient(
                 settings=ChromaSettings(anonymized_telemetry=False),

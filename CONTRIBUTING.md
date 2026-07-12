@@ -112,7 +112,7 @@ Before making changes, review:
 - **AgentOutput**: Access via `out.output` (dict) and `out.summary` (str)
 - **ContextPackage**: `task_description` is required; there is no `query` field
 - **SSE events**: Use `"workflow.step_started"` / `"workflow.step_completed"` naming
-- **ChromaDB**: Always use `--loop asyncio` with uvicorn (ChromaDB crashes with uvloop)
+- **ChromaDB**: Use the embedded client only and keep uvicorn on `--loop asyncio`
 
 ## Reporting Issues
 

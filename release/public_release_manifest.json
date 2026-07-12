@@ -42,7 +42,9 @@
     "Not for distribution",
     "BioTeam-AI_Proposal",
     "Application_strategy",
-    "CodeSignal"
+    "CodeSignal",
+    "chromadb.HttpClient(",
+    "CHROMA_SERVER_HOST"
   ],
   "private_hold_artifacts": [
     {
@@ -58,5 +60,15 @@
       "status": "not_distributed_third_party_material"
     }
   ],
+  "dependency_policy": {
+    "canonical_inputs": [
+      "pyproject.toml",
+      "uv.lock"
+    ],
+    "runtime_audit": "pip-audit: no known vulnerabilities at v0.1.1",
+    "chromadb_mode": "embedded_only",
+    "chromadb_version": "0.6.3",
+    "chromadb_1x_status": "held_until_upstream_GHSA-f4j7-r4q5-qw2c_patch"
+  },
   "max_text_scan_bytes": 2000000
 }

@@ -1,7 +1,7 @@
 [project]
 name = "bioteam-ai"
-version = "0.1.0"
-description = "Defensible manuscript copilot for biology research"
+version = "0.1.1"
+description = "Inspectable manuscript support for biology research"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
@@ -13,29 +13,31 @@ keywords = [
     "peer-review", "contradiction-detection", "evidence-scoring", "bioinformatics",
 ]
 dependencies = [
-    "anthropic>=0.79.0",
-    "instructor>=1.14.0",
+    "anthropic>=0.116.0",
+    "instructor>=1.15.4",
     "fastapi[standard]>=0.129.0",
     "uvicorn[standard]>=0.41.0",
     "sse-starlette>=3.2.0",
-    "chromadb>=1.5.0",
+    # Temporary pre-1.0 pin: GHSA-f4j7-r4q5-qw2c affects every available
+    # ChromaDB 1.x release. BioTeam-AI uses embedded clients only.
+    "chromadb==0.6.3",
     "langfuse>=3.14.0",
-    "biopython>=1.86",
+    "biopython>=1.87",
     "semanticscholar>=0.11.0",
     "alembic>=1.18.0",
     "sqlmodel>=0.0.34",
     "httpx>=0.28.0",
-    "aiohttp>=3.13.0",
-    "python-dotenv>=1.2.0",
+    "aiohttp>=3.14.1",
+    "python-dotenv>=1.2.2",
     "pydantic>=2.12.0",
-    "pydantic-settings>=2.13.0",
+    "pydantic-settings>=2.14.2",
     "PyYAML>=6.0.0",
-    "arxiv>=2.1.0",
-    "aiosmtplib>=3.0.0",
+    "arxiv>=4.0.0",
+    "aiosmtplib>=5.1.2",
     "celery>=5.4.0",
     "redis>=5.0.0",
     "scipy>=1.12.0",
-    "Pillow>=11.0.0",
+    "Pillow>=12.3.0",
     "imagehash>=4.3.0",
     "pymupdf>=1.25.0",
     "python-docx>=1.2.0",
@@ -50,16 +52,15 @@ Documentation = "https://jang1563.github.io/bioteam-ai/"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.0",
+    "pytest>=9.1.1",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.11.0",
 ]
 benchmarks = [
     # Required only for GRIM cross-validation benchmark
     "pysprite>=0.1.0",
-    # Required only for statcheck comparison benchmark
+    # Required by dataframe-based benchmark fixtures.
     "pandas>=2.0.0",
-    "statcheck>=0.0.7",
 ]
 bioinfo_apis = [
     # Required only for GO/pathway enrichment (Phase 3)
@@ -72,7 +73,10 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 override-dependencies = [
+    "cryptography==48.0.1",
+    "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "onnxruntime==1.24.4; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "posthog==3.25.0",
 ]
 
 [tool.hatch.build.targets.wheel]
