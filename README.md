@@ -79,6 +79,11 @@ Most offline tests do not require an API key. Live LLM and network integration
 paths require the corresponding environment variables documented in
 [`.env.example`](.env.example).
 
+ChromaDB is embedded locally and temporarily pinned below 1.0 because the
+current 1.x line has an unpatched server advisory. Do not expose a Chroma HTTP
+server. Existing v0.1.0 users should read the
+[migration note](SECURITY.md#chromadb-deployment-boundary).
+
 ## Verify a clean checkout
 
 These are the default CI gates:
