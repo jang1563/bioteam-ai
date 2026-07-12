@@ -59,9 +59,8 @@ dev = [
 benchmarks = [
     # Required only for GRIM cross-validation benchmark
     "pysprite>=0.1.0",
-    # Required only for statcheck comparison benchmark
+    # Required by dataframe-based benchmark fixtures.
     "pandas>=2.0.0",
-    "statcheck>=0.0.7",
 ]
 bioinfo_apis = [
     # Required only for GO/pathway enrichment (Phase 3)
@@ -77,6 +76,7 @@ override-dependencies = [
     "cryptography==48.0.1",
     "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "onnxruntime==1.24.4; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "posthog==3.25.0",
 ]
 
 [tool.hatch.build.targets.wheel]
