@@ -1,0 +1,4 @@
+gene_name	logFC	AveExpr	P.Value	adj.P.Val
+BRCA1	-2.45	8.2	0.0001	0.001
+TP53	1.82	9.1	0.0002	0.003
+EGFR	3.21	7.5	0.00001	0.0001

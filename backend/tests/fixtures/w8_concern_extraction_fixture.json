@@ -1,0 +1,242 @@
+{
+  "schema_version": "2.0",
+  "description": "Manual gold vs predicted concern extraction cases for evaluating parser fidelity separately from benchmark matching.",
+  "cases": [
+    {
+      "case_id": "baseline_small",
+      "description": "Small clean case with one extra predicted figure concern and one category drift.",
+      "count_tolerance": 2,
+      "gold_concerns": [
+        {
+          "concern_id": "R1C1",
+          "concern_text": "The statistical analysis is insufficient.",
+          "category": "statistics",
+          "severity": "major",
+          "author_response_text": "We revised the statistical analysis.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R1C2",
+          "concern_text": "Sample size is too small for the claims.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We expanded the cohort.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C1",
+          "concern_text": "The novelty relative to prior literature is unclear.",
+          "category": "novelty",
+          "severity": "minor",
+          "author_response_text": "We clarified the positioning against prior studies.",
+          "resolution": "partially_addressed",
+          "was_valid": null,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        }
+      ],
+      "predicted_concerns": [
+        {
+          "concern_id": "R1C1",
+          "concern_text": "The statistical analysis is insufficient.",
+          "category": "statistics",
+          "severity": "major",
+          "author_response_text": "We revised the statistical analysis.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R1C2",
+          "concern_text": "Sample size is too small for the claims.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We expanded the cohort.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C1",
+          "concern_text": "The novelty relative to prior literature is unclear.",
+          "category": "interpretation",
+          "severity": "minor",
+          "author_response_text": "We clarified the positioning against prior studies.",
+          "resolution": "partially_addressed",
+          "was_valid": null,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C2",
+          "concern_text": "Figure legends should be reformatted.",
+          "category": "presentation",
+          "severity": "minor",
+          "author_response_text": "",
+          "resolution": "unclear",
+          "was_valid": null,
+          "raised_by_multiple": false,
+          "is_figure_concern": true
+        }
+      ]
+    },
+    {
+      "case_id": "undersegmented_long_letter",
+      "description": "Longer review where one multi-part methods paragraph should be split into two concerns but is under-segmented by the parser.",
+      "count_tolerance": 2,
+      "gold_concerns": [
+        {
+          "concern_id": "R1C1",
+          "concern_text": "The sample processing protocol is described too vaguely to reproduce.",
+          "category": "reproducibility",
+          "severity": "major",
+          "author_response_text": "We expanded the protocol details.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R1C2",
+          "concern_text": "The batch correction procedure is not justified and may distort the signal.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We now justify the batch correction strategy and add sensitivity analyses.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C1",
+          "concern_text": "The comparison against prior datasets is incomplete.",
+          "category": "citation",
+          "severity": "minor",
+          "author_response_text": "We added comparison to two prior datasets.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        }
+      ],
+      "predicted_concerns": [
+        {
+          "concern_id": "R1C1",
+          "concern_text": "The sample processing protocol and batch correction procedure are both insufficiently described and justified.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We expanded the protocol details and justify the batch correction strategy.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C1",
+          "concern_text": "The comparison against prior datasets is incomplete.",
+          "category": "citation",
+          "severity": "minor",
+          "author_response_text": "We added comparison to two prior datasets.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        }
+      ]
+    },
+    {
+      "case_id": "oversegmented_multi_reviewer",
+      "description": "Multi-reviewer case where one reviewer concern is over-segmented into several smaller predicted concerns.",
+      "count_tolerance": 2,
+      "gold_concerns": [
+        {
+          "concern_id": "R1C1",
+          "concern_text": "The controls are insufficient to support the causal claim.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We added additional controls.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": true,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C1",
+          "concern_text": "The controls are insufficient to support the causal claim.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We added additional controls.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": true,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R3C1",
+          "concern_text": "The discussion overstates translational relevance.",
+          "category": "interpretation",
+          "severity": "minor",
+          "author_response_text": "We toned down the translational framing.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        }
+      ],
+      "predicted_concerns": [
+        {
+          "concern_id": "R1C1a",
+          "concern_text": "The negative control is missing.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We added additional controls.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": true,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R1C1b",
+          "concern_text": "The positive control is missing.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We added additional controls.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": true,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R2C1",
+          "concern_text": "The controls are insufficient to support the causal claim.",
+          "category": "methodology",
+          "severity": "major",
+          "author_response_text": "We added additional controls.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": true,
+          "is_figure_concern": false
+        },
+        {
+          "concern_id": "R3C1",
+          "concern_text": "The discussion overstates translational relevance.",
+          "category": "interpretation",
+          "severity": "minor",
+          "author_response_text": "We toned down the translational framing.",
+          "resolution": "conceded",
+          "was_valid": true,
+          "raised_by_multiple": false,
+          "is_figure_concern": false
+        }
+      ]
+    }
+  ]
+}

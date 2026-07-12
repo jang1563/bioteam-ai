@@ -1,0 +1,37 @@
+# Agent Spec: Statistical Rigor QA
+# Validates statistical methods, effect sizes, power, and multiple testing.
+
+id: qa_statistical_rigor
+name: Statistical Rigor QA
+tier: qa
+model_tier: sonnet
+model_tier_secondary: null
+division: independent
+criticality: optional
+
+system_prompt_file: qa_statistical_rigor.md
+
+output_schemas:
+  - StatisticalRigorResult
+
+tools:
+  - validate_statistics     # Check statistical methods and results
+
+mcp_access: []
+
+literature_access: false
+
+few_shot_examples:
+  - input: "Review: DEG analysis with t-test on 3 replicates, no multiple testing correction, p<0.05 threshold"
+    expected: "Flag: insufficient power with n=3, missing FDR/Bonferroni correction, recommend limma-voom or DESeq2 instead of t-test"
+  - input: "Check: ANOVA on 5 groups with post-hoc Tukey, Cohen's d=0.3 reported as large effect"
+    expected: "Flag: Cohen's d=0.3 is small effect not large, verify Tukey assumptions, check for sphericity if repeated measures"
+
+failure_modes:
+  - "Over-flagging exploratory analyses held to confirmatory standards — mitigated by analysis-type detection"
+  - "Missing domain-specific test conventions (e.g., permutation tests in genomics) — mitigated by domain context"
+  - "False reassurance on underpowered studies with significant results — mitigated by power-first assessment"
+
+degradation_mode: null
+
+version: "0.1.0"

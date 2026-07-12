@@ -1,0 +1,718 @@
+"""BaseAgent — abstract base class for all BioTeam-AI agents.
+
+Design decisions (Day 0):
+- All agents inherit from BaseAgent
+- Each agent has a spec (YAML) and a system prompt (.md)
+- Langfuse tracing via @observe decorator (simplest, most reliable pattern)
+- Retry: Instructor handles schema validation retries; BaseAgent handles API-level retries
+- Every run() returns AgentOutput with cost tracking
+
+v4.2 changes:
+- build_output accepts LLMResponse for automatic metadata propagation
+- model_version auto-captured from LLM responses
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
+
+import yaml
+from app.config import ModelTier, settings
+from app.llm.layer import LLMLayer, LLMResponse
+from app.models.agent import AgentOutput, AgentSpec, AgentStatus
+from app.models.messages import ContextPackage
+from pydantic import BaseModel
+
+# Langfuse import with graceful fallback
+try:
+    from langfuse.decorators import langfuse_context, observe
+    LANGFUSE_AVAILABLE = True
+except ImportError:
+    LANGFUSE_AVAILABLE = False
+    # Provide no-op decorator
+    def observe(*args, **kwargs):  # type: ignore
+        def wrapper(fn):
+            return fn
+        if args and callable(args[0]):
+            return args[0]
+        return wrapper
+
+
+AGENTS_DIR = Path(__file__).parent
+PROMPTS_DIR = AGENTS_DIR / "prompts"
+SPECS_DIR = AGENTS_DIR / "specs"
+logger = logging.getLogger(__name__)
+
+
+class BaseAgent(ABC):
+    """Abstract base class for all BioTeam-AI agents.
+
+    Subclasses must implement:
+    - run(context) -> AgentOutput: Core execution logic
+
+    Usage (v4.2):
+        class MyAgent(BaseAgent):
+            async def run(self, context: ContextPackage) -> AgentOutput:
+                result, meta = await self.llm.complete_structured(
+                    messages=[{"role": "user", "content": context.task_description}],
+                    model_tier=self.model_tier,
+                    response_model=MyOutputModel,
+                    system=self.system_prompt_cached,
+                )
+                return self.build_output(
+                    output=result.model_dump(),
+                    summary="...",
+                    llm_response=meta,
+                )
+    """
+
+    def __init__(self, spec: AgentSpec, llm: LLMLayer) -> None:
+        self.spec = spec
+        self.llm = llm
+        self.status = AgentStatus(agent_id=spec.id)
+
+        # Load system prompt from .md file
+        self._system_prompt = self._load_prompt()
+
+        # Pre-build cached version for prompt caching
+        self.system_prompt_cached = self.llm.build_cached_system(self._system_prompt)
+
+    @property
+    def agent_id(self) -> str:
+        return self.spec.id
+
+    @property
+    def model_tier(self) -> ModelTier:
+        return self.spec.model_tier
+
+    @property
+    def system_prompt(self) -> str:
+        return self._system_prompt
+
+    def _load_prompt(self) -> str:
+        """Load system prompt from markdown file."""
+        prompt_path = PROMPTS_DIR / self.spec.system_prompt_file
+        if prompt_path.exists():
+            return prompt_path.read_text(encoding="utf-8")
+        return f"You are {self.spec.name}, a specialized biology research agent."
+
+    @observe(name="agent.run")
+    async def execute(self, context: ContextPackage) -> AgentOutput:
+        """Execute the agent with tracing, timing, and error handling.
+
+        This wraps the subclass's run() method with:
+        1. Status management (idle -> busy -> idle)
+        2. Timing and cost tracking
+        3. Langfuse trace metadata
+        4. Error handling with retry (API-level)
+        """
+        self.status.state = "busy"
+        start_time = time.time()
+        last_error: Exception | None = None
+
+        # Tag Langfuse trace
+        if LANGFUSE_AVAILABLE and settings.langfuse_public_key:
+            langfuse_context.update_current_observation(
+                metadata={
+                    "agent_id": self.agent_id,
+                    "model_tier": self.model_tier,
+                    "spec_version": self.spec.version,
+                },
+            )
+
+        # API-level retry (network errors, rate limits)
+        max_api_retries = 3
+        for attempt in range(max_api_retries):
+            try:
+                output = await self.run(context)
+                output.duration_ms = int((time.time() - start_time) * 1000)
+                output.agent_id = self.agent_id
+                output.retry_count = attempt
+
+                self.status.state = "idle"
+                self.status.total_calls += 1
+                self.status.total_cost += output.cost
+                self.status.consecutive_failures = 0
+                return output
+
+            except Exception as e:
+                last_error = e
+                if attempt < max_api_retries - 1:
+                    # Exponential backoff: 1s, 2s, 4s
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+
+        # All retries failed
+        self.status.state = "idle"
+        self.status.consecutive_failures += 1
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        return AgentOutput(
+            agent_id=self.agent_id,
+            error=f"{type(last_error).__name__}: {last_error}" if last_error else "Unknown error",
+            duration_ms=duration_ms,
+            retry_count=max_api_retries,
+            model_tier=self.model_tier,
+        )
+
+    @abstractmethod
+    async def run(self, context: ContextPackage) -> AgentOutput:
+        """Core agent logic. Subclasses implement this.
+
+        Args:
+            context: Full context package with task, memory, prior outputs, etc.
+
+        Returns:
+            AgentOutput with the structured result.
+        """
+        ...
+
+    def build_output(
+        self,
+        output: Any = None,
+        output_type: str = "",
+        summary: str = "",
+        llm_response: LLMResponse | None = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cached_input_tokens: int = 0,
+    ) -> AgentOutput:
+        """Helper to construct AgentOutput with cost estimation.
+
+        v4.2: Accepts LLMResponse for automatic metadata propagation.
+        If llm_response is provided, token counts and cost are taken from it.
+
+        Usage (v4.2 style):
+            result, meta = await self.llm.complete_structured(...)
+            return self.build_output(
+                output=result.model_dump(),
+                output_type="MyModel",
+                summary="...",
+                llm_response=meta,
+            )
+        """
+        if llm_response is not None:
+            return AgentOutput(
+                agent_id=self.agent_id,
+                output=output,
+                output_type=output_type,
+                summary=summary,
+                model_tier=self.model_tier,
+                model_version=llm_response.model_version,
+                input_tokens=llm_response.input_tokens,
+                output_tokens=llm_response.output_tokens,
+                cached_input_tokens=llm_response.cached_input_tokens,
+                cost=llm_response.cost,
+            )
+        # Fallback: manual token counts (backward compatibility)
+        cost = self.llm.estimate_cost(
+            model_tier=self.model_tier,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_input_tokens=cached_input_tokens,
+        )
+        # Resolve model_version from MODEL_MAP when LLM tokens were actually used,
+        # so session manifest correctly records this call. Leave empty for
+        # code-only/memory-only steps that don't call an LLM.
+        resolved_version = ""
+        if input_tokens > 0 or output_tokens > 0:
+            from app.config import MODEL_MAP
+            resolved_version = MODEL_MAP.get(self.model_tier, "")
+        return AgentOutput(
+            agent_id=self.agent_id,
+            output=output,
+            output_type=output_type,
+            summary=summary,
+            model_tier=self.model_tier,
+            model_version=resolved_version,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_input_tokens=cached_input_tokens,
+            cost=cost,
+        )
+
+    def get_tool_list(self, full_definitions: list[dict]) -> list[dict]:
+        """Build tool list with optional deferred loading for context efficiency.
+
+        When deferred_tools_enabled=True, classifies tools using the tool
+        registry and defers rarely-used ones behind BM25 tool search.
+        Saves ~85% context tokens for deferred tool definitions.
+
+        Args:
+            full_definitions: Complete tool definitions for this agent.
+
+        Returns:
+            Tool list — unchanged if deferred disabled, or with tool_search
+            and defer_loading markers if enabled.
+        """
+        if not settings.deferred_tools_enabled:
+            return full_definitions
+
+        from app.llm.tool_registry import get_classification
+
+        classification = get_classification(self.agent_id)
+        always_names = set(classification.get("always_loaded", []))
+        deferred_names = set(classification.get("deferred", []))
+
+        # If no classification exists for this agent, return unchanged
+        if not always_names and not deferred_names:
+            return full_definitions
+
+        always = [t for t in full_definitions if t.get("name") in always_names]
+        deferred = [t for t in full_definitions if t.get("name") in deferred_names]
+
+        # Tools not in either list stay as always-loaded (safe default)
+        unclassified = [
+            t for t in full_definitions
+            if t.get("name") not in always_names and t.get("name") not in deferred_names
+        ]
+        always.extend(unclassified)
+
+        if not deferred:
+            return full_definitions
+
+        return self.llm.build_deferred_tools(always, deferred)
+
+    # ── PTC (Programmatic Tool Calling) support ────────────────────────
+
+    def _get_ptc_tool_names(self) -> list[str]:
+        """Get this agent's classified PTC tool names from tool_registry.
+
+        Returns combined always_loaded + deferred tool names.
+        Returns empty list if agent has no classification.
+        """
+        from app.llm.tool_registry import get_classification
+
+        classification = get_classification(self.agent_id)
+        return classification.get("always_loaded", []) + classification.get("deferred", [])
+
+    def _get_ptc_tools(self) -> tuple[list[dict], dict]:
+        """Get PTC tool definitions and implementations for this agent.
+
+        Returns:
+            Tuple of (tool_definitions, tool_implementations) filtered
+            to only this agent's classified tools.
+        """
+        from app.llm.ptc_handler import build_tool_implementations
+        from app.llm.ptc_tools import (
+            BLAST_TOOL,
+            CODE_EXECUTION_TOOL,
+            GENE_NAME_CHECKER_TOOL,
+            GO_ENRICHMENT_TOOL,
+            STATISTICAL_CHECKER_TOOL,
+            VEP_TOOL,
+        )
+
+        tool_name_map = {
+            "run_vep": VEP_TOOL,
+            "check_gene_names": GENE_NAME_CHECKER_TOOL,
+            "check_statistics": STATISTICAL_CHECKER_TOOL,
+            "run_blast": BLAST_TOOL,
+            "run_go_enrichment": GO_ENRICHMENT_TOOL,
+        }
+
+        my_tool_names = self._get_ptc_tool_names()
+        if not my_tool_names:
+            return [], {}
+
+        tools = [CODE_EXECUTION_TOOL]
+        for name in my_tool_names:
+            if name in tool_name_map:
+                tools.append(tool_name_map[name])
+
+        implementations = build_tool_implementations(my_tool_names)
+        return tools, implementations
+
+    async def run_with_ptc(
+        self,
+        context: ContextPackage,
+        response_model: type[BaseModel],
+        output_type: str = "",
+    ) -> AgentOutput:
+        """Execute agent with PTC tools, then parse output into Pydantic model.
+
+        Two-phase pattern (PTC + Instructor mutual exclusion):
+        1. PTC call: Claude writes code that invokes bioinformatics tools
+        2. Haiku structured parse: convert PTC free-text into Pydantic model
+
+        Args:
+            context: Task context.
+            response_model: Pydantic model for structured output.
+            output_type: Name for output type tracking.
+
+        Returns:
+            AgentOutput with tool-grounded results.
+        """
+        tools, implementations = self._get_ptc_tools()
+        if not tools or len(tools) <= 1:  # only code_execution, no real tools
+            # Fallback to standard structured call
+            return await self.run(context)
+
+        task = context.task_description
+
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Use the available bioinformatics tools to analyze: {task}\n\n"
+                    f"Call the relevant tools to gather real data, then provide a "
+                    f"comprehensive analysis based on the tool results. "
+                    f"Summarize findings clearly."
+                ),
+            }
+        ]
+
+        # Phase 1: PTC call with tools
+        ptc_text, ptc_meta, _container_id = await self.llm.complete_with_ptc(
+            messages=messages,
+            model_tier=self.model_tier,
+            system=self._system_prompt,
+            custom_tools=tools,
+            tool_implementations=implementations,
+        )
+
+        # Phase 2: Parse PTC text into Pydantic model using Haiku
+        parse_messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Parse this analysis into the required structured format.\n\n"
+                    f"Original query: {task}\n\n"
+                    f"Analysis:\n{ptc_text}"
+                ),
+            }
+        ]
+
+        result, parse_meta = await self.llm.complete_structured(
+            messages=parse_messages,
+            model_tier="haiku",
+            response_model=response_model,
+        )
+
+        # Aggregate costs from both phases
+        total_cost = ptc_meta.cost + parse_meta.cost
+        total_input = ptc_meta.input_tokens + parse_meta.input_tokens
+        total_output = ptc_meta.output_tokens + parse_meta.output_tokens
+
+        return AgentOutput(
+            agent_id=self.agent_id,
+            output=result.model_dump(),
+            output_type=output_type or response_model.__name__,
+            summary=getattr(result, "summary", "")[:200] or f"PTC analysis: {task[:100]}",
+            model_tier=self.model_tier,
+            model_version=ptc_meta.model_version,
+            input_tokens=total_input,
+            output_tokens=total_output,
+            cost=total_cost,
+        )
+
+    # ── MCP (Model Context Protocol) support ────────────────────────────
+
+    def _get_mcp_servers(self) -> list[str]:
+        """Get MCP server names this agent can access."""
+        from app.integrations.mcp_connector import AGENT_MCP_SERVERS
+
+        return AGENT_MCP_SERVERS.get(self.agent_id, [])
+
+    async def run_with_mcp(
+        self,
+        context: ContextPackage,
+        response_model: type[BaseModel],
+        sources: list[str] | None = None,
+        output_type: str = "",
+    ) -> AgentOutput:
+        """Execute agent with MCP database access, then parse into Pydantic model.
+
+        Two-phase pattern (MCP + Instructor mutual exclusion):
+        1. MCP call: Claude uses MCP tools to query external databases
+        2. Haiku structured parse: convert MCP free-text into Pydantic model
+
+        Args:
+            context: Task context.
+            response_model: Pydantic model for structured output.
+            sources: MCP server names. Defaults to agent's classified servers.
+            output_type: Name for output type tracking.
+
+        Returns:
+            AgentOutput with database-grounded results.
+        """
+        async def _fallback_without_mcp(reason: str) -> AgentOutput:
+            """Fallback path when MCP is unavailable/erroring.
+
+            Priority:
+            1) PTC path when enabled for this agent
+            2) Direct structured completion (no external tools)
+            """
+            from app.config import settings as _settings
+
+            if _settings.ptc_enabled and self._get_ptc_tool_names():
+                try:
+                    logger.warning(
+                        "MCP fallback -> PTC for %s (%s)",
+                        self.agent_id,
+                        reason,
+                    )
+                    return await self.run_with_ptc(
+                        context,
+                        response_model=response_model,
+                        output_type=output_type,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "PTC fallback failed for %s after MCP failure (%s): %s",
+                        self.agent_id,
+                        reason,
+                        e,
+                    )
+
+            try:
+                result, meta = await self.llm.complete_structured(
+                    messages=[{"role": "user", "content": context.task_description}],
+                    model_tier=self.model_tier,
+                    response_model=response_model,
+                    system=self.system_prompt_cached,
+                )
+                return self.build_output(
+                    output=result.model_dump(),
+                    output_type=output_type or response_model.__name__,
+                    summary=getattr(result, "summary", "")[:200]
+                    or f"Fallback analysis: {context.task_description[:100]}",
+                    llm_response=meta,
+                )
+            except Exception as e:
+                return AgentOutput(
+                    agent_id=self.agent_id,
+                    error=f"MCP fallback failed ({type(e).__name__}): {e}",
+                    output_type=output_type or response_model.__name__,
+                )
+
+        mcp_sources = sources or self._get_mcp_servers()
+        if not mcp_sources:
+            # Preserve historical behavior for no-MCP agents.
+            return await self.run(context)
+
+        from app.integrations.mcp_connector import MCPConnector
+
+        connector = MCPConnector()
+        task = context.task_description
+
+        try:
+            mcp_result = await connector.execute(
+                task=task,
+                sources=mcp_sources,
+                model_tier=self.model_tier,
+                system_prompt=self._system_prompt,
+            )
+        except Exception as e:
+            logger.warning("MCP execute failed for %s: %s", self.agent_id, e)
+            return await _fallback_without_mcp(f"mcp_execute_error:{type(e).__name__}")
+
+        if not mcp_result.text_output:
+            # MCP returned nothing — fall back to internal (non-MCP) path
+            return await _fallback_without_mcp("empty_mcp_output")
+
+        # Phase 2: Parse MCP text into Pydantic model using Haiku
+        parse_messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Parse this analysis into the required structured format.\n\n"
+                    f"Original query: {task}\n\n"
+                    f"Analysis:\n{mcp_result.text_output}"
+                ),
+            }
+        ]
+
+        try:
+            result, parse_meta = await self.llm.complete_structured(
+                messages=parse_messages,
+                model_tier="haiku",
+                response_model=response_model,
+            )
+        except Exception as e:
+            logger.warning("MCP parse step failed for %s: %s", self.agent_id, e)
+            return await _fallback_without_mcp(f"mcp_parse_error:{type(e).__name__}")
+
+        # Estimate MCP phase cost
+        mcp_cost = self.llm.estimate_cost(
+            model_tier=self.model_tier,
+            input_tokens=mcp_result.input_tokens,
+            output_tokens=mcp_result.output_tokens,
+            cached_input_tokens=mcp_result.cached_input_tokens,
+        )
+        total_cost = mcp_cost + parse_meta.cost
+
+        return AgentOutput(
+            agent_id=self.agent_id,
+            output=result.model_dump(),
+            output_type=output_type or response_model.__name__,
+            summary=getattr(result, "summary", "")[:200] or f"MCP analysis: {task[:100]}",
+            model_tier=self.model_tier,
+            model_version=mcp_result.model or "",
+            input_tokens=mcp_result.input_tokens + parse_meta.input_tokens,
+            output_tokens=mcp_result.output_tokens + parse_meta.output_tokens,
+            cost=total_cost,
+        )
+
+    # ── Agentic loop (multi-turn tool calling) ──────────────────────────
+
+    def _get_agentic_tools(self) -> list[dict]:
+        """Get agentic tool definitions for this agent."""
+        from app.llm.agent_tools import get_tools_for_agent
+
+        return get_tools_for_agent(self.agent_id)
+
+    async def run_with_tools(
+        self,
+        context: ContextPackage,
+        response_model: type[BaseModel],
+        output_type: str = "",
+        max_iterations: int = 5,
+        cost_cap: float = 2.0,
+    ) -> AgentOutput:
+        """Execute agent with multi-turn tool reasoning loop.
+
+        Claude iteratively calls tools, evaluates results, and synthesizes.
+        Uses LLMLayer.complete_with_tools() for the agentic loop, then
+        Haiku structured parse for Pydantic output.
+
+        Safety controls:
+        - max_iterations: limits tool call rounds (default 5)
+        - cost_cap: max allowed cost in USD (default $2.0)
+        - asyncio.wait_for timeout: 120s
+
+        Args:
+            context: Task context.
+            response_model: Pydantic model for structured output.
+            output_type: Name for output type tracking.
+            max_iterations: Max tool call rounds.
+            cost_cap: Max cost in USD.
+
+        Returns:
+            AgentOutput with tool-grounded results.
+        """
+        import asyncio as _asyncio
+
+        tools = self._get_agentic_tools()
+        if not tools:
+            return await self.run(context)
+
+        from app.llm.tool_executor import AgenticToolExecutor
+
+        executor = AgenticToolExecutor()
+        task = context.task_description
+
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Analyze this query using the available tools:\n\n{task}\n\n"
+                    f"Call relevant tools to gather data, evaluate the results, "
+                    f"and provide a comprehensive analysis."
+                ),
+            }
+        ]
+
+        # Phase 1: Agentic tool loop with timeout
+        try:
+            responses, agentic_meta = await _asyncio.wait_for(
+                self.llm.complete_with_tools(
+                    messages=messages,
+                    model_tier=self.model_tier,
+                    system=self._system_prompt,
+                    tools=tools,
+                    tool_executor=executor,
+                    max_iterations=max_iterations,
+                ),
+                timeout=120.0,
+            )
+        except _asyncio.TimeoutError:
+            return self.build_output(
+                output={"error": "Agentic loop timed out after 120s"},
+                summary=f"Timeout: {task[:100]}",
+            )
+
+        # Check cost cap
+        if agentic_meta.cost > cost_cap:
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                "Agentic loop cost $%.3f exceeds cap $%.2f", agentic_meta.cost, cost_cap,
+            )
+
+        # Extract final text from last response
+        final_text = ""
+        if responses:
+            for block in responses[-1].content:
+                if getattr(block, "type", "") == "text":
+                    final_text += getattr(block, "text", "")
+
+        if not final_text:
+            return self.build_output(
+                output={"error": "No text output from agentic loop"},
+                summary=f"Empty result: {task[:100]}",
+                input_tokens=agentic_meta.input_tokens,
+                output_tokens=agentic_meta.output_tokens,
+            )
+
+        # Phase 2: Parse agentic text into Pydantic model using Haiku
+        parse_messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Parse this analysis into the required structured format.\n\n"
+                    f"Original query: {task}\n\n"
+                    f"Analysis:\n{final_text}"
+                ),
+            }
+        ]
+
+        result, parse_meta = await self.llm.complete_structured(
+            messages=parse_messages,
+            model_tier="haiku",
+            response_model=response_model,
+        )
+
+        total_cost = agentic_meta.cost + parse_meta.cost
+
+        return AgentOutput(
+            agent_id=self.agent_id,
+            output=result.model_dump(),
+            output_type=output_type or response_model.__name__,
+            summary=getattr(result, "summary", "")[:200] or f"Agentic analysis: {task[:100]}",
+            model_tier=self.model_tier,
+            model_version=agentic_meta.model_version,
+            input_tokens=agentic_meta.input_tokens + parse_meta.input_tokens,
+            output_tokens=agentic_meta.output_tokens + parse_meta.output_tokens,
+            cost=total_cost,
+        )
+
+    # ── Execution mode selection ──────────────────────────────────────
+
+    def _select_execution_mode(self) -> str:
+        """Select the best execution mode for this agent.
+
+        Returns "mcp", "ptc", "agentic", or "structured" based on config + capabilities.
+        Priority: MCP > PTC > agentic > structured.
+        MCP and PTC are mutually exclusive with agentic tools.
+        """
+        if settings.mcp_enabled and self._get_mcp_servers():
+            return "mcp"
+        if settings.ptc_enabled and self._get_ptc_tool_names():
+            return "ptc"
+        if settings.agentic_enabled and self._get_agentic_tools():
+            return "agentic"
+        return "structured"
+
+    @classmethod
+    def load_spec(cls, spec_id: str) -> AgentSpec:
+        """Load an AgentSpec from a YAML file."""
+        spec_path = SPECS_DIR / f"{spec_id}.yaml"
+        if not spec_path.exists():
+            raise FileNotFoundError(f"Agent spec not found: {spec_path}")
+        data = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+        return AgentSpec(**data)

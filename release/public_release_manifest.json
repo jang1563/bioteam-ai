@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "repository": "jang1563/bioteam-ai",
+  "release_scope": "source_code_and_synthetic_fixtures",
+  "required_paths": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/pages.yml",
+    "CITATION.cff",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
+    "backend/app/main.py",
+    "docs/data_release_status.md",
+    "frontend/package-lock.json",
+    "index.html",
+    "pyproject.toml",
+    "scripts/check_public_history.py",
+    "scripts/check_public_manifest.py",
+    "uv.lock"
+  ],
+  "forbidden_tracked_globs": [
+    ".claude/**",
+    "*.docx",
+    "**/application_reference.*",
+    "backend/scripts/output/**",
+    "backend/tests/benchmarks/.litqa2_cache/**",
+    "benchmarks.html",
+    "demo_digest.html",
+    "docs/demo/**",
+    "docs/huggingface/**",
+    "docs/papers/**",
+    "docs/planning/**",
+    "docs/publication/**",
+    "docs/project_summary.html",
+    "error_hallucination_check_*"
+  ],
+  "forbidden_literals": [
+    "/Users/",
+    "Dropbox/",
+    "@med.cornell.edu",
+    "Not for distribution",
+    "BioTeam-AI_Proposal",
+    "Application_strategy",
+    "CodeSignal"
+  ],
+  "private_hold_artifacts": [
+    {
+      "name": "ContradictBio-338",
+      "status": "not_published_pending_license"
+    },
+    {
+      "name": "ContradictBio-1138",
+      "status": "not_published_pending_license"
+    },
+    {
+      "name": "LitQA2 local cache",
+      "status": "not_distributed_third_party_material"
+    }
+  ],
+  "max_text_scan_bytes": 2000000
+}

@@ -1,0 +1,36 @@
+# Agent Spec: Methodology Reviewer
+# Deep methodological assessment for peer review (Opus-tier).
+
+id: methodology_reviewer
+name: Methodology Reviewer
+tier: domain_expert
+model_tier: opus
+model_tier_secondary: sonnet
+division: cross_cutting
+criticality: optional
+
+system_prompt_file: methodology_reviewer.md
+
+output_schemas:
+  - MethodologyAssessment
+
+tools: []
+
+mcp_access: []
+
+literature_access: false
+
+few_shot_examples:
+  - input: "RNAseq with n=3 per group, DESeq2, no multiple testing correction mentioned"
+    expected: "sample_size_assessment: critically low n, statistical_methods: DESeq2 appropriate but MTC unclear"
+  - input: "ISS experiment with ground control, 6-month duration, radiation dosimetry reported"
+    expected: "controls_adequacy: good ground control, domain_specific: adequate duration and dosimetry"
+
+failure_modes:
+  - "Domain unfamiliarity: unusual methods not recognized — mitigated by broad training"
+  - "Over-criticism: standard methods flagged as problematic — mitigated by calibration examples"
+  - "Missing context: methods section incomplete in PDF — mitigated by supplementary check"
+
+degradation_mode: "skip"
+
+version: "0.1.0"

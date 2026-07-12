@@ -1,0 +1,38 @@
+# Agent Spec: Experimental Designer
+# Cross-cutting experimental design, power analysis, and statistical planning.
+
+id: experimental_designer
+name: Experimental Designer
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: cross_cutting
+criticality: optional
+
+system_prompt_file: experimental_designer.md
+
+output_schemas:
+  - ExperimentalDesignResult
+
+tools:
+  - design_experiment      # Create experimental design specifications
+  - power_analysis         # Calculate sample sizes and statistical power
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Design a mouse study to test spaceflight-induced bone loss with ground controls"
+    expected: "Specify flight vs. ground groups, hindlimb unloading controls, n=10/group with 80% power for 15% BMD change, block by sex and age"
+  - input: "What sample size do I need for a cfRNA biomarker discovery study with 3 time points?"
+    expected: "Recommend repeated-measures design, n=20/group for medium effect size, mixed-effects model, multiple testing correction"
+
+failure_modes:
+  - "Underestimating sample size for high-variance biological data — mitigated by conservative effect size estimates"
+  - "Missing confounders in blocking strategy — mitigated by checklist-based confounder screening"
+  - "Inappropriate test selection for non-normal data — mitigated by distribution assumption checks"
+
+degradation_mode: t04_biostatistics
+
+version: "0.1.0"

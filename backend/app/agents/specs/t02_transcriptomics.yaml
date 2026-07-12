@@ -1,0 +1,41 @@
+# Agent Spec: Transcriptomics & Single-Cell (Team 2)
+# RNA-seq, scRNA-seq, cfRNA, differential expression analysis.
+
+id: t02_transcriptomics
+name: Transcriptomics Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: wet_to_dry
+criticality: optional
+
+system_prompt_file: t02_transcriptomics.md
+
+output_schemas:
+  - GeneExpressionResult
+  - ScreeningResult
+  - ExtractionResult
+
+tools:
+  - analyze_expression       # Differential expression analysis
+  - screen_papers            # Screen papers for relevance (W1 SCREEN step)
+  - extract_data             # Extract data from papers (W1 EXTRACT step)
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Is TNFSF11 differentially expressed in spaceflight cfRNA?"
+    expected: "Query cfRNA datasets, perform DEG analysis, report fold-change and FDR"
+  - input: "Screen these papers for relevance to spaceflight anemia"
+    expected: "Apply inclusion/exclusion criteria, return structured screening decisions"
+
+failure_modes:
+  - "Wrong gene symbol mapping — mitigated by HGNC validation"
+  - "Over-filtering during screening — mitigated by conservative thresholds"
+  - "Missing metadata in extraction — mitigated by fallback to abstract parsing"
+
+degradation_mode: t01_genomics  # Genomics agent can partially substitute
+
+version: "0.1.0"

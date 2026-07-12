@@ -1,0 +1,32 @@
+# BioTeam-AI — Minimal Dev Mode (make dev-minimal)
+# Backend + Frontend only, no Langfuse, no Redis/Celery
+# Uses asyncio fallback for background tasks (CELERY_BROKER_URL="" = disabled)
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///data/bioteam.db
+      - LANGFUSE_HOST=  # Empty = disabled
+      - CELERY_BROKER_URL=  # Empty = asyncio fallback
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --loop asyncio
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend

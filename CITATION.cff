@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "BioTeam-AI: Inspectable Manuscript Support for Biology Research"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Kim
+    given-names: JangKeun
+    affiliation: Weill Cornell Medicine
+repository-code: "https://github.com/jang1563/bioteam-ai"
+url: "https://github.com/jang1563/bioteam-ai"
+license: MIT
+version: 0.1.0
+date-released: "2026-07-12"
+keywords:
+  - biology research
+  - manuscript support
+  - multi-agent system
+  - evidence scoring
+  - peer-review support
+abstract: >-
+  BioTeam-AI is a research prototype for inspectable, biology-specific
+  manuscript support. It combines typed report contracts, human checkpoints,
+  multi-agent workflow orchestration, a FastAPI backend, and a Next.js
+  dashboard. Dataset payloads are not included in this code release.

@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Data
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+
+# Node
+node_modules/
+.next/
+out/
+
+# Docker
+docker/langfuse/data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Langfuse
+langfuse-data/
+
+# ChromaDB
+chroma_data/
+
+# Backups
+backups/
+
+# Results (real API run outputs)
+backend/results/*.json
+
+# Corpus evaluation output data (large JSONL/JSON artifacts)
+backend/scripts/output/
+backend/tests/benchmarks/.litqa2_cache/
+docs/huggingface/
+
+# Logs
+*.log
+logs/
+
+# Private planning and development documents (kept locally only)
+docs/planning/
+docs/publication/
+docs/system_review_*.md
+docs/error_hallucination_review_*.md
+.claude/
+
+# Local-only generated output files
+error_hallucination_check_*.md
+w8_review_output.json
+project_overview.html
+test-results/
+frontend/test-results/
+
+# E2E test screenshots (generated artifacts, not source)
+frontend/tests/e2e/screenshots/

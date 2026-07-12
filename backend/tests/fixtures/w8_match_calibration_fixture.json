@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "description": "Manual calibration pairs for W8 concern matching threshold selection.",
+  "recommended_match_mode": "token_cosine",
+  "recommended_threshold": 0.05,
+  "cases": [
+    {
+      "id": "pos_01",
+      "case_type": "synthetic",
+      "left_text": "The statistical analysis is insufficient and needs stronger controls.",
+      "right_text": "The statistics should be improved and the control strategy needs to be strengthened.",
+      "is_match": true
+    },
+    {
+      "id": "pos_02",
+      "case_type": "synthetic",
+      "left_text": "Sample size is too small for the conclusions drawn.",
+      "right_text": "The cohort appears underpowered and the manuscript overstates the conclusions.",
+      "is_match": true
+    },
+    {
+      "id": "pos_03",
+      "case_type": "synthetic",
+      "left_text": "The novelty relative to prior ZAK inhibitor literature is not clearly articulated.",
+      "right_text": "The manuscript should better position its novelty against earlier work on ZAK binding by RAF inhibitors.",
+      "is_match": true
+    },
+    {
+      "id": "pos_04",
+      "case_type": "synthetic",
+      "left_text": "The mechanistic claims need stronger validation experiments.",
+      "right_text": "Additional experiments are needed to support the proposed mechanism.",
+      "is_match": true
+    },
+    {
+      "id": "pilot_00969_pos_novelty",
+      "case_type": "pilot_article",
+      "source_article_id": "00969",
+      "left_text": "The authors should make it clear in the text what is new and what has been published previously.",
+      "right_text": "The manuscript should better position its novelty against earlier work on ZAK binding by RAF inhibitors.",
+      "is_match": true
+    },
+    {
+      "id": "pilot_83069_pos_design",
+      "case_type": "pilot_article",
+      "source_article_id": "83069",
+      "left_text": "The authors need to carefully explain the rationale behind their design of the experimental groups.",
+      "right_text": "The central experimental design confounds Apoe genotype, high-fat diet, and obesity.",
+      "is_match": true
+    },
+    {
+      "id": "pilot_83069_pos_axl",
+      "case_type": "pilot_article",
+      "source_article_id": "83069",
+      "left_text": "The authors may need to provide evidence about the role of Axl in OA development.",
+      "right_text": "The role of Axl signaling in the OA phenotype is not adequately established and needs direct support.",
+      "is_match": true
+    },
+    {
+      "id": "pilot_11058_pos_rheb",
+      "case_type": "pilot_article",
+      "source_article_id": "11058",
+      "left_text": "The effect of arginine should be studied in vitro using the immunoprecipitated TSC complex and the purified GTP-bound form of Rheb.",
+      "right_text": "The in vitro Rheb-TSC2 binding assay should use purified components to directly test the arginine effect.",
+      "is_match": true
+    },
+    {
+      "id": "pilot_11058_pos_slc38a9",
+      "case_type": "pilot_article",
+      "source_article_id": "11058",
+      "left_text": "It is critical to demonstrate SLC38A9 knockdown efficiency.",
+      "right_text": "The manuscript does not convincingly show SLC38A9 pathway perturbation or knockdown efficiency.",
+      "is_match": true
+    },
+    {
+      "id": "neg_01",
+      "case_type": "synthetic",
+      "left_text": "The sample size is too small for the conclusions drawn.",
+      "right_text": "The manuscript introduction could be shortened.",
+      "is_match": false
+    },
+    {
+      "id": "neg_02",
+      "case_type": "synthetic",
+      "left_text": "The statistical analysis is insufficient and needs stronger controls.",
+      "right_text": "The figure legends should use larger fonts.",
+      "is_match": false
+    },
+    {
+      "id": "neg_03",
+      "case_type": "synthetic",
+      "left_text": "The novelty relative to prior ZAK inhibitor literature is not clearly articulated.",
+      "right_text": "The authors should deposit the raw sequencing files in GEO.",
+      "is_match": false
+    },
+    {
+      "id": "neg_04",
+      "case_type": "synthetic",
+      "left_text": "The mechanistic claims need stronger validation experiments.",
+      "right_text": "There are several typographical errors in the discussion section.",
+      "is_match": false
+    },
+    {
+      "id": "pilot_83069_neg_design_vs_catalog",
+      "case_type": "pilot_article",
+      "source_article_id": "83069",
+      "left_text": "The authors need to carefully explain the rationale behind their design of the experimental groups.",
+      "right_text": "The Key Resources Table lists identical catalog number HY-D1056 for both Lipopolysaccharide and IL-4 Protein.",
+      "is_match": false
+    },
+    {
+      "id": "pilot_11058_neg_rheb_vs_citation",
+      "case_type": "pilot_article",
+      "source_article_id": "11058",
+      "left_text": "The effect of arginine should be studied in vitro using the immunoprecipitated TSC complex and the purified GTP-bound form of Rheb.",
+      "right_text": "The manuscript fails to cite several landmark papers on arginine sensing in the mTORC1 pathway.",
+      "is_match": false
+    },
+    {
+      "id": "pilot_00969_neg_novelty_vs_expression",
+      "case_type": "pilot_article",
+      "source_article_id": "00969",
+      "left_text": "The authors should make it clear in the text what is new and what has been published previously.",
+      "right_text": "It would be helpful to the reader if information concerning ZAK tissue expression was presented.",
+      "is_match": false
+    },
+    {
+      "id": "pilot_11058_neg_slc38a9_vs_statistics",
+      "case_type": "pilot_article",
+      "source_article_id": "11058",
+      "left_text": "It is critical to demonstrate SLC38A9 knockdown efficiency.",
+      "right_text": "The statistical approach requires revision because Student's t-tests are used for experiments with more than two groups.",
+      "is_match": false
+    }
+  ]
+}

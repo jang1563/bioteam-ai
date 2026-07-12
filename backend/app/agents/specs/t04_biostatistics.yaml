@@ -1,0 +1,38 @@
+# Agent Spec: Biostatistics (Team 4)
+# Experimental design, statistical testing, power analysis, multiple testing correction.
+
+id: t04_biostatistics
+name: Biostatistics Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: computation
+criticality: optional
+
+system_prompt_file: t04_biostatistics.md
+
+output_schemas:
+  - StatisticalAnalysisResult
+
+tools:
+  - statistical_analysis      # Hypothesis testing and method recommendation
+  - power_analysis            # Sample size and power calculations
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "What statistical test should I use to compare gene expression across 3 spaceflight timepoints with repeated measures?"
+    expected: "Recommend repeated-measures ANOVA or mixed-effects model, check normality/sphericity, suggest post-hoc corrections"
+  - input: "How many subjects do I need to detect a 1.5-fold change in cfRNA biomarker with 80% power?"
+    expected: "Compute sample size given effect size, variance, alpha=0.05, power=0.80, suggest design adjustments"
+
+failure_modes:
+  - "Recommending parametric test for non-normal data — mitigated by requiring assumption checks"
+  - "Ignoring multiple testing burden — mitigated by always reporting correction method"
+  - "Overconfident power estimate with uncertain variance — mitigated by sensitivity analysis"
+
+degradation_mode: t05_ml_dl
+
+version: "0.1.0"

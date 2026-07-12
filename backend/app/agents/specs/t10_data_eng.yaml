@@ -1,0 +1,38 @@
+# Agent Spec: Data Engineering (Team 10)
+# Pipeline design, containerization, HPC/cloud execution.
+
+id: t10_data_eng
+name: Data Engineering Agent
+tier: domain_expert
+model_tier: haiku
+model_tier_secondary: null
+division: translation
+criticality: optional
+
+system_prompt_file: t10_data_eng.md
+
+output_schemas:
+  - PipelineSpec
+  - DataQualityReport
+
+tools:
+  - design_pipeline          # Create Nextflow/Snakemake pipeline specs
+  - assess_data_quality      # Evaluate data quality and completeness
+
+mcp_access: []
+
+literature_access: false
+
+few_shot_examples:
+  - input: "Design a pipeline for processing bulk RNA-seq from GeneLab"
+    expected: "Nextflow pipeline spec with QC, alignment, quantification steps"
+  - input: "Assess the quality of this scRNA-seq dataset"
+    expected: "Quality report with cell counts, UMI distributions, doublet rates"
+
+failure_modes:
+  - "Pipeline spec incompatible with target HPC — mitigated by profile system"
+  - "Under-estimating compute requirements — mitigated by conservative defaults"
+
+degradation_mode: null  # No substitute available
+
+version: "0.1.0"

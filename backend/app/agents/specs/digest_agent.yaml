@@ -1,0 +1,10 @@
+id: digest_agent
+name: Research Digest
+tier: engine
+model_tier: haiku
+criticality: optional
+system_prompt_file: digest_agent.md
+output_schemas:
+  - DigestSummary
+degradation_mode: "skip"
+version: "0.1.0"

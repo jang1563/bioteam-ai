@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="BioTeam-AI is an inspectable research prototype for biology-specific manuscript support."
+    />
+    <title>BioTeam-AI</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111f;
+        --panel: #0e1b2d;
+        --text: #e9f0f7;
+        --muted: #9fb0c3;
+        --accent: #5fd4b4;
+        --line: #20344c;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top right, #12354b 0, var(--bg) 42%);
+        color: var(--text);
+        font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main { width: min(920px, calc(100% - 40px)); margin: 0 auto; padding: 88px 0; }
+      .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+      h1 { margin: .25rem 0 1rem; font-size: clamp(3rem, 10vw, 6.5rem); line-height: .95; }
+      .lead { max-width: 720px; color: var(--muted); font-size: clamp(1.15rem, 3vw, 1.45rem); }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 32px 0 54px; }
+      a.button { border: 1px solid var(--line); border-radius: 999px; color: var(--text); padding: 10px 18px; text-decoration: none; }
+      a.button.primary { background: var(--accent); border-color: var(--accent); color: #04120f; font-weight: 700; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+      article { background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+      h2 { margin-top: 0; font-size: 1.1rem; }
+      p { margin-bottom: 0; }
+      footer { margin-top: 48px; color: var(--muted); font-size: .9rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">Research prototype</div>
+      <h1>BioTeam-AI</h1>
+      <p class="lead">
+        Inspectable, biology-specific manuscript support built around typed
+        reports, human checkpoints, and explicit evidence boundaries.
+      </p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/jang1563/bioteam-ai">View source</a>
+        <a class="button" href="https://github.com/jang1563/bioteam-ai/blob/main/docs/research_overview.md">Research scope</a>
+        <a class="button" href="https://github.com/jang1563/bioteam-ai/blob/main/docs/reproducible_evidence.md">Verification</a>
+      </div>
+      <section class="grid" aria-label="Project principles">
+        <article>
+          <h2>Inspectable outputs</h2>
+          <p>Versioned report contracts and provenance fields make tested paths easier to review.</p>
+        </article>
+        <article>
+          <h2>Researcher in control</h2>
+          <p>Workflow checkpoints preserve human selection, revision, and scientific judgment.</p>
+        </article>
+        <article>
+          <h2>Bounded release</h2>
+          <p>Private datasets and third-party benchmark caches remain excluded pending review.</p>
+        </article>
+      </section>
+      <footer>MIT-licensed source code. Dataset payloads are not included in this release.</footer>
+    </main>
+  </body>
+</html>

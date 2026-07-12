@@ -1,0 +1,46 @@
+name: Run Research Digest
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    name: Fetch & Send Digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # LLM (Gemini free tier for summarization)
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      DIGEST_LLM_PROVIDER: "gemini"
+      # Anthropic (fallback if Gemini fails)
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Email delivery (Gmail SMTP)
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      DIGEST_RECIPIENTS: ${{ secrets.DIGEST_RECIPIENTS }}
+      # PubMed polite access
+      NCBI_EMAIL: ${{ secrets.NCBI_EMAIL }}
+      # Dashboard URL for email CTA button (optional — falls back to localhost:3000)
+      DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+      # Database (ephemeral per run — topics auto-seeded)
+      DATABASE_URL: "sqlite:///data/bioteam.db"
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run daily digest
+        working-directory: backend
+        run: uv run python -m scripts.run_daily_digest

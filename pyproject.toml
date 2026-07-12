@@ -1,0 +1,105 @@
+[project]
+name = "bioteam-ai"
+version = "0.1.0"
+description = "Defensible manuscript copilot for biology research"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [
+    { name = "JangKeun Kim" },
+]
+keywords = [
+    "biology", "multi-agent", "research-automation", "literature-review",
+    "peer-review", "contradiction-detection", "evidence-scoring", "bioinformatics",
+]
+dependencies = [
+    "anthropic>=0.79.0",
+    "instructor>=1.14.0",
+    "fastapi[standard]>=0.129.0",
+    "uvicorn[standard]>=0.41.0",
+    "sse-starlette>=3.2.0",
+    "chromadb>=1.5.0",
+    "langfuse>=3.14.0",
+    "biopython>=1.86",
+    "semanticscholar>=0.11.0",
+    "alembic>=1.18.0",
+    "sqlmodel>=0.0.34",
+    "httpx>=0.28.0",
+    "aiohttp>=3.13.0",
+    "python-dotenv>=1.2.0",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.13.0",
+    "PyYAML>=6.0.0",
+    "arxiv>=2.1.0",
+    "aiosmtplib>=3.0.0",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
+    "scipy>=1.12.0",
+    "Pillow>=11.0.0",
+    "imagehash>=4.3.0",
+    "pymupdf>=1.25.0",
+    "python-docx>=1.2.0",
+    "google-genai>=1.65.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jang1563/bioteam-ai"
+Repository = "https://github.com/jang1563/bioteam-ai"
+Documentation = "https://jang1563.github.io/bioteam-ai/"
+"Bug Tracker" = "https://github.com/jang1563/bioteam-ai/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.11.0",
+]
+benchmarks = [
+    # Required only for GRIM cross-validation benchmark
+    "pysprite>=0.1.0",
+    # Required only for statcheck comparison benchmark
+    "pandas>=2.0.0",
+    "statcheck>=0.0.7",
+]
+bioinfo_apis = [
+    # Required only for GO/pathway enrichment (Phase 3)
+    "gprofiler-official>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+override-dependencies = [
+    "onnxruntime==1.24.4; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/app"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+markers = [
+    "integration: marks tests as requiring network access (deselect with -m 'not integration')",
+    "benchmark_slow: marks benchmark tests that require external APIs or long runtime",
+    "benchmark: marks benchmark-oriented tests that are excluded from the default CI path",
+]
+
+[tool.pytest-asyncio]
+mode = "auto"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501", "N806", "E402"]
+
+[tool.ruff.lint.per-file-ignores]
+# One-letter labels are common in the retained corpus-building research scripts.
+"backend/scripts/*.py" = ["E741"]
+# Tests intentionally alias many concrete response classes to a shared role.
+"backend/tests/test_agents/test_mcp_activation.py" = ["N813"]
+"backend/tests/test_agents/test_ptc_activation.py" = ["N813"]

@@ -1,0 +1,38 @@
+# Agent Spec: Scientific Communication (Team 8)
+# Scientific writing, audience adaptation, document structuring.
+
+id: t08_scicomm
+name: Scientific Communication Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: translation
+criticality: optional
+
+system_prompt_file: t08_scicomm.md
+
+output_schemas:
+  - SciCommResult
+
+tools:
+  - draft_document         # Draft scientific documents
+  - adapt_audience         # Adapt content for target audiences
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Write a lay summary of our spaceflight anemia findings for NASA outreach"
+    expected: "Draft a plain-language summary highlighting key findings, health implications, and mission relevance"
+  - input: "Structure an abstract for our cfRNA biomarker paper"
+    expected: "Produce a structured abstract with Background, Methods, Results, Conclusions sections and key messages"
+
+failure_modes:
+  - "Jargon leakage into lay summaries — mitigated by readability checks"
+  - "Over-simplification losing scientific accuracy — mitigated by key message validation"
+  - "Missing journal-specific formatting — mitigated by document type templates"
+
+degradation_mode: null
+
+version: "0.1.0"

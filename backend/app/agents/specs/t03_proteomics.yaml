@@ -1,0 +1,38 @@
+# Agent Spec: Proteomics & Metabolomics (Team 3)
+# Mass spectrometry, protein quantification, metabolite profiling.
+
+id: t03_proteomics
+name: Proteomics Agent
+tier: domain_expert
+model_tier: sonnet
+model_tier_secondary: null
+division: wet_to_dry
+criticality: optional
+
+system_prompt_file: t03_proteomics.md
+
+output_schemas:
+  - ProteomicsAnalysisResult
+
+tools:
+  - analyze_proteomics        # Protein identification and quantification
+  - analyze_metabolomics      # Metabolite profiling and pathway mapping
+
+mcp_access: []
+
+literature_access: false     # Delegates to Knowledge Manager
+
+few_shot_examples:
+  - input: "Which proteins are differentially abundant in astronaut plasma after long-duration spaceflight?"
+    expected: "Query proteomics datasets, perform differential abundance analysis, report fold-change and FDR"
+  - input: "Map metabolite changes in spaceflight urine samples to KEGG pathways"
+    expected: "Identify significantly altered metabolites, perform pathway enrichment, report impact scores"
+
+failure_modes:
+  - "Protein ID ambiguity from shared peptides — mitigated by protein grouping and razor peptide assignment"
+  - "Metabolite misidentification from MS1-only data — mitigated by requiring MS2 confirmation"
+  - "Batch effects in multi-run experiments — mitigated by reference channel normalization"
+
+degradation_mode: t02_transcriptomics
+
+version: "0.1.0"

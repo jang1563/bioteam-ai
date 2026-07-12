@@ -1,0 +1,964 @@
+// TypeScript types matching backend API models
+
+// === Agent Types ===
+
+export type AgentTier = "strategic" | "domain_expert" | "qa" | "engine";
+export type ModelTier = "opus" | "sonnet" | "haiku";
+export type AgentState = "idle" | "busy" | "unavailable" | "unknown";
+
+export interface AgentListItem {
+  id: string;
+  name: string;
+  tier: AgentTier;
+  model_tier: ModelTier;
+  criticality: "critical" | "optional";
+  state: AgentState;
+  total_calls: number;
+  total_cost: number;
+  consecutive_failures: number;
+}
+
+export interface AgentDetail extends AgentListItem {
+  model_tier_secondary: ModelTier | null;
+  division: string | null;
+  tools: string[];
+  mcp_access: string[];
+  literature_access: boolean;
+  version: string;
+}
+
+// === Agent Query & History Types ===
+
+export interface AgentQueryRequest {
+  query: string;
+  context?: string;
+}
+
+export interface AgentQueryResponse {
+  agent_id: string;
+  answer: string;
+  cost: number;
+  duration_ms: number;
+}
+
+export interface AgentHistoryEntry {
+  timestamp: string;
+  workflow_id: string | null;
+  step_id: string | null;
+  cost: number;
+  duration_ms: number;
+  success: boolean;
+  summary: string;
+}
+
+export interface AgentHistoryResponse {
+  agent_id: string;
+  entries: AgentHistoryEntry[];
+  total_count: number;
+  total_cost: number;
+}
+
+// === Workflow Types ===
+
+export type WorkflowState =
+  | "PENDING"
+  | "RUNNING"
+  | "PAUSED"
+  | "WAITING_HUMAN"
+  | "WAITING_DIRECTION"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+  | "OVER_BUDGET";
+
+export type WorkflowTemplate = "direct_query" | "W1" | "W2" | "W3" | "W4" | "W5" | "W6" | "W7" | "W8" | "W9" | "W10" | "W11";
+
+export interface WorkflowStatus {
+  id: string;
+  template: string;
+  query: string;
+  state: WorkflowState;
+  current_step: string;
+  step_history: StepHistoryEntry[];
+  budget_total: number;
+  budget_remaining: number;
+  loop_count: Record<string, number>;
+  session_manifest: Record<string, unknown>;
+  citation_report: CitationReport;
+  rcmxt_scores: RCMXTScore[];
+  created_at?: string;
+}
+
+// === Tier 1: Reproducibility & Evidence Scoring ===
+
+export interface RCMXTScore {
+  claim: string;
+  R: number;
+  C: number;
+  M: number;
+  X: number | null;
+  T: number;
+  composite: number | null;
+  sources: string[];
+  scorer_version: string;
+  model_version: string;
+}
+
+export interface CitationIssue {
+  type: "unverified" | "hallucinated" | "missing_doi";
+  citation: string;
+  detail: string;
+}
+
+export interface CitationReport {
+  total_citations: number;
+  verified: number;
+  unverified: number;
+  verification_rate: number;
+  is_clean: boolean;
+  issues: CitationIssue[];
+}
+
+export interface StepHistoryEntry {
+  step_id?: string;
+  agent_id?: string;
+  status?: string;
+  completed_at?: string;
+  result_summary?: string;
+  result_data?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface CreateWorkflowRequest {
+  template: string;
+  query: string;
+  budget?: number;
+  seed_papers?: string[];
+  pdf_path?: string;  // W8: path to paper PDF/DOCX
+  story_frame_workflow_id?: string;  // W4: link to completed W11 story planning workflow
+}
+
+// === W11 Story Frame Types ===
+
+export type NarrativeType =
+  | "mechanism_discovery"
+  | "paradigm_challenge"
+  | "clinical_implication"
+  | "field_bridge"
+  | "negative_reframe"
+  | "method_breakthrough";
+
+export interface StoryFrame {
+  frame_id: string;
+  narrative_type: NarrativeType;
+  hook: string;
+  central_tension: string;
+  core_claim: string;
+  supporting_findings: string[];
+  figure_sequence: string[];
+  target_tier: string;
+  novelty_rationale: string;
+  blind_spots: string[];
+  impact_score: number;
+  version: number;
+  provenance: "llm" | "synthetic_fallback";
+}
+
+export interface StoryFrameSet {
+  frames: StoryFrame[];
+  selected_frame_id: string | null;
+  generation_context: string;
+  generation_mode: "llm" | "synthetic_fallback";
+  fallback_reason: string | null;
+}
+
+export interface ManuscriptFallbackFlag {
+  stage: string;
+  detail: string;
+  source_workflow_id?: string | null;
+  provenance: string;
+}
+
+export interface ManuscriptStageStatus {
+  stage: string;
+  status: "not_started" | "running" | "waiting_human" | "ready" | "failed" | "partial";
+  detail: string;
+  source_workflow_id?: string | null;
+}
+
+export interface ManuscriptClaimEvidence {
+  claim_text: string;
+  composite_score: number | null;
+  axis_scores: Record<string, number | null>;
+  supporting_sources: string[];
+  rcmxt_summary: string;
+  risk_level: "low" | "medium" | "high";
+  integrity_notes: string[];
+  reviewer_notes: string[];
+  generated_by: string;
+}
+
+export interface ManuscriptReviewerRisk {
+  title: string;
+  severity: "low" | "medium" | "high";
+  section: string;
+  detail: string;
+  evidence_basis: string;
+  generated_by: string;
+}
+
+export interface ManuscriptIntegrityFlag {
+  title: string;
+  severity: string;
+  category: string;
+  detail: string;
+  suggestion: string;
+  status: string;
+  generated_by: string;
+}
+
+export interface ManuscriptReportRunMetadata {
+  workflow_id?: string | null;
+  workflow_template: string;
+  workflow_state: string;
+  generated_at?: string | null;
+  report_version: string;
+  source_count: number;
+}
+
+export interface ReviewerRiskReport {
+  report_type: "ReviewerRiskReport";
+  version: "v1";
+  maturity: "validated_core";
+  summary: string;
+  findings: ManuscriptReviewerRisk[];
+  evidence_provenance: string[];
+  confidence_or_coverage: string;
+  run_metadata: ManuscriptReportRunMetadata;
+}
+
+export interface IntegrityAuditReport {
+  report_type: "IntegrityAuditReport";
+  version: "v1";
+  maturity: "validated_core" | "guided_support";
+  summary: string;
+  findings: ManuscriptIntegrityFlag[];
+  evidence_provenance: string[];
+  confidence_or_coverage: string;
+  run_metadata: ManuscriptReportRunMetadata;
+}
+
+export interface ManuscriptOutlineSection {
+  title: string;
+  bullets: string[];
+  generated_by: string;
+}
+
+export interface ManuscriptSession {
+  id: string;
+  title: string;
+  query: string;
+  notes: string;
+  draft_text: string;
+  target_journal?: string | null;
+  key_papers: string[];
+  phase: string;
+  selected_frame_id?: string | null;
+  completion_state: string;
+  linked_workflows: Record<string, string>;
+  stage_statuses: ManuscriptStageStatus[];
+  fallback_flags: ManuscriptFallbackFlag[];
+  frame_options: StoryFrame[];
+  selected_frame?: StoryFrame | null;
+  claim_map: ManuscriptClaimEvidence[];
+  reviewer_risks: ManuscriptReviewerRisk[];
+  reviewer_risk_report?: ReviewerRiskReport | null;
+  integrity_flags: ManuscriptIntegrityFlag[];
+  integrity_audit_report?: IntegrityAuditReport | null;
+  outline: ManuscriptOutlineSection[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ManuscriptDefenseBrief {
+  session_id: string;
+  title: string;
+  filename: string;
+  markdown: string;
+}
+
+export interface ManuscriptDefenseBriefPrint {
+  session_id: string;
+  title: string;
+  filename: string;
+  html: string;
+}
+
+export interface ManuscriptDefenseBriefDocx {
+  session_id: string;
+  title: string;
+  filename: string;
+  mime_type: string;
+  content_base64: string;
+}
+
+export interface CreateManuscriptSessionRequest {
+  title?: string;
+  query: string;
+  notes?: string;
+  draft_text?: string;
+  target_journal?: string;
+  key_papers?: string[];
+}
+
+export interface LinkManuscriptWorkflowRequest {
+  workflow_id: string;
+}
+
+export interface SelectManuscriptFrameRequest {
+  frame_id: string;
+}
+
+export interface ApproveManuscriptStoryScopeRequest {
+  target_tier: "nature_cell" | "specialty" | "grant";
+}
+
+export interface RunManuscriptReviewerRisksRequest {
+  pdf_path: string;
+}
+
+export interface NarrativeDriftReport {
+  section_id: string;
+  consistency_score: number;
+  drift_summary: string | null;
+  recommendation: "on_track" | "minor_drift" | "major_drift";
+  specific_divergences: string[];
+}
+
+export interface CreateWorkflowResponse {
+  workflow_id: string;
+  template: string;
+  state: string;
+  query: string;
+}
+
+export interface StepCheckpoint {
+  step_id: string;
+  status: string;
+  agent_results: Record<string, unknown>[];
+}
+
+export type InterveneAction = "pause" | "resume" | "cancel" | "inject_note";
+export type NoteAction = "ADD_PAPER" | "EXCLUDE_PAPER" | "MODIFY_QUERY" | "EDIT_TEXT" | "FREE_TEXT";
+
+export interface InterveneRequest {
+  action: InterveneAction;
+  note?: string;
+  note_action?: NoteAction;
+}
+
+// === Resume / Intervention API (resume.py) ===
+
+export interface ResumeRequest {
+  budget_top_up?: number;
+}
+
+export interface ResumeResponse {
+  workflow_id: string;
+  new_state: string;
+  budget_remaining: number;
+  detail?: string;
+}
+
+export interface DirectionResponseRequest {
+  response: string; // "continue" | "focus:GENE1,GENE2" | "skip_X" | "adjust:<text>"
+}
+
+export interface StepInjectRequest {
+  result: Record<string, unknown>;
+  reason: string;
+}
+
+export interface StepActionResponse {
+  workflow_id: string;
+  step_id: string;
+  action: string;
+  new_state?: string;
+  detail?: string;
+}
+
+export interface InterveneResponse {
+  workflow_id: string;
+  action: string;
+  new_state: string;
+  detail: string;
+}
+
+// === Negative Results (Lab KB) Types ===
+
+export type NRSource = "internal" | "clinical_trial" | "shadow" | "preprint_delta";
+export type FailureCategory = "protocol" | "reagent" | "analysis" | "biological" | "";
+export type VerificationStatus = "unverified" | "confirmed" | "rejected" | "ambiguous";
+
+export interface NegativeResult {
+  id: string;
+  claim: string;
+  outcome: string;
+  source: NRSource;
+  confidence: number;
+  failure_category: FailureCategory;
+  conditions: Record<string, unknown>;
+  implications: string[];
+  organism: string | null;
+  source_id: string | null;
+  created_at: string;
+  created_by: string;
+  verified_by: string | null;
+  verification_status: VerificationStatus;
+}
+
+export interface CreateNegativeResultRequest {
+  claim: string;
+  outcome: string;
+  source: NRSource;
+  confidence?: number;
+  failure_category?: FailureCategory;
+  conditions?: Record<string, unknown>;
+  implications?: string[];
+  organism?: string;
+  source_id?: string;
+}
+
+export interface UpdateNegativeResultRequest {
+  claim?: string;
+  outcome?: string;
+  source?: NRSource;
+  confidence?: number;
+  failure_category?: FailureCategory;
+  conditions?: Record<string, unknown>;
+  implications?: string[];
+  organism?: string;
+  source_id?: string;
+  verification_status?: VerificationStatus;
+  verified_by?: string;
+}
+
+// === Semantic Memory Types ===
+
+export interface MemorySearchResult {
+  id: string;
+  text: string;
+  collection: string;
+  similarity: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface MemorySearchResponse {
+  query: string;
+  collection: string;
+  results: MemorySearchResult[];
+  total: number;
+}
+
+export interface CollectionStats {
+  name: string;
+  count: number;
+}
+
+export interface MemoryStatsResponse {
+  collections: CollectionStats[];
+  total_documents: number;
+}
+
+// === Direct Query Types ===
+
+export interface DirectQueryRequest {
+  query: string;
+  conversation_id?: string | null;
+  seed_papers?: string[];
+}
+
+export interface DirectQueryResponse {
+  query: string;
+  classification_type: "simple_query" | "needs_workflow";
+  classification_reasoning: string;
+  target_agent: string | null;
+  workflow_type: string | null;
+  routed_agent: string | null;
+  conversation_id: string | null;
+  answer: string | null;
+  sources: Record<string, unknown>[];
+  memory_context: Record<string, unknown>[];
+  total_cost: number;
+  total_tokens: number;
+  model_versions: string[];
+  duration_ms: number;
+  timestamp: string;
+}
+
+// === Conversation Types ===
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  total_cost: number;
+  turn_count: number;
+}
+
+export interface ConversationTurn {
+  id: string;
+  turn_number: number;
+  query: string;
+  classification_type: string;
+  routed_agent: string | null;
+  answer: string | null;
+  sources: Record<string, unknown>[];
+  ungrounded_citations?: string[];
+  cost: number;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  total_cost: number;
+  turn_count: number;
+  turns: ConversationTurn[];
+}
+
+// === Direct Query Streaming Types ===
+
+export type StreamStatus = "idle" | "classifying" | "retrieving" | "streaming" | "done" | "error";
+
+export interface StreamClassification {
+  type: "simple_query" | "needs_workflow";
+  reasoning: string;
+  target_agent: string | null;
+  workflow_type: string | null;
+}
+
+export interface StreamDoneData {
+  classification_type?: string;
+  target_agent?: string | null;
+  workflow_type?: string | null;
+  routed_agent: string | null;
+  conversation_id?: string | null;
+  answer?: string | null;
+  ungrounded_citations?: string[];
+  total_cost: number;
+  total_tokens: number;
+  model_versions: string[];
+  duration_ms: number;
+  sources: Record<string, unknown>[];
+}
+
+// === SSE Types ===
+
+export interface SSEEvent {
+  event_type: string;
+  workflow_id: string | null;
+  step_id: string | null;
+  agent_id: string | null;
+  payload: Record<string, unknown>;
+  timestamp: string | null;
+}
+
+// === Cold Start Types ===
+
+export interface ColdStartRequest {
+  seed_queries?: string[];
+  pubmed_max_results?: number;
+  s2_limit?: number;
+  run_smoke_test?: boolean;
+}
+
+export interface SeedStepResult {
+  source: string;
+  query: string;
+  papers_fetched: number;
+  papers_stored: number;
+  papers_skipped: number;
+  errors: string[];
+}
+
+export interface SmokeCheckResult {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface ColdStartResponse {
+  mode: "full" | "quick";
+  success: boolean;
+  seed_results: SeedStepResult[];
+  smoke_checks: SmokeCheckResult[];
+  collection_counts: Record<string, number>;
+  total_papers_stored: number;
+  duration_ms: number;
+  timestamp: string;
+  message: string;
+}
+
+export interface ColdStartStatus {
+  is_initialized: boolean;
+  agents_registered: number;
+  critical_agents_healthy: boolean;
+  collection_counts: Record<string, number>;
+  total_documents: number;
+  has_literature: boolean;
+  has_lab_kb: boolean;
+  timestamp: string;
+}
+
+// === Research Digest Types ===
+
+export type DigestSchedule = "daily" | "weekly" | "manual";
+
+export interface TopicScheduleInfo {
+  topic_id: string;
+  name: string;
+  schedule: DigestSchedule;
+  is_active: boolean;
+  last_run_at: string | null;   // ISO-8601 UTC
+  next_run_at: string | null;   // ISO-8601 UTC
+  minutes_until_next: number | null;
+  overdue: boolean;
+}
+
+export interface SchedulerStatus {
+  enabled: boolean;
+  running: boolean;
+  check_interval_minutes: number;
+  topics: TopicScheduleInfo[];
+}
+export type DigestSource = "pubmed" | "biorxiv" | "arxiv" | "github" | "huggingface" | "semantic_scholar";
+
+export interface TopicProfile {
+  id: string;
+  name: string;
+  queries: string[];
+  sources: DigestSource[];
+  categories: Record<string, string[]>;
+  schedule: DigestSchedule;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTopicRequest {
+  name: string;
+  queries: string[];
+  sources?: DigestSource[];
+  categories?: Record<string, string[]>;
+  schedule?: DigestSchedule;
+}
+
+export interface UpdateTopicRequest {
+  name?: string;
+  queries?: string[];
+  sources?: DigestSource[];
+  categories?: Record<string, string[]>;
+  schedule?: DigestSchedule;
+  is_active?: boolean;
+}
+
+export interface DigestEntry {
+  id: string;
+  topic_id: string;
+  source: DigestSource | "github";
+  external_id: string;
+  title: string;
+  authors: string[];
+  abstract: string;
+  url: string;
+  metadata_extra: Record<string, unknown>;
+  relevance_score: number;
+  fetched_at: string;
+  published_at: string;
+}
+
+export interface DigestHighlight {
+  title: string;
+  source: string;
+  one_liner: string;
+  why_important?: string;
+  url?: string;
+}
+
+export interface DigestReport {
+  id: string;
+  topic_id: string;
+  period_start: string;
+  period_end: string;
+  entry_count: number;
+  summary: string;
+  highlights: DigestHighlight[];
+  source_breakdown: Record<string, number>;
+  cost: number;
+  created_at: string;
+}
+
+export interface DigestStats {
+  total_topics: number;
+  total_entries: number;
+  total_reports: number;
+  entries_by_source: Record<string, number>;
+}
+
+// === Data Integrity Audit Types ===
+
+export type IntegritySeverity = "info" | "warning" | "error" | "critical";
+export type IntegrityCategory =
+  | "gene_name_error"
+  | "statistical_inconsistency"
+  | "retracted_reference"
+  | "corrected_reference"
+  | "pubpeer_flagged"
+  | "metadata_error"
+  | "sample_size_mismatch"
+  | "genome_build_inconsistency"
+  | "p_value_mismatch"
+  | "benford_anomaly"
+  | "grim_failure"
+  | "grimmer_sd_failure"
+  | "grimmer_percent_failure"
+  | "duplicate_image"
+  | "image_manipulation"
+  | "image_metadata_anomaly"
+  | "image_quality_issue";
+export type FindingStatus = "open" | "acknowledged" | "resolved" | "false_positive";
+
+export interface AuditFinding {
+  id: string;
+  category: IntegrityCategory;
+  severity: IntegritySeverity;
+  title: string;
+  description: string;
+  source_text: string;
+  suggestion: string;
+  confidence: number;
+  checker: string;
+  finding_metadata: Record<string, unknown>;
+  workflow_id: string | null;
+  paper_doi: string | null;
+  paper_pmid: string | null;
+  status: FindingStatus;
+  resolved_by: string | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+  is_deterministic: boolean;
+  provenance: "checker" | "llm_contextualize" | "hybrid";
+  original_confidence: number | null;
+}
+
+export interface UpdateFindingRequest {
+  status?: FindingStatus;
+  resolved_by?: string;
+  resolution_note?: string;
+}
+
+export interface TriggerAuditRequest {
+  text: string;
+  dois?: string[];
+  use_llm?: boolean;
+}
+
+export interface AuditRun {
+  id: string;
+  workflow_id: string | null;
+  trigger: string;
+  total_findings: number;
+  findings_by_severity: Record<string, number>;
+  findings_by_category: Record<string, number>;
+  overall_level: string;
+  summary: string;
+  cost: number;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface IntegrityStats {
+  total_findings: number;
+  findings_by_severity: Record<string, number>;
+  findings_by_category: Record<string, number>;
+  findings_by_status: Record<string, number>;
+  total_runs: number;
+  average_findings_per_run: number;
+}
+
+// === Health ===
+
+export interface HealthCheck {
+  status: string;
+  detail: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  version: string;
+  checks: Record<string, HealthCheck>;
+  dependencies: Record<string, string>;
+  timestamp: string;
+}
+
+// === Phase 2 Panel Types ===
+
+export type ContradictionType =
+  | "conditional_truth"
+  | "technical_artifact"
+  | "interpretive_framing"
+  | "statistical_noise"
+  | "temporal_dynamics"
+  | "unknown";
+
+export interface ContradictionEntry {
+  id: string;
+  types: ContradictionType[];
+  description: string;
+  claim_a: string;
+  claim_b: string;
+  source_a: string;
+  source_b: string;
+  workflow_id: string | null;
+  detected_at: string;
+  resolution_hypothesis: string | null;
+  rcmxt_claim_a: RCMXTScore | null;
+  rcmxt_claim_b: RCMXTScore | null;
+}
+
+export interface ContradictionListResponse {
+  contradictions: ContradictionEntry[];
+  total: number;
+}
+
+export interface WorkflowSummary {
+  id: string;
+  template: string;
+  query: string;
+  state: WorkflowState;
+  rcmxt_scores: RCMXTScore[];
+  completed_at: string | null;
+  budget_used: number;
+}
+
+// === Benchmark Types ===
+
+export type BenchmarkType = "w9_bioinfo" | "w8_peer_review";
+
+export interface W9BenchmarkResult {
+  dataset_id: string;
+  run_id: string;
+  template: string;
+  cost_mode: string;
+  fair_mode?: boolean;
+  benchmark_type: "w9_bioinfo";
+  gene_recall: number;
+  gene_precision: number;
+  gene_f1: number;
+  gene_jaccard: number;
+  pathway_overlap: number;
+  direction_accuracy: number;
+  fc_correlation: number;
+  biology_score: number;
+  bioagent_score: number;
+  total_cost_usd: number;
+  runtime_seconds: number;
+  timestamp: string;
+  external_benchmark?: string;
+  native_scores?: Record<string, unknown>;
+}
+
+export interface W8BenchmarkArticle {
+  article_id: string;
+  source: string;
+  human_concerns_total: number;
+  human_major_concerns: number;
+  w8_decision: string | null;
+  gt_decision: string | null;
+  decision_match: boolean | null;
+  major_concern_recall: number | null;
+  overall_concern_recall: number | null;
+  concern_precision: number | null;
+}
+
+export interface W8BenchmarkAggregate {
+  article_count: number;
+  overall_concern_recall_avg: number | null;
+  major_concern_recall_avg: number | null;
+  concern_precision_avg: number | null;
+  decision_accuracy: number | null;
+}
+
+export interface W8BenchmarkRun {
+  run_id: string;
+  schema_version: string;
+  corpus_version?: string;
+  label: string;
+  source: string;
+  benchmark_type: "w8_peer_review";
+  created_at: string;
+  config: Record<string, unknown>;
+  aggregate: W8BenchmarkAggregate;
+  articles: W8BenchmarkArticle[];
+}
+
+export interface BenchmarkDatasetInfo {
+  id: string;
+  name: string;
+  data_type: string;
+  confidence: string;
+  is_query_only: boolean;
+  benchmark_type: string;
+  expected_gene_count: number;
+  expected_pathway_count: number;
+}
+
+export interface BenchmarkTrendPoint {
+  run_id: string;
+  dataset_id: string;
+  timestamp: string;
+  value: number;
+}
+
+export interface BenchmarkComparison {
+  run_a_id: string;
+  run_b_id: string;
+  dataset_id: string;
+  metric_deltas: Record<string, number>;
+  regression_detected: boolean;
+  regression_metrics: string[];
+  improvement_metrics: string[];
+  confidence_intervals?: Record<string, [number, number]>;
+  n_bootstrap_samples?: number;
+  statistically_significant?: Record<string, boolean>;
+}
+
+export interface BenchmarkConfig {
+  w8: {
+    similarity_threshold: number;
+    token_cosine_threshold: number;
+    match_mode: string;
+    corpus_version: string;
+  };
+  w9: {
+    regression_threshold: number;
+    default_budget: number;
+    bioagent_weights: Record<string, number>;
+  };
+}
+
+export interface BenchmarkActiveStatus {
+  run_id?: string;
+  status: string;
+  dataset_id?: string;
+  suite_id?: string;
+  fair?: boolean;
+  started_at?: string;
+  message?: string;
+}

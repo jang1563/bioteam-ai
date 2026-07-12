@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0",
+  "label": "pilot",
+  "source": "pilot",
+  "created_at": "2026-03-11T02:51:51.081692Z",
+  "config": {
+    "source": "pilot",
+    "max_articles": 5,
+    "article_ids": [
+      "00969",
+      "83069"
+    ],
+    "run_w8": false,
+    "budget": 3.0,
+    "use_llm": false,
+    "match_mode": "token_cosine",
+    "similarity_threshold": 0.05
+  },
+  "aggregate": {
+    "article_count": 2,
+    "overall_concern_recall_avg": 0.8,
+    "major_concern_recall_avg": null,
+    "concern_precision_avg": 0.4111111111111111,
+    "decision_accuracy": null,
+    "articles_with_decision": 0,
+    "articles_with_precision": 2,
+    "articles_with_recall": 2
+  },
+  "articles": [
+    {
+      "article_id": "00969",
+      "source": "pilot",
+      "human_concerns_total": 5,
+      "human_major_concerns": 0,
+      "w8_decision": "minor_revision",
+      "gt_decision": null,
+      "decision_match": null,
+      "major_concern_recall": null,
+      "overall_concern_recall": 0.6,
+      "concern_precision": 0.26666666666666666,
+      "human_matched": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "human_missed": [
+        "H4",
+        "H5"
+      ],
+      "w8_concerns_matched": [
+        "The acute UV mouse experiment (Figure 4F-G) uses only n=3 pairs, and the reported p-value (<10⁻⁵) appears to be based on counting individual apoptotic cells per mm of skin rather than using the mouse as the unit of analysis. If cell counts within each mouse are treated as independent observations, this constitutes pseudoreplication. The authors should clarify the statistical unit, report animal-level means with appropriate n=3 statistics, or justify the analytical approach used.",
+        "The ZAK T82Q overexpression rescue experiment (Figure 3G) is a key piece of evidence, but transfection efficiency was estimated at only 70-80% using a separate GFP construct rather than the ZAK construct itself. This means 20-30% of cells are untransfected and could dilute the observed rescue effect. The authors should acknowledge this limitation and consider whether the true rescue in transfected cells may be even more complete than the 76.9% reported.",
+        "Two different UV sources are used across experiments (FS40 sunlamp for in vitro, Oriel solar simulator for in vivo) with different spectral outputs. The FS40 is predominantly UVB while solar simulators have broader spectra including UVA. This difference should be acknowledged and its potential impact on the comparability of in vitro and in vivo results discussed.",
+        "The estimate that JNK inhibition contributes 17.6-40% of PLX4720-accelerated colony formation is derived from two different experimental systems (Craf-/- MEFs and HaCaT colony assays) that give substantially different values. The authors should discuss why these estimates diverge and which system is more likely to reflect the clinical situation. A more nuanced discussion of the relative contributions of paradoxical ERK activation vs. JNK suppression in different cellular contexts would strengthen the paper."
+      ],
+      "w8_concerns_unmatched": [
+        "The statistical framework is insufficient for the scope of comparisons made. Student's t-tests are used throughout, including in experiments with multiple groups (e.g., Figure 3D with SCR, shZAK2, TKD, and drug-treated conditions; Figure 6D-E with multiple dose groups) where ANOVA with appropriate post-hoc tests is required. Furthermore, no correction for multiple testing is applied despite dozens of pairwise comparisons across the paper. The authors should re-analyze multi-group experiments with ANOVA and apply FDR or Bonferroni correction where multiple endpoints or conditions are compared, and report which specific comparisons survive correction.",
+        "Western blot data are presented as representative images without densitometric quantification, yet strong claims of 'significant suppression' of phospho-JNK, phospho-MKK4/7, NOXA, and other proteins are made based on visual inspection. Given that Western blots are a primary readout for the JNK pathway suppression mechanism (Figures 1F-G, 2D-E, 2H-I, 3E-F), quantitative densitometry across biological replicates with statistical analysis should be provided, ideally as bar graphs with individual data points.",
+        "The human cSCC specimen comparison (n=15 sporadic vs. n=16 vemurafenib-associated, Figure 4A-E) is cross-sectional and lacks control for critical confounders including patient age, cumulative UV exposure history, anatomic site, tumor differentiation grade, and time from last vemurafenib dose to biopsy. These factors could independently affect phospho-JNK and cleaved caspase-3 levels. The modest p-values (0.013 and 0.042) would not survive multiple testing correction. The authors should provide a table of patient/tumor characteristics for both groups and discuss these confounders explicitly.",
+        "No blinding is described for any quantitative assessment in the study, including IHC scoring of human and mouse specimens, apoptotic cell counting in mouse skin sections, and colony counting in soft agar assays. The authors should state whether assessments were performed blinded to treatment group and, if not, acknowledge this as a limitation.",
+        "The relationship between the 1 μM in vitro drug concentration used throughout and physiologically relevant tissue concentrations is not discussed. Vemurafenib achieves mean serum levels of ~86 μM in patients at standard dosing, but epidermal tissue penetration is unknown. The authors should discuss whether 1 μM is likely to underestimate or overestimate the drug concentration experienced by keratinocytes in vivo, and whether the biochemical IC50 values for ZAK (187 nM), MKK4 (460 nM), and MAP4K5 (354 nM) fall within the expected tissue concentration range.",
+        "Several claims are supported by 'data not shown' (e.g., vemurafenib effects similar to PLX4720; expression of PUMA, BAX, BCL2, BCL-XL, BCL2A1). These data should be included as supplementary figures to allow independent verification, consistent with current standards for data transparency.",
+        "The Hairless mouse chronic experiment delivers PLX4720 via drug-impregnated chow, but actual drug intake per mouse is not reported. Food consumption monitoring and resulting estimated daily drug doses should be provided to allow assessment of whether pharmacologically relevant drug levels were achieved.",
+        "The novelty assessment identified several landmark papers that could strengthen the contextual framing, including Su et al. (Cell 2012) on RAS mutations in RAF inhibitor-induced secondary tumors. A more explicit comparison between the RAS-mutation-driven model and the apoptosis-suppression model presented here—and discussion of whether these mechanisms are mutually exclusive or synergistic—would enhance the Discussion.",
+        "Raw data availability is not mentioned. The authors should deposit flow cytometry data, kinase assay dose-response data, and IHC quantification data in appropriate public repositories to facilitate reproducibility, consistent with FAIR data principles and eLife's data sharing policies.",
+        "The finding that no Ras mutations were detected in PLX4720-treated Hairless mouse tumors is presented as evidence against the RAS-mutation-driven model of cSCC. However, was whole-exome or targeted sequencing performed to identify other potential driver mutations? Could non-RAS oncogenic events (e.g., TP53 mutations, which are common in UV-driven cSCC) be contributing to tumor development in this model?",
+        "For the kinase profiling experiments, 38 kinases were tested based on known JNK pathway involvement. Was a broader unbiased kinome-wide screen (e.g., full KINOMEscan panel of 400+ kinases) performed to identify additional off-targets that might contribute to the phenotype? The selection of 38 candidates based on pathway knowledge could miss important off-targets outside the canonical JNK pathway."
+      ]
+    },
+    {
+      "article_id": "83069",
+      "source": "pilot",
+      "human_concerns_total": 15,
+      "human_major_concerns": 0,
+      "w8_decision": "major_revision",
+      "gt_decision": null,
+      "decision_match": null,
+      "major_concern_recall": null,
+      "overall_concern_recall": 1.0,
+      "concern_precision": 0.5555555555555556,
+      "human_matched": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "H8",
+        "H9",
+        "H10",
+        "H11",
+        "H12",
+        "H13",
+        "H14",
+        "H15"
+      ],
+      "human_missed": [],
+      "w8_concerns_matched": [
+        "The central experimental design confounds Apoe−/− genotype, high-fat diet, and obesity. Apoe−/− mice on high-fat diet are compared to C57BL/6 mice on standard diet, making it impossible to attribute observed differences to obesity per se. Critically, ApoE is a well-established bridging molecule for efferocytosis (Grainger et al., 2004; Yurdagul et al., 2020), meaning Apoe−/− macrophages have intrinsically impaired phagocytic clearance independent of GAS6 or obesity. This directly undermines the central claim that GAS6 reduction via M1 polarization is the primary mechanism of impaired efferocytosis. Essential additional controls include: (1) C57BL/6 on high-fat diet (diet-induced obesity without ApoE deficiency), and (2) Apoe−/− on standard diet (ApoE deficiency without obesity). Without these, the mechanistic attribution to obesity-driven GAS6 reduction is not justified.",
+        "The human clinical samples have a ~30-year age difference between non-OA controls (~34 years) and OA groups (~64 years). Age is a major independent risk factor for synovitis severity, macrophage dysfunction, and impaired efferocytosis. This confound is not discussed, statistically adjusted for, or acknowledged as a limitation. The observed differences in macrophage polarization, GAS6 expression, and apoptotic cell accumulation between groups may be partially or wholly attributable to age rather than obesity or OA status.",
+        "The paper does not discuss or cite the well-established role of ApoE as an opsonin and bridging molecule in efferocytosis. This is a critical omission because the entire mechanistic framework attributes impaired efferocytosis to reduced GAS6, while the Apoe−/− genotype itself provides an alternative (and well-documented) explanation for the efferocytosis defect. The Discussion should explicitly address this confound and explain why the authors believe GAS6 reduction, rather than ApoE deficiency, is the primary driver of impaired efferocytosis in their model.",
+        "Several critical methodological details are missing that prevent reproducibility: (1) LPS concentration for M1 polarization induction is not specified. (2) Flow cytometry gating strategy for efferocytosis quantification is not described (no mention of gating on macrophage population, doublet exclusion, or CFSE positivity threshold). (3) BMDM differentiation protocol is not described (M-CSF concentration, duration, purity assessment). (4) Image quantification methodology for immunofluorescence staining is not described (software, thresholding criteria, number of fields, blinding). (5) R428 dose, frequency, and duration for in vivo intra-articular injection are not specified. (6) Co-culture conditions for the BMDM + apoptotic cell supernatant experiment are not detailed.",
+        "No sham-operated control group is explicitly described for either genotype. Standard DMM studies include sham surgery (arthrotomy without meniscal destabilization) to control for surgical trauma effects. Without sham controls, it is unclear whether the baseline inflammatory state in Apoe−/− mice is elevated independent of OA induction.",
+        "The GAS6 rescue experiment (intra-articular injection) was performed in Apoe−/− mice, while the R428 inhibition experiment was performed in C57BL/6 mice. Testing both interventions in both genetic backgrounds would strengthen the bidirectional evidence and allow direct comparison of effect sizes.",
+        "Only male mice were used in the animal model. Given well-documented sexual dimorphism in OA pathogenesis, obesity-related inflammation, and macrophage biology, this limits generalizability. This should be explicitly acknowledged as a limitation in the Discussion.",
+        "The 'normal' control human synovial tissue was obtained from patients with acute ligament/meniscus injuries, not truly healthy joints. These tissues may have inflammatory changes from acute injury that could affect baseline macrophage polarization and GAS6 expression measurements. This limitation should be acknowledged.",
+        "The text for Figure 3 states that GAS6 expression in synovial macrophages 'tended to be diminished,' using qualitative language rather than reporting quantitative analysis. Additionally, the figure legend for Figure 3C describes 'GAS6-positive cells (brown) in chondrocytes,' creating ambiguity about whether GAS6 reduction is being measured in macrophages, chondrocytes, or both. The cell-type specificity of GAS6 reduction needs clarification with appropriate co-localization quantification.",
+        "The study does not adequately consider the alternative explanation that increased apoptotic cells in obese OA synovium could result from increased apoptosis rate rather than (or in addition to) decreased efferocytic clearance. Experiments distinguishing these two mechanisms (e.g., measuring apoptosis induction rates independently of clearance) would strengthen the interpretation."
+      ],
+      "w8_concerns_unmatched": [
+        "Several statistical concerns require attention: (1) No a priori power analysis or sample size justification is provided for the uniform n=6 across all groups. (2) Ordinal OARSI and synovitis scores appear to have been analyzed with parametric tests (ANOVA/t-test); non-parametric alternatives are standard for ordinal scoring data. (3) No multiple testing correction is applied despite dozens of statistical comparisons across figures. (4) Effect sizes and confidence intervals are not reported. (5) With n=6, normality assumptions cannot be reliably verified; the authors should state whether normality was tested or use non-parametric alternatives. (6) Inter-rater reliability (e.g., ICC or Cohen's kappa) for the two blinded OARSI/synovitis scorers is not reported.",
+        "The Key Resources Table lists identical catalog number HY-D1056 (MedChemExpress) for both Lipopolysaccharide and IL-4 Protein, Mouse (CHO). These are different products and cannot share the same catalog number. This error prevents correct reagent identification and must be corrected to ensure reproducibility.",
+        "The distinction between biological and technical replicates for in vitro experiments is not clear. The text states 'all reactions were run in triplicate' for qPCR, but the number of independent biological replicates for efferocytosis assays, flow cytometry, and Western blots is not specified. Please clarify n values throughout.",
+        "No data or code availability statement depositing raw data in a public repository is provided. Raw flow cytometry files, immunofluorescence images, and quantification data should be deposited in an appropriate repository (e.g., FlowRepository, Figshare) to comply with FAIR data principles and eLife's data sharing policies.",
+        "The novelty assessment identified several landmark papers that should be cited to better contextualize the findings: Gierman et al. (Osteoarthritis Cartilage 2014) on Apoe-related OA models, Fahy et al. (Arthritis Rheumatol 2014) on M1/M2 polarization in OA, and Lemke & Rothlin (Nat Rev Immunol 2008) on GAS6/TAM receptor efferocytosis biology. These citations would strengthen the framing of the study's unique contributions.",
+        "The authors should more explicitly frame their novelty around three specific advances: (1) the GAS6-efferocytosis axis as a previously unrecognized mechanism in obesity-OA distinct from cytokine-mediated pathways; (2) the therapeutic proof-of-concept with GAS6 supplementation; and (3) the clinical validation of reduced synovial fluid GAS6 as a potential biomarker. Currently, the novelty claims are somewhat diffuse.",
+        "Was blinding maintained for immunofluorescence quantification, flow cytometry gating, and other non-histological assessments? The paper mentions blinding for OARSI/synovitis scoring but does not address blinding for other quantitative measurements.",
+        "What was the vehicle composition used for the intra-articular injection control group? This information is necessary to evaluate whether the vehicle itself could have inflammatory or anti-inflammatory effects on the joint."
+      ]
+    }
+  ]
+}
